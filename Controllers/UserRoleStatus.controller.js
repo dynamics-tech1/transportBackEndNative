@@ -1,0 +1,83 @@
+const userRoleStatusService = require("../Services/UserRoleStatus.service");
+const { usersRoles } = require("../Utils/ListOfSeedData");
+const ServerResponder = require("../Utils/ServerResponder"); // Helper to handle responses
+const AppError = require("../Utils/AppError");
+
+const createUserRoleStatus = async (req, res, next) => {
+  try {
+    const result = await userRoleStatusService.createUserRoleStatus(req.body);
+    ServerResponder(res, result, 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getUserRoleStatusCurrent = async (req, res, next) => {
+  try {
+    const userUniqueId = req?.query?.userUniqueId;
+
+    const user = req?.user;
+    const roleId = user?.roleId;
+    // without admin/self user can't access data of others
+    if (
+      roleId !== usersRoles.adminRoleId &&
+      roleId !== usersRoles.supperAdminRoleId &&
+      userUniqueId !== "self"
+    ) {
+      return next(
+        new AppError("You are not authorized to access this resource", 401),
+      );
+    }
+    if (userUniqueId === "self") {
+      req.query.userUniqueId = req.user.userUniqueId;
+    }
+    const result = await userRoleStatusService.getUserRoleStatusCurrent({
+      data: req.query,
+    });
+    ServerResponder(res, result, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateUserRoleStatus = async (req, res, next) => {
+  try {
+    const user = req?.user;
+    req.body.user = user;
+
+    const result = await userRoleStatusService.updateUserRoleStatus(req.body);
+    ServerResponder(res, result, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteUserRoleStatus = async (req, res, next) => {
+  try {
+    const { userRoleStatusUniqueId } = req.params;
+    const result = await userRoleStatusService.deleteUserRoleStatus(
+      userRoleStatusUniqueId,
+    );
+    ServerResponder(res, result, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+const userRoleStatusByPhone = async (req, res, next) => {
+  try {
+    const { phoneNumber } = req.body;
+    const result =
+      await userRoleStatusService.userRoleStatusByPhone(phoneNumber);
+    ServerResponder(res, result, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  userRoleStatusByPhone,
+  createUserRoleStatus,
+  getUserRoleStatusCurrent,
+  updateUserRoleStatus,
+  deleteUserRoleStatus,
+};

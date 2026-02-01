@@ -1,0 +1,22 @@
+const jwt = require("jsonwebtoken");
+
+// Function to create JWT
+const createJWT = (userData) => {
+  const secretKey = process.env.SECRET_KEY;
+  const { userUniqueId, phoneNumber, roleId } = userData;
+  if (!userUniqueId || !phoneNumber || !roleId) {
+    const AppError = require("./AppError");
+    throw new AppError("All fields are required to create jwt", 400);
+  }
+  // Create the token
+  const token = jwt.sign(
+    {
+      data: { ...userData },
+    },
+    secretKey,
+  );
+
+  return { token, message: "success" };
+};
+
+module.exports = createJWT;

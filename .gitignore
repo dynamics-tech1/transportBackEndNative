@@ -1,0 +1,21 @@
+node_modules
+node_modules/
+/node_modules
+.env
+uploads
+Others
+uploads/
+/uploads
+log.txt
+Archive.zip
+ 
+.DS_Store
+start.sh
+icons.html
+map.html
+Notes
+Test
+Test.html
+leul comments.txt
+/logs
+logs/

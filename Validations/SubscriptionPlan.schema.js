@@ -1,0 +1,24 @@
+const Joi = require("joi");
+const { uuidSchema } = require("../Middleware/Validator");
+
+exports.createSubscriptionPlan = Joi.object({
+  planName: Joi.string().required(),
+  description: Joi.string().optional(),
+  isFree: Joi.boolean().optional(),
+
+  // Add other plan details
+}).unknown(true);
+
+exports.updateSubscriptionPlan = Joi.object({
+  planName: Joi.string().optional(),
+  description: Joi.string().optional(),
+}).unknown(true);
+
+exports.subscriptionPlanParams = Joi.object({
+  uniqueId: uuidSchema.required(),
+});
+
+exports.getSubscriptionPlansQuery = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(10),
+}).unknown(true);

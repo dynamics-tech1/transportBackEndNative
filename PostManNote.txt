@@ -1,0 +1,1441 @@
+# Transport Management System work flow API Documentation
+
+
+## Table of Contents
+1. [Setup & Initialization](#setup--initialization)
+2. [User Management](#user-management)
+3. [Passenger Operations](#passenger-operations)
+4. [Driver Registration](#driver-registration)
+5. [Document Management](#document-management)
+6. [Admin Operations](#admin-operations)
+
+## Setup & Initialization
+
+### 1. Drop All Tables
+**Endpoint**: `DELETE /api/admin/dropAllTables`  
+**Description**: Drops all database tables. Use with caution as this will delete all data.  
+**Authentication**: Super Admin token required  
+**Response**: 
+```json
+{
+    "message": "success",
+    "data": "All tables dropped successfully"
+}
+```
+
+### 2. Create Tables
+**Endpoint**: `POST /api/admin/createTable`  
+**Description**: Creates all necessary database tables.  
+**Authentication**: Super Admin token required  
+**Response**: 
+```json
+{
+    "message": "success",
+    "data": "Tables created successfully"
+}
+```
+
+### 3. Install Predefined Data
+**Endpoint**: `POST /api/admin/installPreDefinedData`  
+**Description**: Populates the database with initial required data (roles, vehicle types, etc.).  
+**Authentication**: Super Admin token required  
+**Response**: 
+```json
+{
+  "message": "Predefined data installed successfully"
+}
+```
+
+## User Management
+
+### 1. Create User (Admin/Super Admin)
+**Endpoint**: `POST /api/admin/createUserByAdminOrSuperAdmin`  
+**Description**: Creates a new user with admin privileges.  
+**Authentication**: Super Admin token required  
+**Request Body**:
+```json
+{
+    "fullName": "Birhanu Gardie",
+    "phoneNumber": "+251910185606",
+    "email": "birie@gmail.com",
+    "roleId": 3,
+    "statusId": 1,
+    "userRoleStatusDescription": "an admin can have a role of managing driver passenger etc."
+}
+```
+**Response**: 
+```json
+{
+    "message": "success",
+    "data": {
+        "userUniqueId": "ef226a60-08d1-4b0e-aaa6-de3f26d67d94",
+        "fullName": "Birhanu Gardie",
+        "phoneNumber": "+251910185606",
+        "email": "birie@gmail.com",
+        "userCreatedAt": "2026-01-31 15:03:39",
+        "userCreatedBy": "f51c5673-b309-4837-9967-ed74b3d02ff2"
+    }
+}
+```
+
+### 2. Verify User by OTP
+**Endpoint**: `POST /api/user/verifyUserByOTP`  
+**Description**: Verifies a user's phone number using OTP.  
+**Request Body**:
+```json
+{
+    "roleId": 3,
+    "OTP": 101010,
+    "phoneNumber": "+251910185606"
+}
+```
+**Response**: 
+```json
+{
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7InVzZXJVbmlxdWVJZCI6ImVmMjI2YTYwLTA4ZDEtNGIwZS1hYWE2LWRlM2YyNmQ2N2Q5NCIsImZ1bGxOYW1lIjoiQmlyaGFudSBHYXJkaWUiLCJwaG9uZU51bWJlciI6IisyNTE5MTAxODU2MDYiLCJlbWFpbCI6ImJpcmllQGdtYWlsLmNvbSIsInJvbGVJZCI6M30sImlhdCI6MTc2OTg3MTg0OX0.5wKgVhR5OJ-P5uzaK4QOg3Yyd60H465p2y4izxyoB60",
+    "message": "success",
+    "data": "OTP verified successfully"
+}
+```
+
+### 3. Create Regular User passenger
+**Endpoint**: `POST /api/user/createUser`  
+**Description**: Creates a new passenger or driver user.  
+**Request Body**:
+```json
+{
+    "fullName": "user 81 ",
+    "phoneNumber": "+251922112481",
+    // "email": "mabebawumolla8322@gmail.com",
+    "roleId": 1,
+    "statusId": 1,
+ 
+}
+```
+**Response**: 
+```json
+{
+    "status": "success",
+    "data": {
+        "userUniqueId": "7cf1250c-6b07-422b-b3fe-84144f9e7055",
+        "fullName": "user 81 ",
+        "phoneNumber": "+251922112481",
+        "userCreatedAt": "2026-01-31 15:05:53",
+        "userCreatedBy": "system"
+    },
+    "messageDetail": "User created successfully, but OTP SMS could not be sent: SMS API Error: 401 - \"Unauthorized (401-9) : Account balance is too low. Please refill or contact support.\"",
+    "message": "success"
+}
+```
+
+## Passenger Operations
+
+### 1. Create Passenger Request
+**Endpoint**: `POST /api/passengerRequest/createRequest`  
+**Description**: Creates a new ride request for transporting goods.  
+**Authentication**: Passenger token required  
+**Request Body**:
+```json
+{
+    "shipperPhoneNumber": "+2519221124667",
+    "passengerRequestBatchId": "ef5bc758-b85f-4de6-a750-855c79643790",
+    "numberOfVehicles": 4,
+    "deliveryDate": "2025-04-20T10:54:26.077Z",
+    "requestType": "PASSENGER",
+    "destination": {
+        "latitude": 9.0204693,
+        "longitude": 38.80246,
+        "description": "Diredawa, Ethiopia"
+    },
+    "vehicle": {
+        "vehicleTypeUniqueId": "cb47c878-5d07-45f6-b628-6b02430cb691"
+    },
+    "shippableItemName": "Cement",
+    "shippableItemQtyInQuintal": 500,
+    "shippingCost": 67679090,
+    "shippingDate": "2025-04-20T10:54:26.077Z",
+    "originLocation": {
+        "latitude": 9.0204683,
+        "longitude": 38.80246,
+        "description": "Addis Ababa, Ethiopia"
+    }
+}
+```
+**Response**: 
+```json
+{
+    "message": "success",
+    "totalRecords": {
+        "totalCount": 4,
+        "waitingCount": 4,
+        "requestedCount": 0,
+        "acceptedByDriverCount": 0,
+        "acceptedByPassengerCount": 0,
+        "journeyStartedCount": 0,
+        "notSeenCompletedCount": 0,
+        "notSeenCancelledByDriverCount": 0
+    }
+}
+```
+
+### 2. Get Passenger Requests
+**Endpoint**: `GET /api/user/getPassengerRequest4allOrSingleUser?journeyStatusId=5,1,2`  
+**Description**: Retrieves ride requests with optional filtering by journey status.  
+**Authentication**: User token required  
+**Query Parameters**:
+- `journeyStatusId`: Comma-separated list of status IDs to filter by
+
+**Response**: 
+```json
+{
+    "message": "success",
+    "formattedData": [
+        {
+            "passengerRequest": {
+                "passengerRequestId": 4,
+                "passengerRequestUniqueId": "a3ffa51c-a716-43a6-9b8f-d639bd5e5c30",
+                "userUniqueId": "7cf1250c-6b07-422b-b3fe-84144f9e7055",
+                "passengerRequestBatchId": "ef5bc758-b85f-4de6-a750-855c79643790",
+                "vehicleTypeUniqueId": "fddf2911-dfa5-4363-a04f-c82e59536fa4",
+                "journeyStatusId": 1,
+                "originLatitude": "9.02046830",
+                "originLongitude": "38.80246000",
+                "originPlace": "Addis Ababa, Ethiopia",
+                "destinationLatitude": "9.02046930",
+                "destinationLongitude": "38.80246000",
+                "destinationPlace": "Diredawa, Ethiopia",
+                "shipperRequestCreatedAt": "2026-01-31T12:16:18.000Z",
+                "shippableItemName": "Cement",
+                "shippableItemQtyInQuintal": "500.00",
+                "shippingDate": "2025-04-20T10:54:26.000Z",
+                "deliveryDate": "2025-04-20T10:54:26.000Z",
+                "shippingCost": "67679090.00",
+                "isCompletionSeen": 0,
+                "shipperRequestCreatedBy": "7cf1250c-6b07-422b-b3fe-84144f9e7055",
+                "shipperRequestCreatedByRoleId": 1,
+                "passengerRequestUpdatedBy": null,
+                "passengerRequestDeletedBy": null,
+                "passengerRequestUpdatedAt": null,
+                "passengerRequestDeletedAt": null,
+                "fullName": "user 81 ",
+                "email": null,
+                "phoneNumber": "+251922112481",
+                "vehicleTypeName": "Isuzu NPR"
+            },
+            "driverRequests": [],
+            "decisions": [],
+            "journey": {}
+        },
+        {
+            "passengerRequest": {
+                "passengerRequestId": 3,
+                "passengerRequestUniqueId": "c5f6474e-083d-4b3e-ac0f-d60b3fe62897",
+                "userUniqueId": "7cf1250c-6b07-422b-b3fe-84144f9e7055",
+                "passengerRequestBatchId": "ef5bc758-b85f-4de6-a750-855c79643790",
+                "vehicleTypeUniqueId": "fddf2911-dfa5-4363-a04f-c82e59536fa4",
+                "journeyStatusId": 1,
+                "originLatitude": "9.02046830",
+                "originLongitude": "38.80246000",
+                "originPlace": "Addis Ababa, Ethiopia",
+                "destinationLatitude": "9.02046930",
+                "destinationLongitude": "38.80246000",
+                "destinationPlace": "Diredawa, Ethiopia",
+                "shipperRequestCreatedAt": "2026-01-31T12:16:18.000Z",
+                "shippableItemName": "Cement",
+                "shippableItemQtyInQuintal": "500.00",
+                "shippingDate": "2025-04-20T10:54:26.000Z",
+                "deliveryDate": "2025-04-20T10:54:26.000Z",
+                "shippingCost": "67679090.00",
+                "isCompletionSeen": 0,
+                "shipperRequestCreatedBy": "7cf1250c-6b07-422b-b3fe-84144f9e7055",
+                "shipperRequestCreatedByRoleId": 1,
+                "passengerRequestUpdatedBy": null,
+                "passengerRequestDeletedBy": null,
+                "passengerRequestUpdatedAt": null,
+                "passengerRequestDeletedAt": null,
+                "fullName": "user 81 ",
+                "email": null,
+                "phoneNumber": "+251922112481",
+                "vehicleTypeName": "Isuzu NPR"
+            },
+            "driverRequests": [],
+            "decisions": [],
+            "journey": {}
+        },
+        {
+            "passengerRequest": {
+                "passengerRequestId": 2,
+                "passengerRequestUniqueId": "26a4fd0d-e4d7-4f2c-a472-ea6b22d8f0ce",
+                "userUniqueId": "7cf1250c-6b07-422b-b3fe-84144f9e7055",
+                "passengerRequestBatchId": "ef5bc758-b85f-4de6-a750-855c79643790",
+                "vehicleTypeUniqueId": "fddf2911-dfa5-4363-a04f-c82e59536fa4",
+                "journeyStatusId": 1,
+                "originLatitude": "9.02046830",
+                "originLongitude": "38.80246000",
+                "originPlace": "Addis Ababa, Ethiopia",
+                "destinationLatitude": "9.02046930",
+                "destinationLongitude": "38.80246000",
+                "destinationPlace": "Diredawa, Ethiopia",
+                "shipperRequestCreatedAt": "2026-01-31T12:16:18.000Z",
+                "shippableItemName": "Cement",
+                "shippableItemQtyInQuintal": "500.00",
+                "shippingDate": "2025-04-20T10:54:26.000Z",
+                "deliveryDate": "2025-04-20T10:54:26.000Z",
+                "shippingCost": "67679090.00",
+                "isCompletionSeen": 0,
+                "shipperRequestCreatedBy": "7cf1250c-6b07-422b-b3fe-84144f9e7055",
+                "shipperRequestCreatedByRoleId": 1,
+                "passengerRequestUpdatedBy": null,
+                "passengerRequestDeletedBy": null,
+                "passengerRequestUpdatedAt": null,
+                "passengerRequestDeletedAt": null,
+                "fullName": "user 81 ",
+                "email": null,
+                "phoneNumber": "+251922112481",
+                "vehicleTypeName": "Isuzu NPR"
+            },
+            "driverRequests": [],
+            "decisions": [],
+            "journey": {}
+        },
+        {
+            "passengerRequest": {
+                "passengerRequestId": 1,
+                "passengerRequestUniqueId": "9a9c66a3-ec66-42c7-be0a-837a8f7d8b83",
+                "userUniqueId": "7cf1250c-6b07-422b-b3fe-84144f9e7055",
+                "passengerRequestBatchId": "ef5bc758-b85f-4de6-a750-855c79643790",
+                "vehicleTypeUniqueId": "fddf2911-dfa5-4363-a04f-c82e59536fa4",
+                "journeyStatusId": 1,
+                "originLatitude": "9.02046830",
+                "originLongitude": "38.80246000",
+                "originPlace": "Addis Ababa, Ethiopia",
+                "destinationLatitude": "9.02046930",
+                "destinationLongitude": "38.80246000",
+                "destinationPlace": "Diredawa, Ethiopia",
+                "shipperRequestCreatedAt": "2026-01-31T12:16:18.000Z",
+                "shippableItemName": "Cement",
+                "shippableItemQtyInQuintal": "500.00",
+                "shippingDate": "2025-04-20T10:54:26.000Z",
+                "deliveryDate": "2025-04-20T10:54:26.000Z",
+                "shippingCost": "67679090.00",
+                "isCompletionSeen": 0,
+                "shipperRequestCreatedBy": "7cf1250c-6b07-422b-b3fe-84144f9e7055",
+                "shipperRequestCreatedByRoleId": 1,
+                "passengerRequestUpdatedBy": null,
+                "passengerRequestDeletedBy": null,
+                "passengerRequestUpdatedAt": null,
+                "passengerRequestDeletedAt": null,
+                "fullName": "user 81 ",
+                "email": null,
+                "phoneNumber": "+251922112481",
+                "vehicleTypeName": "Isuzu NPR"
+            },
+            "driverRequests": [],
+            "decisions": [],
+            "journey": {}
+        }
+    ],
+    "pagination": {
+        "currentPage": 1,
+        "totalPages": 1,
+        "totalItems": 4,
+        "itemsPerPage": 10,
+        "hasNext": false,
+        "hasPrev": false,
+        "userId": "7cf1250c-6b07-422b-b3fe-84144f9e7055"
+    },
+    "filters": {
+        "journeyStatusId": "3,1",
+        "journeyStatusIds": [
+            "3",
+            "1"
+        ]
+    }
+}
+```
+
+## Driver Registration
+
+### 1. Create Driver Account
+**Endpoint**: `POST /api/user/createUser`  
+**Description**: Creates a new driver account.  
+**Request Body**:
+```json
+{
+  "fullName": "Driver Name",
+  "email": "driver@example.com",
+  "phoneNumber": "+1234567890",
+  "password": "driverPass123",
+  "roleId": 4 // Driver role
+}
+```
+
+### 2. Get Account Status
+**Endpoint**: `GET /api/account/status?ownerUserUniqueId=self&roleId=2`  
+**Description**: this api can checks the current status of a driver's account, including vehicle registration and document requirements,subscription,isBanned or not banned,deleted or not deleted, .  
+**Authentication**: Driver token required  
+**Query Parameters**:
+- `ownerUserUniqueId`: Use "self" for the current user or provide a specific user's unique ID
+- `roleId`: Role ID (2 for Driver)
+
+**Response**: 
+```json
+{
+    "message": "success",
+    "messageType": "accountStatus",
+    "vehicle": null,
+    "userData": {
+        "userRoleStatusId": 5,
+        "userRoleStatusUniqueId": "f05804fa-8f49-4126-9247-213045fd8453",
+        "statusId": 2,
+        "userRoleId": 5,
+        "userRoleStatusDescription": null,
+        "userRoleStatusCreatedBy": "b269e36d-1ed1-469d-8d4a-042f53365329",
+        "userRoleStatusCreatedAt": "2026-01-31T12:23:31.000Z",
+        "userRoleStatusCurrentVersion": 1,
+        "userUniqueId": "b269e36d-1ed1-469d-8d4a-042f53365329",
+        "roleId": 2,
+        "userRoleUniqueId": "3564bda8-6afd-4c1e-9250-75ef1dd55813",
+        "fullName": "user 80",
+        "phoneNumber": "+251918569809",
+        "email": null,
+        "roleName": "Driver",
+        "roleDescription": "a person who can recive order from passenger to load goods",
+        "statusName": "inactive - vehicle not registered",
+        "statusDescription": "Driver has not registered a vehicle.",
+        "createdByName": "user 80"
+    },
+    "attachedDocumentsByStatus": {
+        "PENDING": [],
+        "ACCEPTED": [],
+        "REJECTED": []
+    },
+    "unAttachedDocumentTypes": [
+        {
+            "attachedDocumentId": null,
+            "attachedDocumentUniqueId": null,
+            "userUniqueId": null,
+            "attachedDocumentDescription": null,
+            "documentTypeId": 1,
+            "attachedDocumentFileNumber": null,
+            "documentExpirationDate": null,
+            "attachedDocumentAcceptance": null,
+            "attachedDocumentName": null,
+            "documentVersion": null,
+            "attachedDocumentCreatedByUserId": null,
+            "attachedDocumentCreatedAt": null,
+            "attachedDocumentAcceptanceReason": null,
+            "attachedDocumentAcceptedRejectedByUserId": null,
+            "attachedDocumentAcceptedRejectedAt": null,
+            "documentTypeUniqueId": "fb7c9a3a-ca80-453f-96d2-bb661237ba22",
+            "documentTypeName": "Driver’s License",
+            "uploadedDocumentName": "driversLicense",
+            "uploadedDocumentTypeId": "driversLicenseTypeId",
+            "uploadedDocumentDescription": "driversLicenseDescription",
+            "uploadedDocumentExpirationDate": "driversLicenseExpirationDate",
+            "uploadedDocumentFileNumber": "driversLicenseFileNumber",
+            "documentTypeDescription": " A valid and unexpired driver’s license. The admin needs this to ensure the driver is legally permitted to operate a vehicle.",
+            "documentTypeCreatedBy": "f51c5673-b309-4837-9967-ed74b3d02ff2",
+            "documentTypeCreatedAt": "2026-01-31T11:53:03.000Z",
+            "documentTypeUpdatedBy": null,
+            "documentTypeUpdatedAt": null,
+            "documentTypeDeletedBy": null,
+            "documentTypeDeletedAt": null,
+            "isDocumentTypeDeleted": 0,
+            "documentTypeCurrentVersion": 1,
+            "roleDocumentRequirementId": 1,
+            "roleDocumentRequirementUniqueId": "c60ce1c0-87eb-44fb-bbdb-18424502e4c8",
+            "roleId": 2,
+            "isDocumentMandatory": 1,
+            "isFileNumberRequired": 1,
+            "isExpirationDateRequired": 1,
+            "isDescriptionRequired": 0,
+            "roleDocumentRequirementCreatedBy": "f51c5673-b309-4837-9967-ed74b3d02ff2",
+            "roleDocumentRequirementUpdatedBy": null,
+            "roleDocumentRequirementDeletedBy": null,
+            "roleDocumentRequirementCreatedAt": "2026-01-31T11:53:06.000Z",
+            "roleDocumentRequirementUpdatedAt": null,
+            "roleDocumentRequirementDeletedAt": null,
+            "doc_status": "NOT_ATTACHED"
+        },
+        {
+            "attachedDocumentId": null,
+            "attachedDocumentUniqueId": null,
+            "userUniqueId": null,
+            "attachedDocumentDescription": null,
+            "documentTypeId": 2,
+            "attachedDocumentFileNumber": null,
+            "documentExpirationDate": null,
+            "attachedDocumentAcceptance": null,
+            "attachedDocumentName": null,
+            "documentVersion": null,
+            "attachedDocumentCreatedByUserId": null,
+            "attachedDocumentCreatedAt": null,
+            "attachedDocumentAcceptanceReason": null,
+            "attachedDocumentAcceptedRejectedByUserId": null,
+            "attachedDocumentAcceptedRejectedAt": null,
+            "documentTypeUniqueId": "b05fdb3f-ce24-4514-be46-d87bedaf8fe1",
+            "documentTypeName": " Vehicle Registration (librea)",
+            "uploadedDocumentName": "VehicleRegistrationLibrea",
+            "uploadedDocumentTypeId": "VehicleRegistrationLibreaTypeId",
+            "uploadedDocumentDescription": "VehicleRegistrationLibreaDescription",
+            "uploadedDocumentExpirationDate": "VehicleRegistrationLibreaExpirationDate",
+            "uploadedDocumentFileNumber": "VehicleRegistrationLibreaFileNumber",
+            "documentTypeDescription": "Proof of ownership or right to use the vehicle for ride share services. It confirms the vehicle is legally registered.",
+            "documentTypeCreatedBy": "f51c5673-b309-4837-9967-ed74b3d02ff2",
+            "documentTypeCreatedAt": "2026-01-31T11:53:03.000Z",
+            "documentTypeUpdatedBy": null,
+            "documentTypeUpdatedAt": null,
+            "documentTypeDeletedBy": null,
+            "documentTypeDeletedAt": null,
+            "isDocumentTypeDeleted": 0,
+            "documentTypeCurrentVersion": 1,
+            "roleDocumentRequirementId": 2,
+            "roleDocumentRequirementUniqueId": "348a065d-1886-4145-a457-139b768a7bb0",
+            "roleId": 2,
+            "isDocumentMandatory": 1,
+            "isFileNumberRequired": 1,
+            "isExpirationDateRequired": 0,
+            "isDescriptionRequired": 0,
+            "roleDocumentRequirementCreatedBy": "f51c5673-b309-4837-9967-ed74b3d02ff2",
+            "roleDocumentRequirementUpdatedBy": null,
+            "roleDocumentRequirementDeletedBy": null,
+            "roleDocumentRequirementCreatedAt": "2026-01-31T11:53:07.000Z",
+            "roleDocumentRequirementUpdatedAt": null,
+            "roleDocumentRequirementDeletedAt": null,
+            "doc_status": "NOT_ATTACHED"
+        },
+        {
+            "attachedDocumentId": null,
+            "attachedDocumentUniqueId": null,
+            "userUniqueId": null,
+            "attachedDocumentDescription": null,
+            "documentTypeId": 4,
+            "attachedDocumentFileNumber": null,
+            "documentExpirationDate": null,
+            "attachedDocumentAcceptance": null,
+            "attachedDocumentName": null,
+            "documentVersion": null,
+            "attachedDocumentCreatedByUserId": null,
+            "attachedDocumentCreatedAt": null,
+            "attachedDocumentAcceptanceReason": null,
+            "attachedDocumentAcceptedRejectedByUserId": null,
+            "attachedDocumentAcceptedRejectedAt": null,
+            "documentTypeUniqueId": "d080a535-45fe-4fa7-bb75-e3e8a2bd85b8",
+            "documentTypeName": "Profile Photo",
+            "uploadedDocumentName": "profilePhoto",
+            "uploadedDocumentTypeId": "profilePhotoTypeId",
+            "uploadedDocumentDescription": "profilePhotoDescription",
+            "uploadedDocumentExpirationDate": "profilePhotoExpirationDate",
+            "uploadedDocumentFileNumber": "profilePhotoFileNumber",
+            "documentTypeDescription": "Profile Photo is used to identify current face of user",
+            "documentTypeCreatedBy": "f51c5673-b309-4837-9967-ed74b3d02ff2",
+            "documentTypeCreatedAt": "2026-01-31T11:53:04.000Z",
+            "documentTypeUpdatedBy": null,
+            "documentTypeUpdatedAt": null,
+            "documentTypeDeletedBy": null,
+            "documentTypeDeletedAt": null,
+            "isDocumentTypeDeleted": 0,
+            "documentTypeCurrentVersion": 1,
+            "roleDocumentRequirementId": 3,
+            "roleDocumentRequirementUniqueId": "180acf9b-8d85-41db-a98c-c890ab273bdf",
+            "roleId": 2,
+            "isDocumentMandatory": 1,
+            "isFileNumberRequired": 0,
+            "isExpirationDateRequired": 0,
+            "isDescriptionRequired": 0,
+            "roleDocumentRequirementCreatedBy": "f51c5673-b309-4837-9967-ed74b3d02ff2",
+            "roleDocumentRequirementUpdatedBy": null,
+            "roleDocumentRequirementDeletedBy": null,
+            "roleDocumentRequirementCreatedAt": "2026-01-31T11:53:08.000Z",
+            "roleDocumentRequirementUpdatedAt": null,
+            "roleDocumentRequirementDeletedAt": null,
+            "doc_status": "NOT_ATTACHED"
+        }
+    ],
+    "requiredDocuments": [
+        {
+            "roleDocumentRequirementId": 1,
+            "roleDocumentRequirementUniqueId": "c60ce1c0-87eb-44fb-bbdb-18424502e4c8",
+            "roleId": 2,
+            "documentTypeId": 1,
+            "isDocumentMandatory": 1,
+            "isFileNumberRequired": 1,
+            "isExpirationDateRequired": 1,
+            "isDescriptionRequired": 0,
+            "roleDocumentRequirementCreatedBy": "f51c5673-b309-4837-9967-ed74b3d02ff2",
+            "roleDocumentRequirementUpdatedBy": null,
+            "roleDocumentRequirementDeletedBy": null,
+            "roleDocumentRequirementCreatedAt": "2026-01-31T11:53:06.000Z",
+            "roleDocumentRequirementUpdatedAt": null,
+            "roleDocumentRequirementDeletedAt": null,
+            "dt_documentTypeId": 1,
+            "documentTypeName": "Driver’s License",
+            "ro_roleId": 2,
+            "roleUniqueId": "25fb4e56-d664-433d-b6f0-8f6b7163229c",
+            "roleName": "Driver"
+        },
+        {
+            "roleDocumentRequirementId": 2,
+            "roleDocumentRequirementUniqueId": "348a065d-1886-4145-a457-139b768a7bb0",
+            "roleId": 2,
+            "documentTypeId": 2,
+            "isDocumentMandatory": 1,
+            "isFileNumberRequired": 1,
+            "isExpirationDateRequired": 0,
+            "isDescriptionRequired": 0,
+            "roleDocumentRequirementCreatedBy": "f51c5673-b309-4837-9967-ed74b3d02ff2",
+            "roleDocumentRequirementUpdatedBy": null,
+            "roleDocumentRequirementDeletedBy": null,
+            "roleDocumentRequirementCreatedAt": "2026-01-31T11:53:07.000Z",
+            "roleDocumentRequirementUpdatedAt": null,
+            "roleDocumentRequirementDeletedAt": null,
+            "dt_documentTypeId": 2,
+            "documentTypeName": " Vehicle Registration (librea)",
+            "ro_roleId": 2,
+            "roleUniqueId": "25fb4e56-d664-433d-b6f0-8f6b7163229c",
+            "roleName": "Driver"
+        },
+        {
+            "roleDocumentRequirementId": 3,
+            "roleDocumentRequirementUniqueId": "180acf9b-8d85-41db-a98c-c890ab273bdf",
+            "roleId": 2,
+            "documentTypeId": 4,
+            "isDocumentMandatory": 1,
+            "isFileNumberRequired": 0,
+            "isExpirationDateRequired": 0,
+            "isDescriptionRequired": 0,
+            "roleDocumentRequirementCreatedBy": "f51c5673-b309-4837-9967-ed74b3d02ff2",
+            "roleDocumentRequirementUpdatedBy": null,
+            "roleDocumentRequirementDeletedBy": null,
+            "roleDocumentRequirementCreatedAt": "2026-01-31T11:53:08.000Z",
+            "roleDocumentRequirementUpdatedAt": null,
+            "roleDocumentRequirementDeletedAt": null,
+            "dt_documentTypeId": 4,
+            "documentTypeName": "Profile Photo",
+            "ro_roleId": 2,
+            "roleUniqueId": "25fb4e56-d664-433d-b6f0-8f6b7163229c",
+            "roleName": "Driver"
+        }
+    ],
+    "subscription": {
+        "hasActiveSubscription": true,
+        "subscriptionType": "paid",
+        "subscriptionDetails": [
+            {
+                "userSubscriptionId": 1,
+                "userSubscriptionUniqueId": "6bcc90de-f580-48fe-b2f4-9626062799f0",
+                "driverUniqueId": "b269e36d-1ed1-469d-8d4a-042f53365329",
+                "subscriptionPlanPricingUniqueId": "1ee1aa1f-ef8c-4547-ba39-9b90261eb4ef",
+                "startDate": "2026-01-31T12:27:36.000Z",
+                "endDate": "2026-03-02T12:27:36.000Z",
+                "userSubscriptionCreatedBy": "b269e36d-1ed1-469d-8d4a-042f53365329",
+                "userSubscriptionUpdatedBy": null,
+                "userSubscriptionDeletedBy": null,
+                "userSubscriptionCreatedAt": "2026-01-31T12:27:37.000Z",
+                "userSubscriptionUpdatedAt": null,
+                "userSubscriptionDeletedAt": null,
+                "planName": "One month Free",
+                "planDescription": "This plan is free for one month",
+                "isFree": 1,
+                "price": "700.00",
+                "effectiveFrom": "2026-01-19T21:00:00.000Z",
+                "effectiveTo": "2026-02-18T21:00:00.000Z",
+                "subscriptionStatus": "active",
+                "daysUntilExpiry": 30
+            }
+        ],
+        "wasRecentlyGranted": true
+    },
+    "status": 2,
+    "reason": "No vehicle registered for this role",
+    "banData": null
+}
+```
+
+### 3. Register Vehicle
+**Endpoint**: `POST /api/user/vehicles/driverUserUniqueId/self`  
+**Description**: if there is no vehicle in /api/account/status Response then Register a new vehicle for the driver.  
+**Authentication**: Driver token required  if it is registered by driver else admin token required to register for other user
+**Request Body**:
+```json
+{
+    "vehicleTypeUniqueId": "fddf2911-dfa5-4363-a04f-c82e59536fa4",
+    "licensePlate": "3-23A6326 AA",
+    "color": "White base red sponda",
+    "isDriverOwnerOfVehicle": false
+}
+```
+**Response**: 
+```json
+{
+  "message": "Vehicle registered successfully",
+  "vehicleId": "vehicle-uuid-here"
+}
+```
+
+from account we can know role document requirement
+
+so we can upload documents for driver verification based on uploadedDocumentName ,uploadedDocumentTypeId,uploadedDocumentFileNumber,uploadedDocumentExpirationDate,uploadedDocumentDescription 
+## Document Management
+
+### 1. Upload Driver Documents
+**Endpoint**: `POST /api/user/attachDocuments/self`  
+**Description**: Uploads required documents for driver verification and approval process.  
+**Authentication**: Driver token required  
+**Content-Type**: `multipart/form-data`  
+**Form Data**:
+- `documentTypeId`: ID of the document type (e.g., "1" for Driver's License)
+- `file`: The document file to upload
+- `fileNumber`: Document file number (if required)
+- `expirationDate`: Document expiration date (if required)
+- `description`: Document description (if required)
+
+**Response**: 
+```json
+{
+  "message": "Document uploaded successfully",
+  "documentId": "doc-uuid-here"
+}
+```
+
+## Admin Operations
+
+### 1. Get Unauthorized Drivers
+**Endpoint**: `GET /api/admin/getUnAuthorizedDriver`  
+**Description**: Retrieves a list of drivers who are pending document verification or have incomplete documentation.  
+**Authentication**: Admin token required  
+**Query Parameters**:
+- `page`: Page number for pagination (default: 1)
+- `limit`: Number of items per page (default: 10)
+
+**Response**: 
+```json
+{
+  "message": "success",
+  "data": {
+    "drivers": [
+      {
+        "userId": 3,
+        "fullName": "Driver Name",
+        "documents": [
+          {
+            "documentId": "doc-uuid-here",
+            "type": "driver_license",
+            "status": "pending",
+            "uploadedAt": "2023-01-01T12:00:00Z"
+          }
+        ]
+      }
+    ],
+    "pagination": {
+      "total": 1,
+      "page": 1,
+      "pages": 1
+    }
+  }
+}
+```
+
+### 2. Accept/Reject Documents
+**Endpoint**: `POST /api/admin/acceptRejectAttachedDocuments`  
+**Description**: Approves or rejects driver documents submitted for verification.  
+**Authentication**: Admin token required  
+**Request Body**:
+```json
+{
+  "attachedDocumentUniqueId": "document-uuid-here",
+  "attachedDocumentAcceptance": "ACCEPTED", // or "REJECTED"
+  "attachedDocumentAcceptanceReason": "Reason for rejection" // Required if status is "REJECTED"
+}
+```
+**Response**: 
+```json
+{
+  "message": "Document status updated successfully"
+}
+```
+Once all driver documents are approved, the driver can create a request to search for available jobs.
+
+### 3. Search for Jobs (Driver)
+**Endpoint**: `POST /api/driver/request`  
+**Description**: Creates a request for drivers to search for available jobs in their area.  
+**Authentication**: Driver token required  
+**Request Body**:
+```json
+{
+    "currentLocation": {
+        "latitude": 9.0204683,
+        "longitude": 38.80246,
+        "description": "Addis Ababa, Ethiopia"
+    }
+}
+```
+
+**Response**: 
+```json
+{
+    "message": "success",
+    "status": 2,
+    "uniqueIds": {
+        "driverRequestUniqueId": "213c2644-1ef8-4d28-8583-128467ea0642",
+        "passengerRequestUniqueId": "9a9c66a3-ec66-42c7-be0a-837a8f7d8b83",
+        "journeyDecisionUniqueId": "7e65df9b-98df-4744-ae96-5145b94d4b61"
+    },
+    "driver": {
+        "driver": {
+            "driverRequestId": 1,
+            "driverRequestUniqueId": "213c2644-1ef8-4d28-8583-128467ea0642",
+            "userUniqueId": "b269e36d-1ed1-469d-8d4a-042f53365329",
+            "originLatitude": "9.02046830",
+            "originLongitude": "38.80246000",
+            "originPlace": "Addis Ababa, Ethiopia",
+            "journeyStatusId": 2,
+            "isCancellationByPassengerSeenByDriver": "no need to see it",
+            "driverRequestUpdatedBy": null,
+            "driverRequestDeletedBy": null,
+            "driverRequestCreatedAt": "2026-01-31T15:00:00.000Z",
+            "driverRequestUpdatedAt": null,
+            "driverRequestDeletedAt": null,
+            "fullName": "user 80",
+            "phoneNumber": "+251918569809",
+            "email": null,
+            "isNotSelectedSeenByDriver": null,
+            "isRejectionByPassengerSeenByDriver": null
+        },
+        "vehicle": {
+            "vehicleDriverId": 1,
+            "vehicleDriverUniqueId": "42cf4831-b1fd-460b-bf75-5127c560e840",
+            "vehicleUniqueId": "177a1771-9810-4d8e-b785-1525dd2f88e2",
+            "driverUserUniqueId": "b269e36d-1ed1-469d-8d4a-042f53365329",
+            "assignmentStatus": "active",
+            "assignmentStartDate": "2026-01-31T12:28:56.000Z",
+            "assignmentEndDate": null,
+            "vehicleDriverCreatedBy": "b269e36d-1ed1-469d-8d4a-042f53365329",
+            "vehicleDriverUpdatedBy": null,
+            "vehicleDriverDeletedBy": null,
+            "vehicleDriverCreatedAt": "2026-01-31T12:28:57.000Z",
+            "vehicleDriverUpdatedAt": "2026-01-31T12:28:57.000Z",
+            "vehicleDriverDeletedAt": null,
+            "vehicleTypeUniqueId": "fddf2911-dfa5-4363-a04f-c82e59536fa4",
+            "licensePlate": "3-23A6326AA",
+            "color": "White base red sponda",
+            "vehicleTypeId": 2,
+            "vehicleTypeName": "Isuzu NPR",
+            "vehicleTypeIconName": null,
+            "vehicleTypeDescription": null,
+            "vehicleTypeCreatedBy": "f51c5673-b309-4837-9967-ed74b3d02ff2",
+            "vehicleTypeUpdatedBy": null,
+            "vehicleTypeDeletedBy": null,
+            "carryingCapacity": 50,
+            "vehicleTypeUpdatedAt": null,
+            "vehicleTypeCreatedAt": "2026-01-31T11:53:02.000Z",
+            "vehicleTypeDeletedAt": null
+        }
+    },
+    "passenger": {
+        "userId": 4,
+        "userUniqueId": "7cf1250c-6b07-422b-b3fe-84144f9e7055",
+        "fullName": "user 81 ",
+        "phoneNumber": "+251922112481",
+        "email": null,
+        "userCreatedAt": "2026-01-31T12:05:53.000Z",
+        "userCreatedBy": "system",
+        "userDeletedAt": null,
+        "userDeletedBy": null,
+        "isDeleted": 0,
+        "passengerRequestId": 1,
+        "passengerRequestUniqueId": "9a9c66a3-ec66-42c7-be0a-837a8f7d8b83",
+        "passengerRequestBatchId": "ef5bc758-b85f-4de6-a750-855c79643790",
+        "vehicleTypeUniqueId": "fddf2911-dfa5-4363-a04f-c82e59536fa4",
+        "journeyStatusId": 2,
+        "originLatitude": "9.02046830",
+        "originLongitude": "38.80246000",
+        "originPlace": "Addis Ababa, Ethiopia",
+        "destinationLatitude": "9.02046930",
+        "destinationLongitude": "38.80246000",
+        "destinationPlace": "Diredawa, Ethiopia",
+        "shipperRequestCreatedAt": "2026-01-31T12:16:18.000Z",
+        "shippableItemName": "Cement",
+        "shippableItemQtyInQuintal": "500.00",
+        "shippingDate": "2025-04-20T10:54:26.000Z",
+        "deliveryDate": "2025-04-20T10:54:26.000Z",
+        "shippingCost": "67679090.00",
+        "isCompletionSeen": 0,
+        "shipperRequestCreatedBy": "7cf1250c-6b07-422b-b3fe-84144f9e7055",
+        "shipperRequestCreatedByRoleId": 1,
+        "passengerRequestUpdatedBy": null,
+        "passengerRequestDeletedBy": null,
+        "passengerRequestUpdatedAt": null,
+        "passengerRequestDeletedAt": null
+    },
+    "journey": null,
+    "decision": {
+        "journeyDecisionUniqueId": "7e65df9b-98df-4744-ae96-5145b94d4b61",
+        "passengerRequestId": 1,
+        "driverRequestId": 1,
+        "journeyStatusId": 2,
+        "decisionTime": "2026-01-31 18:00:02",
+        "decisionBy": "driver",
+        "journeyDecisionCreatedBy": "b269e36d-1ed1-469d-8d4a-042f53365329",
+        "journeyDecisionCreatedAt": "2026-01-31 18:00:02"
+    }
+}
+
+If the response "status" is 1, no shipper/job is found. However, if the status is 2, the driver's phone rings immediately this shows job is found, and the driver can accept the request via `{{url}}/api/driver/acceptPassengerRequest`.
+
+### 4. Accept Passenger Request (Driver)
+**Endpoint**: `POST /api/driver/acceptPassengerRequest`  
+**Description**: Driver accepts a passenger request and provides their shipping cost bid.  
+**Authentication**: Driver token required  
+**Request Body**:
+```json
+{
+    "driverRequestUniqueId": "7917bbbc-a3bd-426e-a99f-bd55696cf492",
+    "passengerRequestUniqueId": "e325861b-439d-442d-9159-df4466343a82",
+    "journeyDecisionUniqueId": "df02fe28-0f43-4c81-968d-dc4966b8b826",
+    "shippingCostByDriver": 656565
+}
+```
+**Response**: 
+```json
+{
+    "message": "success",
+    "status": 3,
+    "uniqueIds": {
+        "driverRequestUniqueId": "213c2644-1ef8-4d28-8583-128467ea0642",
+        "passengerRequestUniqueId": "9a9c66a3-ec66-42c7-be0a-837a8f7d8b83",
+        "journeyDecisionUniqueId": "7e65df9b-98df-4744-ae96-5145b94d4b61",
+        "journeyUniqueId": null
+    },
+    "driver": {
+        "driver": {
+            "driverRequestId": 1,
+            "driverRequestUniqueId": "213c2644-1ef8-4d28-8583-128467ea0642",
+            "userUniqueId": "b269e36d-1ed1-469d-8d4a-042f53365329",
+            "originLatitude": "9.02046830",
+            "originLongitude": "38.80246000",
+            "originPlace": "Addis Ababa, Ethiopia",
+            "journeyStatusId": 2,
+            "isCancellationByPassengerSeenByDriver": "no need to see it",
+            "driverRequestUpdatedBy": null,
+            "driverRequestDeletedBy": null,
+            "driverRequestCreatedAt": "2026-01-31T15:00:00.000Z",
+            "driverRequestUpdatedAt": null,
+            "driverRequestDeletedAt": null,
+            "journeyDecisionId": 1,
+            "journeyDecisionUniqueId": "7e65df9b-98df-4744-ae96-5145b94d4b61",
+            "passengerRequestId": 1,
+            "decisionTime": "2026-01-31T15:00:02.000Z",
+            "decisionBy": "driver",
+            "shippingDateByDriver": null,
+            "deliveryDateByDriver": null,
+            "shippingCostByDriver": null,
+            "isNotSelectedSeenByDriver": "no need to see it",
+            "isCancellationByDriverSeenByPassenger": "no need to see it",
+            "isRejectionByPassengerSeenByDriver": "no need to see it",
+            "journeyDecisionCreatedBy": "b269e36d-1ed1-469d-8d4a-042f53365329",
+            "journeyDecisionUpdatedBy": null,
+            "journeyDecisionDeletedBy": null,
+            "journeyDecisionCreatedAt": "2026-01-31T15:00:02.000Z",
+            "journeyDecisionUpdatedAt": null,
+            "journeyDecisionDeletedAt": null,
+            "passengerRequestUniqueId": "9a9c66a3-ec66-42c7-be0a-837a8f7d8b83",
+            "passengerRequestBatchId": "ef5bc758-b85f-4de6-a750-855c79643790",
+            "vehicleTypeUniqueId": "fddf2911-dfa5-4363-a04f-c82e59536fa4",
+            "destinationLatitude": "9.02046930",
+            "destinationLongitude": "38.80246000",
+            "destinationPlace": "Diredawa, Ethiopia",
+            "shipperRequestCreatedAt": "2026-01-31T12:16:18.000Z",
+            "shippableItemName": "Cement",
+            "shippableItemQtyInQuintal": "500.00",
+            "shippingDate": "2025-04-20T10:54:26.000Z",
+            "deliveryDate": "2025-04-20T10:54:26.000Z",
+            "shippingCost": "67679090.00",
+            "isCompletionSeen": 0,
+            "shipperRequestCreatedBy": "7cf1250c-6b07-422b-b3fe-84144f9e7055",
+            "shipperRequestCreatedByRoleId": 1,
+            "passengerRequestUpdatedBy": null,
+            "passengerRequestDeletedBy": null,
+            "passengerRequestUpdatedAt": null,
+            "passengerRequestDeletedAt": null,
+            "userId": 5,
+            "fullName": "user 80",
+            "phoneNumber": "+251918569809",
+            "email": null,
+            "userCreatedAt": "2026-01-31T12:23:30.000Z",
+            "userCreatedBy": "system",
+            "userDeletedAt": null,
+            "userDeletedBy": null,
+            "isDeleted": 0,
+            "driverProfilePhoto": "https://transport.masetawosha.com/uploads/5_f498632f-e716-4ce1-9812-df351eb0a8b7.png"
+        },
+        "vehicle": {
+            "vehicleDriverId": 1,
+            "vehicleDriverUniqueId": "42cf4831-b1fd-460b-bf75-5127c560e840",
+            "vehicleUniqueId": "177a1771-9810-4d8e-b785-1525dd2f88e2",
+            "driverUserUniqueId": "b269e36d-1ed1-469d-8d4a-042f53365329",
+            "assignmentStatus": "active",
+            "assignmentStartDate": "2026-01-31T12:28:56.000Z",
+            "assignmentEndDate": null,
+            "vehicleDriverCreatedBy": "b269e36d-1ed1-469d-8d4a-042f53365329",
+            "vehicleDriverUpdatedBy": null,
+            "vehicleDriverDeletedBy": null,
+            "vehicleDriverCreatedAt": "2026-01-31T12:28:57.000Z",
+            "vehicleDriverUpdatedAt": "2026-01-31T12:28:57.000Z",
+            "vehicleDriverDeletedAt": null,
+            "vehicleTypeUniqueId": "fddf2911-dfa5-4363-a04f-c82e59536fa4",
+            "licensePlate": "3-23A6326AA",
+            "color": "White base red sponda",
+            "vehicleTypeId": 2,
+            "vehicleTypeName": "Isuzu NPR",
+            "vehicleTypeIconName": null,
+            "vehicleTypeDescription": null,
+            "vehicleTypeCreatedBy": "f51c5673-b309-4837-9967-ed74b3d02ff2",
+            "vehicleTypeUpdatedBy": null,
+            "vehicleTypeDeletedBy": null,
+            "carryingCapacity": 50,
+            "vehicleTypeUpdatedAt": null,
+            "vehicleTypeCreatedAt": "2026-01-31T11:53:02.000Z",
+            "vehicleTypeDeletedAt": null
+        }
+    },
+    "passenger": {
+        "passengerRequestId": 1,
+        "passengerRequestUniqueId": "9a9c66a3-ec66-42c7-be0a-837a8f7d8b83",
+        "userUniqueId": "7cf1250c-6b07-422b-b3fe-84144f9e7055",
+        "passengerRequestBatchId": "ef5bc758-b85f-4de6-a750-855c79643790",
+        "vehicleTypeUniqueId": "fddf2911-dfa5-4363-a04f-c82e59536fa4",
+        "journeyStatusId": 3,
+        "originLatitude": "9.02046830",
+        "originLongitude": "38.80246000",
+        "originPlace": "Addis Ababa, Ethiopia",
+        "destinationLatitude": "9.02046930",
+        "destinationLongitude": "38.80246000",
+        "destinationPlace": "Diredawa, Ethiopia",
+        "shipperRequestCreatedAt": "2026-01-31T12:16:18.000Z",
+        "shippableItemName": "Cement",
+        "shippableItemQtyInQuintal": "500.00",
+        "shippingDate": "2025-04-20T10:54:26.000Z",
+        "deliveryDate": "2025-04-20T10:54:26.000Z",
+        "shippingCost": "67679090.00",
+        "isCompletionSeen": 0,
+        "shipperRequestCreatedBy": "7cf1250c-6b07-422b-b3fe-84144f9e7055",
+        "shipperRequestCreatedByRoleId": 1,
+        "passengerRequestUpdatedBy": null,
+        "passengerRequestDeletedBy": null,
+        "passengerRequestUpdatedAt": null,
+        "passengerRequestDeletedAt": null,
+        "userId": 4,
+        "fullName": "user 81 ",
+        "phoneNumber": "+251922112481",
+        "email": null,
+        "userCreatedAt": "2026-01-31T12:05:53.000Z",
+        "userCreatedBy": "system",
+        "userDeletedAt": null,
+        "userDeletedBy": null,
+        "isDeleted": 0
+    },
+    "journey": {},
+    "decision": {
+        "journeyDecisionId": 1,
+        "journeyDecisionUniqueId": "7e65df9b-98df-4744-ae96-5145b94d4b61",
+        "passengerRequestId": 1,
+        "driverRequestId": 1,
+        "journeyStatusId": 3,
+        "decisionTime": "2026-01-31T15:00:02.000Z",
+        "decisionBy": "driver",
+        "shippingDateByDriver": null,
+        "deliveryDateByDriver": null,
+        "shippingCostByDriver": "656565.00",
+        "isNotSelectedSeenByDriver": "no need to see it",
+        "isCancellationByDriverSeenByPassenger": "no need to see it",
+        "isRejectionByPassengerSeenByDriver": "no need to see it",
+        "journeyDecisionCreatedBy": "b269e36d-1ed1-469d-8d4a-042f53365329",
+        "journeyDecisionUpdatedBy": null,
+        "journeyDecisionDeletedBy": null,
+        "journeyDecisionCreatedAt": "2026-01-31T15:00:02.000Z",
+        "journeyDecisionUpdatedAt": null,
+        "journeyDecisionDeletedAt": null
+    }
+}
+
+Once a driver accepts the shipper request as shown above, the shipper must approve it because this is bid-based pricing. The shipper can accept the driver's request via `{{url}}/api/passenger/acceptDriverRequest`. Note: The shipper receives driver acceptance notifications through WebSocket or by checking `{{url}}/api/user/getPassengerRequest4allOrSingleUser?journeyStatusId=3`.
+
+### 5. Accept Driver Request (Passenger/Shipper)
+**Endpoint**: `PUT /api/passenger/acceptDriverRequest`  
+**Description**: Passenger/Shipper accepts a driver's bid and confirms the transportation arrangement.  
+**Authentication**: Passenger token required  
+**Request Body**:
+```json
+{
+    "driverRequestUniqueId": "213c2644-1ef8-4d28-8583-128467ea0642",
+    "passengerRequestUniqueId": "9a9c66a3-ec66-42c7-be0a-837a8f7d8b83",
+    "journeyDecisionUniqueId": "7e65df9b-98df-4744-ae96-5145b94d4b61"
+}
+```
+**Response**: 
+```json
+{
+    "message": "success",
+    "status": 4,
+    "data": "Driver request accepted successfully",
+    "uniqueIds": {
+        "driverRequestUniqueId": "213c2644-1ef8-4d28-8583-128467ea0642",
+        "passengerRequestUniqueId": "9a9c66a3-ec66-42c7-be0a-837a8f7d8b83",
+        "journeyDecisionUniqueId": "7e65df9b-98df-4744-ae96-5145b94d4b61"
+    },
+    "totalRecords": {
+        "totalCount": 4,
+        "waitingCount": 3,
+        "requestedCount": 0,
+        "acceptedByDriverCount": 0,
+        "acceptedByPassengerCount": 1,
+        "journeyStartedCount": 0,
+        "notSeenCompletedCount": 0,
+        "notSeenCancelledByDriverCount": 0
+    }
+}
+
+After the shipper approves the bid selection, the driver must go to the loading location and start the journey using the `{{url}}/api/driver/startJourney` endpoint.
+
+### 6. Start Journey (Driver)
+**Endpoint**: `POST /api/driver/startJourney`  
+**Description**: Driver starts the transportation journey after arriving at the loading location.  
+**Request Body Requirements**:
+- `driverRequestUniqueId`: Unique identifier for the driver's job request
+- `passengerRequestUniqueId`: Unique identifier for the passenger's shipping request  
+- `journeyDecisionUniqueId`: Unique identifier for the journey decision linking driver and passenger
+- `latitude`: Driver's current latitude coordinate when starting the journey
+- `longitude`: Driver's current longitude coordinate when starting the journey  
+**Authentication**: Driver token required  
+**Request Body**:
+```json
+{
+    "driverRequestUniqueId": "213c2644-1ef8-4d28-8583-128467ea0642",
+    "passengerRequestUniqueId": "9a9c66a3-ec66-42c7-be0a-837a8f7d8b83",
+    "journeyDecisionUniqueId": "7e65df9b-98df-4744-ae96-5145b94d4b61",
+    "latitude": "11.12260400",
+    "longitude": "39.63498200"
+}
+```
+**Response**: 
+```json
+{
+    "message": "success",
+    "status": 5,
+    "uniqueIds": {
+        "driverRequestUniqueId": "213c2644-1ef8-4d28-8583-128467ea0642",
+        "passengerRequestUniqueId": "9a9c66a3-ec66-42c7-be0a-837a8f7d8b83",
+        "journeyDecisionUniqueId": "7e65df9b-98df-4744-ae96-5145b94d4b61",
+        "journeyUniqueId": "fcc13a2b-565c-4961-895e-bf9b383db3d5"
+    },
+    "driver": {
+        "driver": {
+            "journeyDecisionId": 1,
+            "journeyDecisionUniqueId": "7e65df9b-98df-4744-ae96-5145b94d4b61",
+            "passengerRequestId": 1,
+            "driverRequestId": 1,
+            "journeyStatusId": 4,
+            "decisionTime": "2026-01-31T15:00:02.000Z",
+            "decisionBy": "driver",
+            "shippingDateByDriver": null,
+            "deliveryDateByDriver": null,
+            "shippingCostByDriver": "656565.00",
+            "isNotSelectedSeenByDriver": "no need to see it",
+            "isCancellationByDriverSeenByPassenger": "no need to see it",
+            "isRejectionByPassengerSeenByDriver": "no need to see it",
+            "journeyDecisionCreatedBy": "b269e36d-1ed1-469d-8d4a-042f53365329",
+            "journeyDecisionUpdatedBy": null,
+            "journeyDecisionDeletedBy": null,
+            "journeyDecisionCreatedAt": "2026-01-31T15:00:02.000Z",
+            "journeyDecisionUpdatedAt": null,
+            "journeyDecisionDeletedAt": null,
+            "driverRequestUniqueId": "213c2644-1ef8-4d28-8583-128467ea0642",
+            "driverUserUniqueId": "b269e36d-1ed1-469d-8d4a-042f53365329",
+            "driverFullName": "user 80"
+        },
+        "vehicle": {
+            "vehicleDriverId": 1,
+            "vehicleDriverUniqueId": "42cf4831-b1fd-460b-bf75-5127c560e840",
+            "vehicleUniqueId": "177a1771-9810-4d8e-b785-1525dd2f88e2",
+            "driverUserUniqueId": "b269e36d-1ed1-469d-8d4a-042f53365329",
+            "assignmentStatus": "active",
+            "assignmentStartDate": "2026-01-31T12:28:56.000Z",
+            "assignmentEndDate": null,
+            "vehicleDriverCreatedBy": "b269e36d-1ed1-469d-8d4a-042f53365329",
+            "vehicleDriverUpdatedBy": null,
+            "vehicleDriverDeletedBy": null,
+            "vehicleDriverCreatedAt": "2026-01-31T12:28:57.000Z",
+            "vehicleDriverUpdatedAt": "2026-01-31T12:28:57.000Z",
+            "vehicleDriverDeletedAt": null,
+            "vehicleTypeUniqueId": "fddf2911-dfa5-4363-a04f-c82e59536fa4",
+            "licensePlate": "3-23A6326AA",
+            "color": "White base red sponda",
+            "vehicleTypeId": 2,
+            "vehicleTypeName": "Isuzu NPR",
+            "vehicleTypeIconName": null,
+            "vehicleTypeDescription": null,
+            "vehicleTypeCreatedBy": "f51c5673-b309-4837-9967-ed74b3d02ff2",
+            "vehicleTypeUpdatedBy": null,
+            "vehicleTypeDeletedBy": null,
+            "carryingCapacity": 50,
+            "vehicleTypeUpdatedAt": null,
+            "vehicleTypeCreatedAt": "2026-01-31T11:53:02.000Z",
+            "vehicleTypeDeletedAt": null
+        }
+    },
+    "passenger": {
+        "passengerRequestId": 1,
+        "passengerRequestUniqueId": "9a9c66a3-ec66-42c7-be0a-837a8f7d8b83",
+        "userUniqueId": "7cf1250c-6b07-422b-b3fe-84144f9e7055",
+        "passengerRequestBatchId": "ef5bc758-b85f-4de6-a750-855c79643790",
+        "vehicleTypeUniqueId": "fddf2911-dfa5-4363-a04f-c82e59536fa4",
+        "journeyStatusId": 5,
+        "originLatitude": "9.02046830",
+        "originLongitude": "38.80246000",
+        "originPlace": "Addis Ababa, Ethiopia",
+        "destinationLatitude": "9.02046930",
+        "destinationLongitude": "38.80246000",
+        "destinationPlace": "Diredawa, Ethiopia",
+        "shipperRequestCreatedAt": "2026-01-31T12:16:18.000Z",
+        "shippableItemName": "Cement",
+        "shippableItemQtyInQuintal": "500.00",
+        "shippingDate": "2025-04-20T10:54:26.000Z",
+        "deliveryDate": "2025-04-20T10:54:26.000Z",
+        "shippingCost": "67679090.00",
+        "isCompletionSeen": 0,
+        "shipperRequestCreatedBy": "7cf1250c-6b07-422b-b3fe-84144f9e7055",
+        "shipperRequestCreatedByRoleId": 1,
+        "passengerRequestUpdatedBy": null,
+        "passengerRequestDeletedBy": null,
+        "passengerRequestUpdatedAt": null,
+        "passengerRequestDeletedAt": null,
+        "userId": 4,
+        "fullName": "user 81 ",
+        "phoneNumber": "+251922112481",
+        "email": null,
+        "userCreatedAt": "2026-01-31T12:05:53.000Z",
+        "userCreatedBy": "system",
+        "userDeletedAt": null,
+        "userDeletedBy": null,
+        "isDeleted": 0
+    },
+    "journey": {
+        "journeyId": 1,
+        "journeyUniqueId": "fcc13a2b-565c-4961-895e-bf9b383db3d5",
+        "journeyDecisionUniqueId": "7e65df9b-98df-4744-ae96-5145b94d4b61",
+        "startTime": "2026-01-31T15:15:27.000Z",
+        "endTime": null,
+        "fare": "0.00",
+        "journeyStatusId": 5,
+        "journeyCreatedBy": "b269e36d-1ed1-469d-8d4a-042f53365329",
+        "journeyUpdatedBy": null,
+        "journeyDeletedBy": null,
+        "journeyCreatedAt": "2026-01-31T15:15:27.000Z",
+        "journeyUpdatedAt": null,
+        "journeyDeletedAt": null
+    },
+    "decision": {
+        "journeyDecisionUniqueId": "7e65df9b-98df-4744-ae96-5145b94d4b61",
+        "passengerRequestId": 1,
+        "driverRequestId": 1,
+        "journeyStatusId": 5,
+        "decisionTime": "2026-01-31T15:00:02.000Z",
+        "decisionBy": "driver",
+        "shippingCostByDriver": "656565.00",
+        "shippingDateByDriver": null,
+        "deliveryDateByDriver": null
+    }
+}
+While the driver is traveling to the destination, they must send their current location to the shipper in real-time via WebSocket or REST API at regular intervals using `{{url}}/api/journeyRoutePoints?userUniqueId=self`.
+
+### 7. Update Journey Route Points (Driver)
+**Endpoint**: `POST /api/journeyRoutePoints?userUniqueId=self`  
+**Description**: Driver updates their current location during the journey for real-time tracking by the shipper.  
+**Authentication**: Driver token required  
+**Request Body**:
+```json
+{
+    "journeyDecisionUniqueId": "5e030c27-1710-44bc-9fa4-0f5cb5fa7f1f",
+    "latitude": "9.100605",
+    "longitude": "38.106690"
+}
+```
+**Response**: 
+```json
+{
+    "success": true,
+    "message": "success",
+    "data": {
+        "journeyRoutePointsUniqueId": "2906f20f-d0e7-4087-82b6-e53c8209102c",
+        "journeyDecisionUniqueId": "7e65df9b-98df-4744-ae96-5145b94d4b61",
+        "latitude": 9.100605,
+        "longitude": 38.10669
+    }
+}
+
+When the driver finishes the journey, they must complete it using the `{{url}}/api/driver/completeJourney` endpoint.
+
+### 8. Complete Journey (Driver)
+**Endpoint**: `POST /api/driver/completeJourney`  
+**Description**: Driver marks the journey as completed upon reaching the destination.  
+**Authentication**: Driver token required  
+**Request Body**:
+```json
+{
+    "driverRequestUniqueId": "213c2644-1ef8-4d28-8583-128467ea0642",
+    "passengerRequestUniqueId": "9a9c66a3-ec66-42c7-be0a-837a8f7d8b83",
+    "journeyDecisionUniqueId": "7e65df9b-98df-4744-ae96-5145b94d4b61",
+    "latitude": "11.12260400",
+    "longitude": "39.63498200"
+}
+```
+**Response**: 
+```json
+{
+    "message": "success",
+    "status": 5,
+    "uniqueIds": {
+        "driverRequestUniqueId": "213c2644-1ef8-4d28-8583-128467ea0642",
+        "passengerRequestUniqueId": "9a9c66a3-ec66-42c7-be0a-837a8f7d8b83",
+        "journeyDecisionUniqueId": "7e65df9b-98df-4744-ae96-5145b94d4b61",
+        "journeyUniqueId": "fcc13a2b-565c-4961-895e-bf9b383db3d5"
+    },
+    "driver": {
+        "driver": {
+            "journeyDecisionId": 1,
+            "journeyDecisionUniqueId": "7e65df9b-98df-4744-ae96-5145b94d4b61",
+            "passengerRequestId": 1,
+            "driverRequestId": 1,
+            "journeyStatusId": 4,
+            "decisionTime": "2026-01-31T15:00:02.000Z",
+            "decisionBy": "driver",
+            "shippingDateByDriver": null,
+            "deliveryDateByDriver": null,
+            "shippingCostByDriver": "656565.00",
+            "isNotSelectedSeenByDriver": "no need to see it",
+            "isCancellationByDriverSeenByPassenger": "no need to see it",
+            "isRejectionByPassengerSeenByDriver": "no need to see it",
+            "journeyDecisionCreatedBy": "b269e36d-1ed1-469d-8d4a-042f53365329",
+            "journeyDecisionUpdatedBy": null,
+            "journeyDecisionDeletedBy": null,
+            "journeyDecisionCreatedAt": "2026-01-31T15:00:02.000Z",
+            "journeyDecisionUpdatedAt": null,
+            "journeyDecisionDeletedAt": null,
+            "driverRequestUniqueId": "213c2644-1ef8-4d28-8583-128467ea0642",
+            "driverUserUniqueId": "b269e36d-1ed1-469d-8d4a-042f53365329",
+            "driverFullName": "user 80"
+        },
+        "vehicle": {
+            "vehicleDriverId": 1,
+            "vehicleDriverUniqueId": "42cf4831-b1fd-460b-bf75-5127c560e840",
+            "vehicleUniqueId": "177a1771-9810-4d8e-b785-1525dd2f88e2",
+            "driverUserUniqueId": "b269e36d-1ed1-469d-8d4a-042f53365329",
+            "assignmentStatus": "active",
+            "assignmentStartDate": "2026-01-31T12:28:56.000Z",
+            "assignmentEndDate": null,
+            "vehicleDriverCreatedBy": "b269e36d-1ed1-469d-8d4a-042f53365329",
+            "vehicleDriverUpdatedBy": null,
+            "vehicleDriverDeletedBy": null,
+            "vehicleDriverCreatedAt": "2026-01-31T12:28:57.000Z",
+            "vehicleDriverUpdatedAt": "2026-01-31T12:28:57.000Z",
+            "vehicleDriverDeletedAt": null,
+            "vehicleTypeUniqueId": "fddf2911-dfa5-4363-a04f-c82e59536fa4",
+            "licensePlate": "3-23A6326AA",
+            "color": "White base red sponda",
+            "vehicleTypeId": 2,
+            "vehicleTypeName": "Isuzu NPR",
+            "vehicleTypeIconName": null,
+            "vehicleTypeDescription": null,
+            "vehicleTypeCreatedBy": "f51c5673-b309-4837-9967-ed74b3d02ff2",
+            "vehicleTypeUpdatedBy": null,
+            "vehicleTypeDeletedBy": null,
+            "carryingCapacity": 50,
+            "vehicleTypeUpdatedAt": null,
+            "vehicleTypeCreatedAt": "2026-01-31T11:53:02.000Z",
+            "vehicleTypeDeletedAt": null
+        }
+    },
+    "passenger": {
+        "passengerRequestId": 1,
+        "passengerRequestUniqueId": "9a9c66a3-ec66-42c7-be0a-837a8f7d8b83",
+        "userUniqueId": "7cf1250c-6b07-422b-b3fe-84144f9e7055",
+        "passengerRequestBatchId": "ef5bc758-b85f-4de6-a750-855c79643790",
+        "vehicleTypeUniqueId": "fddf2911-dfa5-4363-a04f-c82e59536fa4",
+        "journeyStatusId": 5,
+        "originLatitude": "9.02046830",
+        "originLongitude": "38.80246000",
+        "originPlace": "Addis Ababa, Ethiopia",
+        "destinationLatitude": "9.02046930",
+        "destinationLongitude": "38.80246000",
+        "destinationPlace": "Diredawa, Ethiopia",
+        "shipperRequestCreatedAt": "2026-01-31T12:16:18.000Z",
+        "shippableItemName": "Cement",
+        "shippableItemQtyInQuintal": "500.00",
+        "shippingDate": "2025-04-20T10:54:26.000Z",
+        "deliveryDate": "2025-04-20T10:54:26.000Z",
+        "shippingCost": "67679090.00",
+        "isCompletionSeen": 0,
+        "shipperRequestCreatedBy": "7cf1250c-6b07-422b-b3fe-84144f9e7055",
+        "shipperRequestCreatedByRoleId": 1,
+        "passengerRequestUpdatedBy": null,
+        "passengerRequestDeletedBy": null,
+        "passengerRequestUpdatedAt": null,
+        "passengerRequestDeletedAt": null,
+        "userId": 4,
+        "fullName": "user 81 ",
+        "phoneNumber": "+251922112481",
+        "email": null,
+        "userCreatedAt": "2026-01-31T12:05:53.000Z",
+        "userCreatedBy": "system",
+        "userDeletedAt": null,
+        "userDeletedBy": null,
+        "isDeleted": 0
+    },
+    "journey": {
+        "journeyId": 1,
+        "journeyUniqueId": "fcc13a2b-565c-4961-895e-bf9b383db3d5",
+        "journeyDecisionUniqueId": "7e65df9b-98df-4744-ae96-5145b94d4b61",
+        "startTime": "2026-01-31T15:15:27.000Z",
+        "endTime": null,
+        "fare": "0.00",
+        "journeyStatusId": 5,
+        "journeyCreatedBy": "b269e36d-1ed1-469d-8d4a-042f53365329",
+        "journeyUpdatedBy": null,
+        "journeyDeletedBy": null,
+        "journeyCreatedAt": "2026-01-31T15:15:27.000Z",
+        "journeyUpdatedAt": null,
+        "journeyDeletedAt": null
+    },
+    "decision": {
+        "journeyDecisionUniqueId": "7e65df9b-98df-4744-ae96-5145b94d4b61",
+        "passengerRequestId": 1,
+        "driverRequestId": 1,
+        "journeyStatusId": 5,
+        "decisionTime": "2026-01-31T15:00:02.000Z",
+        "decisionBy": "driver",
+        "shippingCostByDriver": "656565.00",
+        "shippingDateByDriver": null,
+        "deliveryDateByDriver": null
+    }
+}
+
+
+finance part 
+this part is under finance management part and they are 
+=>deposit source who make deposit is it  this tells us many things who makes deposit where it comes from like driver itself, admin bonus 
+=>user deposit when users deposit money on our account and its effect is to increase balance of user. note it need approval by admin if it is not automatic.
+=> user subscription: is it free subscription or non free once deducted from balance
+ =>Subscription plan
+=> subscription plan pricing 
+=> subscription plan 
+=> payment status
+=> payment method
+=> commission rate
+=> user refund 
+=> balance transfer and finally 
+=> user balance. 
+
+
+

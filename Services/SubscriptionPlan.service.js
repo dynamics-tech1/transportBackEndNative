@@ -1,0 +1,248 @@
+const { pool } = require("../Middleware/Database.config");
+const { v4: uuidv4 } = require("uuid");
+const { currentDate } = require("../Utils/CurrentDate");
+const AppError = require("../Utils/AppError");
+
+// Create
+const createSubscriptionPlan = async ({
+  planName,
+  description,
+  isFree = false,
+  user,
+}) => {
+  const checkSql = `SELECT * FROM SubscriptionPlan WHERE planName = ?`;
+  const [existing] = await pool.query(checkSql, [planName]);
+  if (existing.length > 0) {
+    throw new AppError("Plan name already exists", 400);
+  }
+
+  const subscriptionPlanUniqueId = uuidv4();
+  const createdBy = user?.userUniqueId || subscriptionPlanUniqueId;
+  const insertSql = `
+    INSERT INTO SubscriptionPlan (subscriptionPlanUniqueId, planName, description, isFree, subscriptionPlanCreatedBy, subscriptionPlanCreatedAt)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `;
+  await pool.query(insertSql, [
+    subscriptionPlanUniqueId,
+    planName,
+    description,
+    isFree,
+    createdBy,
+    currentDate(),
+  ]);
+
+  return {
+    message: "success",
+    data: "Subscription plan created successfully",
+  };
+};
+
+// Single method to handle both all plans and single plan with filters
+const getSubscriptionPlans = async (filters = {}) => {
+  const {
+    subscriptionPlanUniqueId,
+    planName,
+    isFree,
+    page = 1,
+    limit = 10,
+    sortBy = "subscriptionPlanCreatedAt",
+    sortOrder = "DESC",
+  } = filters;
+
+  let whereConditions = [];
+  let queryParams = [];
+
+  // Build WHERE conditions
+  if (subscriptionPlanUniqueId) {
+    whereConditions.push("subscriptionPlanUniqueId = ?");
+    queryParams.push(subscriptionPlanUniqueId);
+  }
+
+  if (planName) {
+    whereConditions.push("planName LIKE ?");
+    queryParams.push(`%${planName}%`);
+  }
+
+  if (isFree !== undefined) {
+    whereConditions.push("isFree = ?");
+    queryParams.push(isFree);
+  }
+
+  const whereClause =
+    whereConditions.length > 0 ? `WHERE ${whereConditions.join(" AND ")}` : "";
+
+  // Handle pagination
+  const offset = (page - 1) * limit;
+
+  // If getting single plan by ID, don't paginate
+  if (subscriptionPlanUniqueId) {
+    const sql = `
+      SELECT * FROM SubscriptionPlan
+      ${whereClause}
+      LIMIT 1
+    `;
+
+    const [result] = await pool.query(sql, queryParams);
+
+    if (result.length === 0) {
+      throw new AppError("Subscription plan not found", 404);
+    }
+
+    return {
+      message: "success",
+      data: result[0],
+    };
+  }
+
+  // Get total count for pagination
+  const countSql = `SELECT COUNT(*) as total FROM SubscriptionPlan ${whereClause}`;
+  const [countResult] = await pool.query(countSql, queryParams);
+  const total = countResult[0]?.total || 0;
+  const totalPages = Math.ceil(total / limit);
+
+  // Get paginated results
+  const sql = `
+    SELECT * FROM SubscriptionPlan
+    ${whereClause}
+    ORDER BY ${sortBy} ${sortOrder}
+    LIMIT ? OFFSET ?
+  `;
+
+  const allParams = [...queryParams, limit, offset];
+  const [result] = await pool.query(sql, allParams);
+
+  return {
+    message: "success",
+    data: result || [],
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+    },
+  };
+};
+
+// Update by uniqueId with dynamic parameter building
+const updateSubscriptionPlan = async (
+  uniqueId,
+  planName,
+  description,
+  isFree,
+  updatedBy,
+) => {
+  // Validate that uniqueId is provided
+  if (!uniqueId) {
+    throw new AppError("SubscriptionPlanUniqueId is required", 400);
+  }
+  const updateData = {
+    planName,
+    description,
+    isFree,
+    subscriptionPlanUpdatedBy: updatedBy,
+  };
+  // Validate that updateData is provided and not empty
+  if (!updateData || Object.keys(updateData).length === 0) {
+    throw new AppError("At least one field to update must be provided", 400);
+  }
+
+  // List of allowed fields that can be updated (all fields except IDs/UUIDs)
+  const allowedFields = [
+    "planName",
+    "description",
+    "isFree",
+    "subscriptionPlanUpdatedBy",
+  ];
+
+  // Filter out any fields that are not allowed or undefined/null
+  const fieldsToUpdate = {};
+
+  allowedFields.forEach((field) => {
+    if (updateData[field] !== undefined && updateData[field] !== null) {
+      fieldsToUpdate[field] = updateData[field];
+    }
+  });
+
+  // Check if we have any valid fields to update
+  if (Object.keys(fieldsToUpdate).length === 0) {
+    throw new AppError(
+      "No valid fields provided for update. Allowed fields: planName, description, isFree",
+      400,
+    );
+  }
+
+  // Build dynamic SQL query
+  const setClauses = [];
+  const values = [];
+
+  // Process each field to update
+  Object.keys(fieldsToUpdate).forEach((field) => {
+    setClauses.push(`${field} = ?`);
+    values.push(fieldsToUpdate[field]);
+  });
+
+  // Always update the timestamp
+  setClauses.push("subscriptionPlanUpdatedAt = ?");
+  values.push(currentDate());
+
+  // Add uniqueId to values array for WHERE clause
+  values.push(uniqueId);
+
+  const sql = `
+    UPDATE SubscriptionPlan
+    SET ${setClauses.join(", ")}
+    WHERE subscriptionPlanUniqueId = ?
+  `;
+
+  try {
+    const [result] = await pool.query(sql, values);
+
+    if (result.affectedRows === 0) {
+      throw new AppError(
+        "No record found with the provided uniqueId or no changes made",
+        404,
+      );
+    }
+
+    return {
+      message: "success",
+      data: {
+        subscriptionPlanUniqueId: uniqueId,
+        ...fieldsToUpdate,
+        affectedRows: result.affectedRows,
+      },
+    };
+  } catch (error) {
+    if (error.code === "ER_DUP_ENTRY") {
+      throw new AppError(
+        "Plan name must be unique. Another plan with this name already exists.",
+        400,
+      );
+    }
+    throw error;
+  }
+};
+
+// Delete by uniqueId
+const deleteSubscriptionPlan = async (uniqueId) => {
+  const sql = `DELETE FROM SubscriptionPlan WHERE subscriptionPlanUniqueId = ?`;
+  const [result] = await pool.query(sql, [uniqueId]);
+
+  if (result.affectedRows === 0) {
+    throw new AppError("Failed to delete subscription plan or not found", 404);
+  }
+
+  return {
+    message: "success",
+    data: `Subscription plan ${uniqueId} deleted successfully`,
+  };
+};
+
+module.exports = {
+  createSubscriptionPlan,
+  getSubscriptionPlans,
+  updateSubscriptionPlan,
+  deleteSubscriptionPlan,
+};

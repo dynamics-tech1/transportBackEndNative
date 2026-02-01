@@ -1,0 +1,65 @@
+const logger = require("../Utils/logger");
+const { currentDate } = require("../Utils/CurrentDate");
+
+/**
+ * RequestLogger Middleware
+ *
+ * PURPOSE: Provides comprehensive monitoring of every incoming HTTP request.
+ *
+ * FEATURES:
+ * - Logs request initiation (Method, URL, IP, User-Agent).
+ * - Calculates and logs total Response Time.
+ * - Automatically flags "Slow Requests" that exceed a 1000ms threshold.
+ * - Captures and logs response-level errors with stack traces.
+ *
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next middleware function
+ */
+const requestLogger = (req, res, next) => {
+  const startTime = currentDate();
+
+  // Log request start
+  logger.debug("Request Started", {
+    type: "REQUEST_START",
+    method: req.method,
+    url: req.originalUrl,
+    ip: req.ip,
+    userAgent: req.get("user-agent"),
+    userId: req.user?.userId,
+  });
+
+  // Capture response finish
+  res.on("finish", () => {
+    const responseTime = currentDate() - startTime;
+
+    // Log the completed request
+    logger.application.apiRequest(req, res, responseTime);
+
+    // Log slow requests
+    if (responseTime > 1000) {
+      logger.warn("Slow Request", {
+        type: "SLOW_REQUEST",
+        method: req.method,
+        url: req.originalUrl,
+        responseTime: `${responseTime}ms`,
+        threshold: "1000ms",
+      });
+    }
+  });
+
+  // Capture response errors
+  res.on("error", (error) => {
+    logger.error("Response Error", {
+      type: "RESPONSE_ERROR",
+      method: req.method,
+      url: req.originalUrl,
+      error: error.message,
+      stack: error.stack,
+    });
+  });
+
+  next();
+};
+
+module.exports = requestLogger;

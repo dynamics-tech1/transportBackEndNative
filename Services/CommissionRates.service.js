@@ -1,0 +1,315 @@
+const { pool } = require("../Middleware/Database.config");
+const AppError = require("../Utils/AppError");
+
+// Create a commission rate
+const createCommissionRate = async ({
+  commissionRateUniqueId,
+  commissionRate,
+  commissionRateEffectiveDate,
+  commissionRateCreatedBy,
+}) => {
+  // Check if commission rate with same unique ID already exists
+  const sqlCheckUniqueId = `
+    SELECT * FROM CommissionRates 
+    WHERE commissionRateUniqueId = ?
+  `;
+  const [existingById] = await pool.query(sqlCheckUniqueId, [
+    commissionRateUniqueId,
+  ]);
+
+  if (existingById.length > 0) {
+    throw new AppError("Commission rate with this ID already exists", 400);
+  }
+
+  // Check if there's an active rate with the same value and overlapping dates
+  const sqlCheckDuplicate = `
+    SELECT * FROM CommissionRates 
+    WHERE commissionRate = ? 
+    AND commissionRateDeletedAt IS NULL
+    AND commissionRateEffectiveDate = ?
+  `;
+  const [existingRate] = await pool.query(sqlCheckDuplicate, [
+    commissionRate,
+    commissionRateEffectiveDate,
+  ]);
+
+  if (existingRate.length > 0) {
+    throw new AppError(
+      "An active commission rate with the same value and effective date already exists",
+      400,
+    );
+  }
+
+  // Insert new commission rate
+  const commissionRateExpirationDate = "2028-10-10";
+  const sqlQueryToInsert = `
+    INSERT INTO CommissionRates (
+      commissionRateUniqueId,
+      commissionRate,
+      commissionRateEffectiveDate,
+      commissionRateCreatedBy,
+      commissionRateExpirationDate
+    ) VALUES (?, ?, ?, ?, ?)
+  `;
+
+  const values = [
+    commissionRateUniqueId,
+    commissionRate,
+    commissionRateEffectiveDate,
+    commissionRateCreatedBy,
+    commissionRateExpirationDate,
+  ];
+
+  await pool.query(sqlQueryToInsert, values);
+
+  return {
+    message: "success",
+    data: {
+      commissionRateUniqueId,
+      commissionRate,
+      commissionRateEffectiveDate,
+      commissionRateExpirationDate,
+    },
+  };
+};
+
+// Retrieve all commission rates with pagination and filtering
+const getAllCommissionRates = async (filters = {}) => {
+  const page = Number(filters.page) || 1;
+  const limit = Math.min(Number(filters.limit) || 10, 100);
+  const offset = (page - 1) * limit;
+
+  const clauses = [];
+  const params = [];
+
+  if (filters.commissionRateUniqueId) {
+    clauses.push("commissionRateUniqueId = ?");
+    params.push(filters.commissionRateUniqueId);
+  }
+
+  if (filters.commissionRate !== undefined) {
+    clauses.push("commissionRate = ?");
+    params.push(Number(filters.commissionRate));
+  }
+
+  if (filters.commissionRateMin !== undefined) {
+    clauses.push("commissionRate >= ?");
+    params.push(Number(filters.commissionRateMin));
+  }
+
+  if (filters.commissionRateMax !== undefined) {
+    clauses.push("commissionRate <= ?");
+    params.push(Number(filters.commissionRateMax));
+  }
+
+  if (filters.commissionRateEffectiveDate) {
+    clauses.push("DATE(commissionRateEffectiveDate) = DATE(?)");
+    params.push(filters.commissionRateEffectiveDate);
+  }
+
+  if (filters.effectiveDateFrom) {
+    clauses.push("commissionRateEffectiveDate >= ?");
+    params.push(filters.effectiveDateFrom);
+  }
+
+  if (filters.effectiveDateTo) {
+    clauses.push("commissionRateEffectiveDate <= ?");
+    params.push(filters.effectiveDateTo);
+  }
+
+  if (filters.commissionRateExpirationDate) {
+    clauses.push("DATE(commissionRateExpirationDate) = DATE(?)");
+    params.push(filters.commissionRateExpirationDate);
+  }
+
+  if (filters.expirationDateFrom) {
+    clauses.push("commissionRateExpirationDate >= ?");
+    params.push(filters.expirationDateFrom);
+  }
+
+  if (filters.expirationDateTo) {
+    clauses.push("commissionRateExpirationDate <= ?");
+    params.push(filters.expirationDateTo);
+  }
+
+  if (filters.commissionRateCreatedBy) {
+    clauses.push("commissionRateCreatedBy = ?");
+    params.push(filters.commissionRateCreatedBy);
+  }
+
+  if (filters.commissionRateUpdatedBy) {
+    clauses.push("commissionRateUpdatedBy = ?");
+    params.push(filters.commissionRateUpdatedBy);
+  }
+
+  if (filters.commissionRateDeletedBy) {
+    clauses.push("commissionRateDeletedBy = ?");
+    params.push(filters.commissionRateDeletedBy);
+  }
+
+  if (filters.commissionRateCreatedAt) {
+    clauses.push("DATE(commissionRateCreatedAt) = DATE(?)");
+    params.push(filters.commissionRateCreatedAt);
+  }
+
+  if (filters.commissionRateUpdatedAt === "notNull") {
+    clauses.push("commissionRateUpdatedAt IS NOT NULL");
+  } else if (filters.commissionRateUpdatedAt === "null") {
+    clauses.push("commissionRateUpdatedAt IS NULL");
+  } else if (filters.commissionRateUpdatedAt) {
+    clauses.push("DATE(commissionRateUpdatedAt) = DATE(?)");
+    params.push(filters.commissionRateUpdatedAt);
+  }
+
+  if (filters.commissionRateDeletedAt === "notNull") {
+    clauses.push("commissionRateDeletedAt IS NOT NULL");
+  } else if (
+    filters.commissionRateDeletedAt === "null" ||
+    filters.commissionRateDeletedAt === undefined
+  ) {
+    clauses.push("commissionRateDeletedAt IS NULL");
+  } else if (filters.commissionRateDeletedAt) {
+    clauses.push("DATE(commissionRateDeletedAt) = DATE(?)");
+    params.push(filters.commissionRateDeletedAt);
+  }
+
+  const whereClause = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+
+  const sortableMap = {
+    commissionRateCreatedAt: "commissionRateCreatedAt",
+    commissionRateUpdatedAt: "commissionRateUpdatedAt",
+    commissionRateEffectiveDate: "commissionRateEffectiveDate",
+    commissionRateExpirationDate: "commissionRateExpirationDate",
+    commissionRate: "commissionRate",
+  };
+  const safeSortBy = sortableMap[filters.sortBy] || "commissionRateCreatedAt";
+  const safeSortOrder =
+    String(filters.sortOrder).toUpperCase() === "ASC" ? "ASC" : "DESC";
+
+  const countSql = `SELECT COUNT(*) as total FROM CommissionRates ${whereClause}`;
+  const [countRows] = await pool.query(countSql, params);
+  const total = countRows?.[0]?.total || 0;
+
+  const dataSql = `
+    SELECT *
+    FROM CommissionRates
+    ${whereClause}
+    ORDER BY ${safeSortBy} ${safeSortOrder}
+    LIMIT ? OFFSET ?
+  `;
+  const [rows] = await pool.query(dataSql, [...params, limit, offset]);
+
+  if (!rows || rows.length === 0) {
+    throw new AppError("No commission rates found", 404);
+  }
+
+  return {
+    message: "success",
+    data: rows,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+    },
+  };
+};
+
+// Update a commission rate by its unique ID
+const updateCommissionRateByUniqueId = async ({
+  commissionRateUniqueId,
+  commissionRate,
+  commissionRateEffectiveDate,
+  commissionRateExpirationDate,
+  commissionRateUpdatedBy,
+}) => {
+  const [existingRows] = await pool.query(
+    "SELECT commissionRateUniqueId, commissionRateDeletedAt FROM CommissionRates WHERE commissionRateUniqueId = ?",
+    [commissionRateUniqueId],
+  );
+  if (!existingRows || existingRows.length === 0) {
+    throw new AppError("Commission rate not found", 404);
+  }
+  if (existingRows[0]?.commissionRateDeletedAt) {
+    throw new AppError("Commission rate already deleted", 400);
+  }
+
+  const setParts = [];
+  const values = [];
+
+  if (commissionRate !== undefined) {
+    setParts.push("commissionRate = ?");
+    values.push(commissionRate);
+  }
+
+  if (commissionRateEffectiveDate !== undefined) {
+    setParts.push("commissionRateEffectiveDate = ?");
+    values.push(commissionRateEffectiveDate);
+  }
+
+  if (commissionRateExpirationDate !== undefined) {
+    setParts.push("commissionRateExpirationDate = ?");
+    values.push(commissionRateExpirationDate);
+  }
+
+  if (commissionRateUpdatedBy !== undefined) {
+    setParts.push("commissionRateUpdatedBy = ?");
+    values.push(commissionRateUpdatedBy);
+  }
+
+  if (setParts.length === 0) {
+    throw new AppError("No fields provided to update", 400);
+  }
+
+  setParts.push("commissionRateUpdatedAt = CURRENT_TIMESTAMP");
+  const sqlQuery = `UPDATE CommissionRates SET ${setParts.join(", ")} WHERE commissionRateUniqueId = ? AND commissionRateDeletedAt IS NULL`;
+  values.push(commissionRateUniqueId);
+
+  const [result] = await pool.query(sqlQuery, values);
+  if (result.affectedRows === 0) {
+    throw new AppError("Commission rate update failed", 500);
+  }
+
+  return { message: "success", data: "Commission rate updated successfully" };
+};
+
+// Soft delete a commission rate by its unique ID
+const deleteCommissionRateByUniqueId = async ({
+  commissionRateUniqueId,
+  commissionRateDeletedBy,
+}) => {
+  const [existingRows] = await pool.query(
+    "SELECT commissionRateUniqueId, commissionRateDeletedAt FROM CommissionRates WHERE commissionRateUniqueId = ?",
+    [commissionRateUniqueId],
+  );
+  if (!existingRows || existingRows.length === 0) {
+    throw new AppError("Commission rate not found", 404);
+  }
+  if (existingRows[0]?.commissionRateDeletedAt) {
+    throw new AppError("Commission rate already deleted", 400);
+  }
+
+  const sqlQuery = `
+    UPDATE CommissionRates 
+    SET 
+      commissionRateDeletedAt = CURRENT_TIMESTAMP,
+      commissionRateDeletedBy = ?
+    WHERE commissionRateUniqueId = ? AND commissionRateDeletedAt IS NULL
+  `;
+
+  const values = [commissionRateDeletedBy, commissionRateUniqueId];
+
+  const [result] = await pool.query(sqlQuery, values);
+  if (result.affectedRows === 0) {
+    throw new AppError("Commission rate delete failed", 500);
+  }
+
+  return { message: "success", data: "Commission rate deleted successfully" };
+};
+
+module.exports = {
+  createCommissionRate,
+  getAllCommissionRates,
+  updateCommissionRateByUniqueId,
+  deleteCommissionRateByUniqueId,
+};
