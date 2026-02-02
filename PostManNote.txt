@@ -5,12 +5,86 @@ Note This document is used to the developers and testers to understand the flow 
 
 ## Table of Contents
 1. [Setup & Initialization](#setup--initialization)
-2. [User Management](#user-management)
-3. [Passenger Operations](#passenger-operations)
-4. [Driver Registration](#driver-registration)
-5. [Document Management](#document-management)
-6. [Admin Operations](#admin-operations)
-7. [Finance Management](#finance-management)
+2. [Environment Configuration](#environment-configuration)
+3. [User Management](#user-management)
+4. [Passenger Operations](#passenger-operations)
+5. [Driver Registration](#driver-registration)
+6. [Document Management](#document-management)
+7. [Admin Operations](#admin-operations)
+8. [Finance Management](#finance-management)
+
+## Environment Configuration
+
+### Required Setup
+1. Copy `.env.sample` to `.env`
+2. Fill in all required values
+3. Never commit `.env` to version control
+
+### Database Configuration
+```bash
+DB_HOST=localhost                    # MySQL server hostname/IP
+DB_USER=your_db_username             # MySQL username
+DB_PASSWORD=your_db_password         # MySQL password
+DB_DATABASE=transport_management     # Database name
+DB_PORT=3306                        # MySQL port (default: 3306)
+DB_CONNECT_TIMEOUT=60000            # Connection timeout in ms
+```
+
+### Authentication & Security
+```bash
+SECRET_KEY=your_super_secret_jwt_key_here_minimum_32_characters  # JWT signing key
+API_KEY=your_api_key_for_external_services                      # External API access key
+```
+
+### File Uploads & Storage
+```bash
+FTP_HOST=your-ftp-server.com        # FTP server for document uploads
+FTP_USER=your-ftp-username          # FTP account username
+FTP_PASSWORD=your-ftp-password      # FTP account password
+FTP_UPLOADS_PATH=https://your-domain.com/uploads/  # Public URL for uploaded files
+```
+
+### Super Admin Setup
+```bash
+SUPER_ADMIN_FULL_NAME=System Administrator    # Initial admin name
+SUPER_ADMIN_PHONE=+1234567890               # Admin phone number
+SUPER_ADMIN_EMAIL=admin@yourdomain.com      # Admin email address
+```
+
+### External Services
+```bash
+# SMS Service (Africa's Talking)
+SMS_TOKEN=your_sms_api_token
+AFRO_BASE_URL=https://api.africastalking.com
+SMS_SENDER=TRANSPORT
+OTP_TEMPLATE=Your OTP code is: {code}
+
+# Push Notifications (Firebase)
+FCM_SERVICE_ACCOUNT_JSON='{"type":"service_account","project_id":"your-project-id"}'
+
+# Redis Cache (Optional)
+UPSTASH_REDIS_URL=redis://localhost:6379
+```
+
+### Application Settings
+```bash
+NODE_ENV=development    # Environment: development | staging | production
+PORT=3000              # Server port
+```
+
+### Development vs Production
+**Development Environment:**
+- Full error logging enabled
+- CORS restrictions relaxed
+- Development database
+- Debug mode active
+
+**Production Environment:**
+- Error masking for security
+- Strict CORS policies
+- Production database
+- Rate limiting enabled
+- SSL required
 
 ## Setup & Initialization
 Database Management 
