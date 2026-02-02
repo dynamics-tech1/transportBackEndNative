@@ -31,6 +31,8 @@
 // }
 
 // module.exports = { uploadToFTP };
+const dotenv = require("dotenv");
+dotenv.config();
 const ftp = require("basic-ftp");
 const { Readable } = require("stream"); // Add this import
 
