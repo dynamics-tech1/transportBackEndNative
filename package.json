@@ -17,6 +17,8 @@
     "status:pm2": "pm2 status",
     "dev": "pm2 delete ecosystem.config.js && nodemon App.js",
     "start:cluster": "pm2 start ecosystem.config.js --watch",
+    "db:create": "curl -X POST http://localhost:3000/api/admin/createTable -H 'Content-Type: application/json'",
+    "db:seed": "echo 'Usage: npm run db:seed -- --token=YOUR_SUPER_ADMIN_TOKEN' && echo 'Example: npm run db:seed -- --token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'",
     "nginx:start": "sudo nginx",
     "nginx:stop": "sudo nginx -s stop",
     "nginx:stop-force": "sudo pkill -9 nginx",
