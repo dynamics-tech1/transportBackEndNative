@@ -1,0 +1,123 @@
+const swaggerDefinition = {
+  openapi: '3.0.3',
+  info: {
+    title: 'Transport Management System API',
+    version: '1.0.0',
+    description: 'Complete API for transport management system including user management, driver operations, admin functions, and finance operations',
+    contact: {
+      name: 'API Support',
+      email: 'support@transportapp.com'
+    },
+    license: {
+      name: 'MIT',
+      url: 'https://opensource.org/licenses/MIT'
+    }
+  },
+  servers: [
+    {
+      url: 'http://localhost:3000',
+      description: 'Development server'
+    },
+    {
+      url: 'https://api.transportapp.com',
+      description: 'Production server'
+    }
+  ],
+  components: {
+    securitySchemes: {
+      bearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT'
+      }
+    },
+    schemas: {
+      User: {
+        type: 'object',
+        required: ['fullName', 'phoneNumber', 'roleId'],
+        properties: {
+          userUniqueId: {
+            type: 'string',
+            format: 'uuid',
+            description: 'Unique identifier for the user'
+          },
+          fullName: {
+            type: 'string',
+            description: 'Full name of the user'
+          },
+          phoneNumber: {
+            type: 'string',
+            description: 'Phone number of the user'
+          },
+          email: {
+            type: 'string',
+            format: 'email',
+            description: 'Email address of the user'
+          },
+          roleId: {
+            type: 'integer',
+            description: 'Role ID (1=Passenger, 2=Driver, 3=Admin)'
+          },
+          statusId: {
+            type: 'integer',
+            description: 'Status ID of the user'
+          },
+          userCreatedAt: {
+            type: 'string',
+            format: 'date-time',
+            description: 'User creation timestamp'
+          }
+        }
+      },
+      Error: {
+        type: 'object',
+        properties: {
+          message: {
+            type: 'string',
+            description: 'Error message'
+          },
+          error: {
+            type: 'string',
+            description: 'Detailed error description'
+          },
+          details: {
+            type: 'object',
+            description: 'Additional error details'
+          }
+        }
+      },
+      Deposit: {
+        type: 'object',
+        properties: {
+          userDepositUniqueId: {
+            type: 'string',
+            format: 'uuid'
+          },
+          userUniqueId: {
+            type: 'string',
+            format: 'uuid'
+          },
+          amount: {
+            type: 'number',
+            format: 'decimal'
+          },
+          depositStatus: {
+            type: 'string',
+            enum: ['requested', 'approved', 'rejected']
+          },
+          depositSourceUniqueId: {
+            type: 'string',
+            format: 'uuid'
+          }
+        }
+      }
+    }
+  },
+  security: [
+    {
+      bearerAuth: []
+    }
+  ]
+};
+
+module.exports = swaggerDefinition;

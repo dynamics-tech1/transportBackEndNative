@@ -6,6 +6,8 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const mongoSanitize = require("express-mongo-sanitize");
 const xss = require("xss-clean");
+const swaggerUi = require("swagger-ui-express");
+const swaggerDocument = require("../api-docs.json");
 
 let Routes;
 try {
@@ -60,6 +62,16 @@ app.use(xss()); // Against Cross-Site Scripting (XSS) attacks
 
 // Serve static files from the 'uploads' directory
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
+// API Documentation - Swagger UI
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+  explorer: true,
+  swaggerOptions: {
+    docExpansion: 'none',
+    filter: true,
+    showRequestDuration: true,
+  }
+}));
 
 // API Routes - Protected by API Key
 // app.use("/", apiKeyAuth, Routes);

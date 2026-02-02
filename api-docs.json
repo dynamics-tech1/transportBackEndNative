@@ -1,0 +1,430 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Transport Management System API",
+    "version": "1.0.0",
+    "description": "Complete API for transport management system including user management, driver operations, admin functions, and finance operations",
+    "contact": {
+      "name": "API Support",
+      "email": "support@transportapp.com"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Development server"
+    },
+    {
+      "url": "https://api.transportapp.com",
+      "description": "Production server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "required": ["fullName", "phoneNumber", "roleId"],
+        "properties": {
+          "userUniqueId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unique identifier for the user"
+          },
+          "fullName": {
+            "type": "string",
+            "description": "Full name of the user"
+          },
+          "phoneNumber": {
+            "type": "string",
+            "description": "Phone number of the user"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Email address of the user"
+          },
+          "roleId": {
+            "type": "integer",
+            "description": "Role ID (1=Passenger, 2=Driver, 3=Admin)"
+          },
+          "statusId": {
+            "type": "integer",
+            "description": "Status ID of the user"
+          },
+          "userCreatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "User creation timestamp"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Error message"
+          },
+          "error": {
+            "type": "string",
+            "description": "Detailed error description"
+          },
+          "details": {
+            "type": "object",
+            "description": "Additional error details"
+          }
+        }
+      },
+      "Deposit": {
+        "type": "object",
+        "properties": {
+          "userDepositUniqueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userUniqueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "number",
+            "format": "decimal"
+          },
+          "depositStatus": {
+            "type": "string",
+            "enum": ["requested", "approved", "rejected"]
+          },
+          "depositSourceUniqueId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Health Check",
+        "description": "Check if the server is running",
+        "responses": {
+          "200": {
+            "description": "Server is running",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Server is running"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/createUser": {
+      "post": {
+        "summary": "Create User",
+        "description": "Create a new user (passenger or driver)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/User"
+              },
+              "example": {
+                "fullName": "John Doe",
+                "phoneNumber": "+1234567890",
+                "roleId": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/verifyUserByOTP": {
+      "post": {
+        "summary": "Verify User OTP",
+        "description": "Verify user's phone number using OTP",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["roleId", "OTP", "phoneNumber"],
+                "properties": {
+                  "roleId": {
+                    "type": "integer",
+                    "description": "Role ID (1=Passenger, 2=Driver, 3=Admin)"
+                  },
+                  "OTP": {
+                    "type": "string",
+                    "description": "OTP code received via SMS"
+                  },
+                  "phoneNumber": {
+                    "type": "string",
+                    "description": "Phone number to verify"
+                  }
+                }
+              },
+              "example": {
+                "roleId": 1,
+                "OTP": "123456",
+                "phoneNumber": "+1234567890"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP verified successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string",
+                      "description": "JWT token for authentication"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "string",
+                      "example": "OTP verified successfully"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/createUserByAdminOrSuperAdmin": {
+      "post": {
+        "summary": "Create Admin User",
+        "description": "Create a new admin user (requires Super Admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/User"
+              },
+              "example": {
+                "fullName": "Admin User",
+                "phoneNumber": "+1234567890",
+                "email": "admin@example.com",
+                "roleId": 3,
+                "statusId": 1,
+                "userRoleStatusDescription": "System administrator"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Admin user created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/finance/userDeposit": {
+      "get": {
+        "summary": "Get User Deposits",
+        "description": "Retrieve user deposits with optional filtering",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "userUniqueId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "User UUID or 'self' for current user"
+          },
+          {
+            "name": "depositStatus",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["approved", "requested", "rejected"]
+            },
+            "description": "Filter by deposit status"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deposits retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Deposit"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create User Deposit",
+        "description": "Create a new deposit request",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["amount", "depositSourceUniqueId"],
+                "properties": {
+                  "amount": {
+                    "type": "number",
+                    "format": "decimal",
+                    "description": "Deposit amount"
+                  },
+                  "depositSourceUniqueId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "Deposit source UUID"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deposit created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "success"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Deposit"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
