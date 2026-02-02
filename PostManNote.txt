@@ -8,6 +8,7 @@
 4. [Driver Registration](#driver-registration)
 5. [Document Management](#document-management)
 6. [Admin Operations](#admin-operations)
+7. [Finance Management](#finance-management)
 
 ## Setup & Initialization
 
@@ -1422,20 +1423,548 @@ When the driver finishes the journey, they must complete it using the `{{url}}/a
 }
 
 
-finance part 
-this part is under finance management part and they are 
-=>deposit source who make deposit is it  this tells us many things who makes deposit where it comes from like driver itself, admin bonus 
-=>user deposit when users deposit money on our account and its effect is to increase balance of user. note it need approval by admin if it is not automatic.
-=> user subscription: is it free subscription or non free once deducted from balance
- =>Subscription plan
-=> subscription plan pricing 
-=> subscription plan 
-=> payment status
-=> payment method
-=> commission rate
-=> user refund 
-=> balance transfer and finally 
-=> user balance. 
+## Finance Management
+
+The Finance Management module handles all financial transactions, deposits, subscriptions, commissions, and user balances within the transport management system.
+
+### 1.1 Create Deposit Source
+**Endpoint**: `POST /api/finance/depositSource`  
+**Description**: Creates a new deposit source that indicates who makes deposits and where funds come from.  
+**Authentication**: Admin token required  
+**Request Body**:
+```json
+{
+    "sourceKey": "Driver",
+    "sourceLabel": "when drivers make direct deposit to their account"
+}
+```
+**Response**: 
+```json
+{
+    "message": "success",
+    "data": {
+        "depositSourceId": 1,
+        "depositSourceUniqueId": "a96b28d1-c476-4687-9bd2-d49379a3dd3f",
+        "sourceKey": "Driver",
+        "sourceLabel": "when drivers make direct deposit to their account",
+        "depositSourceCreatedBy": "3289885a-d5b9-4bde-8cee-642a7eb026cd",
+        "depositSourceUpdatedBy": null,
+        "depositSourceDeletedBy": null,
+        "depositSourceCreatedAt": "2026-02-01T06:35:31.000Z",
+        "depositSourceUpdatedAt": null,
+        "depositSourceDeletedAt": null
+    }
+}
+```
+
+### 1.2 Get Deposit Sources
+**Endpoint**: `GET /api/finance/depositSources`  
+**Description**: Retrieves all available deposit sources that indicate who makes deposits and where funds come from.  
+**Authentication**: Admin token required  
+**Response**: 
+```json
+{
+    "message": "success",
+    "data": [
+        {
+            "depositSourceId": 4,
+            "depositSourceUniqueId": "a2cae558-d02d-495a-9b1a-0ec48985b162",
+            "sourceKey": "Bonus",
+            "sourceLabel": "When one driver makes direct transfer to other driver",
+            "depositSourceCreatedBy": "3289885a-d5b9-4bde-8cee-642a7eb026cd",
+            "depositSourceUpdatedBy": null,
+            "depositSourceDeletedBy": null,
+            "depositSourceCreatedAt": "2026-02-01T09:35:32.000Z",
+            "depositSourceUpdatedAt": null,
+            "depositSourceDeletedAt": null
+        },
+        {
+            "depositSourceId": 1,
+            "depositSourceUniqueId": "a96b28d1-c476-4687-9bd2-d49379a3dd3f",
+            "sourceKey": "Driver",
+            "sourceLabel": "when drivers make direct deposit to their account",
+            "depositSourceCreatedBy": "3289885a-d5b9-4bde-8cee-642a7eb026cd",
+            "depositSourceUpdatedBy": null,
+            "depositSourceDeletedBy": null,
+            "depositSourceCreatedAt": "2026-02-01T09:35:31.000Z",
+            "depositSourceUpdatedAt": null,
+            "depositSourceDeletedAt": null
+        },
+        {
+            "depositSourceId": 2,
+            "depositSourceUniqueId": "471efa2c-9acb-4ce6-a694-41f7d7bb431a",
+            "sourceKey": "Transfer",
+            "sourceLabel": "When one driver makes direct transfer to other driver",
+            "depositSourceCreatedBy": "3289885a-d5b9-4bde-8cee-642a7eb026cd",
+            "depositSourceUpdatedBy": null,
+            "depositSourceDeletedBy": null,
+            "depositSourceCreatedAt": "2026-02-01T09:35:31.000Z",
+            "depositSourceUpdatedAt": null,
+            "depositSourceDeletedAt": null
+        },
+        {
+            "depositSourceId": 3,
+            "depositSourceUniqueId": "e442ace0-eeaf-4057-9e01-093eeb4702f2",
+            "sourceKey": "Admin",
+            "sourceLabel": "When admin makes direct deposit to their account",
+            "depositSourceCreatedBy": "3289885a-d5b9-4bde-8cee-642a7eb026cd",
+            "depositSourceUpdatedBy": null,
+            "depositSourceDeletedBy": null,
+            "depositSourceCreatedAt": "2026-02-01T09:35:31.000Z",
+            "depositSourceUpdatedAt": null,
+            "depositSourceDeletedAt": null
+        }
+    ]
+}
+```
+
+### 1.3 Update Deposit Source
+**Endpoint**: `PUT /api/finance/depositSource/{depositSourceUniqueId}`  
+**Description**: Updates an existing deposit source configuration.  
+**Authentication**: Admin token required  
+**Request Body**:
+```json
+{
+    "sourceKey": "Driver1",
+    "sourceLabel": "when drivers pay their deposits"
+}
+```
+**Response**: 
+```json
+{
+    "message": "success",
+    "data": {
+        "depositSourceUniqueId": "a2cae558-d02d-495a-9b1a-0ec48985b162",
+        "sourceKey": "Driver1",
+        "sourceLabel": "when drivers pay their deposits"
+    }
+}
+```
+
+### 1.4 Delete Deposit Source
+**Endpoint**: `DELETE /api/finance/depositSource/{depositSourceUniqueId}`  
+**Description**: Deletes a deposit source from the system.  
+**Authentication**: Admin token required  
+**Response**: 
+```json
+{
+    "message": "success",
+    "data": "Deleted: a2cae558-d02d-495a-9b1a-0ec48985b162"
+}
+```
+
+
+### 5. Create User Deposit
+**Endpoint**: `POST /api/finance/userDeposit`  
+**Description**: Creates a deposit transaction that increases the user's balance. Deposits may require admin approval if not configured as automatic.  
+**Balance Effect**: **Positive** - Increases user balance (Previous Balance + Deposit Amount = New Balance)  
+**Authentication**: User token required (for self-deposit) or Admin token (for manual deposits)  
+**Request Body**:
+```json
+{
+    "userUniqueId": "user-uuid-here",
+    "amount": 1000.00,
+    "depositSourceUniqueId": "driver-earnings-uuid",
+    "description": "Payment for completed delivery",
+    "referenceNumber": "TXN123456",
+    "requiresApproval": false
+}
+```
+**Response**: 
+```json
+{
+    "message": "success",
+    "data": {
+        "depositId": 1,
+        "depositUniqueId": "deposit-uuid-here",
+        "userUniqueId": "user-uuid-here",
+        "amount": 1000.00,
+        "balanceBefore": 500.00,
+        "balanceAfter": 1500.00,
+        "status": "APPROVED",
+        "approvedAt": "2026-01-31T15:30:00.000Z",
+        "approvedBy": "admin-uuid-here"
+    }
+}
+```
+
+### 6. Get User Subscriptions
+**Endpoint**: `GET /api/finance/userSubscriptions/{userUniqueId}`  
+**Description**: Retrieves subscription information for a user, including free and paid subscriptions. Paid subscriptions are deducted from user balance.  
+**Authentication**: User token required (own subscriptions) or Admin token (any user)  
+**Query Parameters**:
+- `status`: Filter by subscription status (active, expired, cancelled)
+- `type`: Filter by subscription type (free, paid)
+
+**Response**: 
+```json
+{
+    "message": "success",
+    "data": {
+        "userUniqueId": "user-uuid-here",
+        "hasActiveSubscription": true,
+        "currentBalance": 2500.00,
+        "subscriptions": [
+            {
+                "userSubscriptionId": 1,
+                "subscriptionPlanUniqueId": "monthly-plan-uuid",
+                "planName": "Premium Monthly",
+                "planType": "paid",
+                "price": 500.00,
+                "startDate": "2026-01-01T00:00:00.000Z",
+                "endDate": "2026-02-01T00:00:00.000Z",
+                "status": "active",
+                "daysRemaining": 15,
+                "autoRenew": true
+            },
+            {
+                "userSubscriptionId": 2,
+                "subscriptionPlanUniqueId": "free-trial-uuid",
+                "planName": "Free Trial",
+                "planType": "free",
+                "price": 0.00,
+                "startDate": "2025-12-01T00:00:00.000Z",
+                "endDate": "2026-01-01T00:00:00.000Z",
+                "status": "expired",
+                "daysRemaining": 0,
+                "autoRenew": false
+            }
+        ]
+    }
+}
+```
+
+### 7. Get Subscription Plans
+**Endpoint**: `GET /api/finance/subscriptionPlans`  
+**Description**: Retrieves all available subscription plans that users can subscribe to.  
+**Authentication**: User token required  
+**Query Parameters**:
+- `isActive`: Filter by active status (true/false)
+- `planType`: Filter by plan type (free, paid)
+
+**Response**: 
+```json
+{
+    "message": "success",
+    "data": [
+        {
+            "subscriptionPlanId": 1,
+            "subscriptionPlanUniqueId": "monthly-premium-uuid",
+            "planName": "Monthly Premium",
+            "planDescription": "Full access to premium features for one month",
+            "planType": "paid",
+            "durationDays": 30,
+            "isActive": true,
+            "features": ["unlimited_requests", "priority_matching", "advanced_analytics"]
+        },
+        {
+            "subscriptionPlanId": 2,
+            "subscriptionPlanUniqueId": "free-trial-uuid",
+            "planName": "Free Trial",
+            "planDescription": "7-day free trial with limited features",
+            "planType": "free",
+            "durationDays": 7,
+            "isActive": true,
+            "features": ["basic_requests", "standard_matching"]
+        }
+    ]
+}
+```
+
+### 8. Get Subscription Plan Pricing
+**Endpoint**: `GET /api/finance/subscriptionPricing/{planUniqueId}`  
+**Description**: Retrieves pricing information for a specific subscription plan, including current price and discount offers.  
+**Authentication**: User token required  
+**Response**: 
+```json
+{
+    "message": "success",
+    "data": {
+        "subscriptionPlanUniqueId": "monthly-premium-uuid",
+        "planName": "Monthly Premium",
+        "basePrice": 500.00,
+        "currentPrice": 450.00,
+        "currency": "ETB",
+        "discount": {
+            "percentage": 10,
+            "validUntil": "2026-02-15T00:00:00.000Z",
+            "promoCode": "LAUNCH10"
+        },
+        "billingCycle": "monthly",
+        "pricingHistory": [
+            {
+                "price": 500.00,
+                "effectiveFrom": "2026-01-01T00:00:00.000Z",
+                "effectiveTo": null
+            }
+        ]
+    }
+}
+```
+
+### 9. Subscribe to Plan
+**Endpoint**: `POST /api/finance/subscribe`  
+**Description**: Subscribes a user to a subscription plan. Paid plans deduct from user balance immediately.  
+**Balance Effect**: **Negative** (for paid plans) - Decreases user balance (Previous Balance - Subscription Cost = New Balance)  
+**Authentication**: User token required  
+**Request Body**:
+```json
+{
+    "subscriptionPlanUniqueId": "monthly-premium-uuid",
+    "promoCode": "LAUNCH10",
+    "autoRenew": true
+}
+```
+**Response**: 
+```json
+{
+    "message": "success",
+    "data": {
+        "userSubscriptionId": 1,
+        "subscriptionUniqueId": "user-subscription-uuid",
+        "planName": "Monthly Premium",
+        "startDate": "2026-01-31T16:00:00.000Z",
+        "endDate": "2026-03-03T16:00:00.000Z",
+        "amountDeducted": 450.00,
+        "balanceRemaining": 2050.00,
+        "status": "active"
+    }
+}
+```
+
+### 10. Get Payment Status
+**Endpoint**: `GET /api/finance/paymentStatus/{transactionId}`  
+**Description**: Checks the status of a payment transaction.  
+**Authentication**: User token required (own payments) or Admin token  
+**Response**: 
+```json
+{
+    "message": "success",
+    "data": {
+        "transactionId": "txn-uuid-here",
+        "status": "COMPLETED",
+        "amount": 450.00,
+        "paymentMethod": "balance_deduction",
+        "processedAt": "2026-01-31T16:00:00.000Z",
+        "referenceNumber": "SUB20260131160000"
+    }
+}
+```
+
+### 11. Get Payment Methods
+**Endpoint**: `GET /api/finance/paymentMethods`  
+**Description**: Retrieves available payment methods for deposits and subscriptions.  
+**Authentication**: User token required  
+**Response**: 
+```json
+{
+    "message": "success",
+    "data": [
+        {
+            "paymentMethodId": 1,
+            "methodName": "Balance Deduction",
+            "methodType": "internal",
+            "isActive": true,
+            "description": "Deduct from user balance"
+        },
+        {
+            "paymentMethodId": 2,
+            "methodName": "Bank Transfer",
+            "methodType": "external",
+            "isActive": true,
+            "description": "Direct bank transfer",
+            "processingFee": 10.00
+        },
+        {
+            "paymentMethodId": 3,
+            "methodName": "Mobile Money",
+            "methodType": "external",
+            "isActive": true,
+            "description": "Mobile payment platforms",
+            "processingFee": 5.00
+        }
+    ]
+}
+```
+
+### 12. Get Commission Rates
+**Endpoint**: `GET /api/finance/commissionRates`  
+**Description**: Retrieves commission rates applied to different transaction types and user roles.  
+**Authentication**: Admin token required  
+**Query Parameters**:
+- `userRoleId`: Filter by user role
+- `transactionType`: Filter by transaction type
+
+**Response**: 
+```json
+{
+    "message": "success",
+    "data": [
+        {
+            "commissionRateId": 1,
+            "userRoleId": 2,
+            "roleName": "Driver",
+            "transactionType": "transport_job",
+            "ratePercentage": 15.00,
+            "fixedFee": 0.00,
+            "isActive": true,
+            "effectiveFrom": "2026-01-01T00:00:00.000Z",
+            "description": "15% commission on driver earnings"
+        },
+        {
+            "commissionRateId": 2,
+            "userRoleId": 1,
+            "roleName": "Passenger",
+            "transactionType": "booking_fee",
+            "ratePercentage": 5.00,
+            "fixedFee": 10.00,
+            "isActive": true,
+            "effectiveFrom": "2026-01-01T00:00:00.000Z",
+            "description": "5% + 10 ETB booking fee"
+        }
+    ]
+}
+```
+
+### 13. Process User Refund
+**Endpoint**: `POST /api/finance/refund`  
+**Description**: Processes a refund request, adding funds back to user balance.  
+**Balance Effect**: **Positive** - Increases user balance (Previous Balance + Refund Amount = New Balance)  
+**Authentication**: Admin token required  
+**Request Body**:
+```json
+{
+    "userUniqueId": "user-uuid-here",
+    "amount": 500.00,
+    "reason": "Service cancellation",
+    "originalTransactionId": "original-txn-uuid",
+    "refundType": "full_refund"
+}
+```
+**Response**: 
+```json
+{
+    "message": "success",
+    "data": {
+        "refundId": 1,
+        "refundUniqueId": "refund-uuid-here",
+        "userUniqueId": "user-uuid-here",
+        "amount": 500.00,
+        "balanceBefore": 1000.00,
+        "balanceAfter": 1500.00,
+        "status": "COMPLETED",
+        "processedAt": "2026-01-31T17:00:00.000Z",
+        "processedBy": "admin-uuid-here"
+    }
+}
+```
+
+### 14. Transfer Balance
+**Endpoint**: `POST /api/finance/balanceTransfer`  
+**Description**: Transfers balance from one user to another, with admin approval for security.  
+**Balance Effect**: **Sender: Negative** - Decreases sender balance (Previous Balance - Transfer Amount = New Balance)  
+**Balance Effect**: **Receiver: Positive** - Increases receiver balance (Previous Balance + Transfer Amount = New Balance)  
+**Authentication**: Admin token required  
+**Request Body**:
+```json
+{
+    "fromUserUniqueId": "sender-uuid-here",
+    "toUserUniqueId": "receiver-uuid-here",
+    "amount": 200.00,
+    "reason": "Account correction",
+    "requiresApproval": true
+}
+```
+**Response**: 
+```json
+{
+    "message": "success",
+    "data": {
+        "transferId": 1,
+        "transferUniqueId": "transfer-uuid-here",
+        "fromUserUniqueId": "sender-uuid-here",
+        "toUserUniqueId": "receiver-uuid-here",
+        "amount": 200.00,
+        "status": "PENDING_APPROVAL",
+        "requestedAt": "2026-01-31T17:30:00.000Z",
+        "requestedBy": "admin-uuid-here"
+    }
+}
+```
+
+### 15. Get User Balance
+**Endpoint**: `GET /api/finance/userBalance/{userUniqueId}`  
+**Description**: Retrieves the current balance and transaction history for a user.  
+**Authentication**: User token required (own balance) or Admin token  
+**Query Parameters**:
+- `includeHistory`: Include transaction history (true/false)
+- `limit`: Number of transactions to return
+- `offset`: Pagination offset
+
+**Response**: 
+```json
+{
+    "message": "success",
+    "data": {
+        "userUniqueId": "user-uuid-here",
+        "currentBalance": 2500.00,
+        "availableBalance": 2400.00,
+        "pendingBalance": 100.00,
+        "lastUpdated": "2026-01-31T18:00:00.000Z",
+        "transactionHistory": [
+            {
+                "transactionId": 1,
+                "transactionType": "deposit",
+                "amount": 1000.00,
+                "description": "Driver earnings",
+                "createdAt": "2026-01-30T10:00:00.000Z",
+                "balanceAfter": 2500.00
+            },
+            {
+                "transactionId": 2,
+                "transactionType": "subscription",
+                "amount": -450.00,
+                "description": "Monthly Premium subscription",
+                "createdAt": "2026-01-31T16:00:00.000Z",
+                "balanceAfter": 2050.00
+            }
+        ],
+        "pagination": {
+            "total": 25,
+            "limit": 10,
+            "offset": 0,
+            "hasNext": true
+        }
+    }
+}
+```
+
+### 16. Approve Pending Deposits (Admin)
+**Endpoint**: `POST /api/finance/approveDeposit`  
+**Description**: Admin approves pending deposit transactions that require manual approval.  
+**Balance Effect**: **Positive** - Increases user balance upon approval (Previous Balance + Deposit Amount = New Balance)  
+**Authentication**: Admin token required  
+**Request Body**:
+```json
+{
+    "depositUniqueId": "deposit-uuid-here",
+    "approvalStatus": "APPROVED",
+    "approvalReason": "Verified transaction details"
+}
+```
+**Response**: 
+```json
+{
+    "message": "success",
+    "data": {
+        "depositId": 1,
+        "status": "APPROVED",
+        "approvedBy": "admin-uuid-here",
+        "approvedAt": "2026-01-31T18:30:00.000Z",
+        "userBalanceUpdated": true
+    }
+}
+``` 
 
 
 

@@ -1,7 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const controller = require("../../Controllers/DepositSource.controller");
-const { verifyTokenOfAxios } = require("../../Middleware/VerifyToken");
+const {
+  verifyTokenOfAxios,
+  verifyIfUserIsAdminOrSupperAdmin,
+} = require("../../Middleware/VerifyToken");
 
 // Create new source
 const { validator } = require("../../Middleware/Validator");
@@ -15,17 +18,24 @@ const {
 router.post(
   "/",
   verifyTokenOfAxios,
+  verifyIfUserIsAdminOrSupperAdmin,
   validator(createDepositSource),
   controller.createDepositSource,
 );
 
 // Get all sources
-router.get("/", verifyTokenOfAxios, controller.getAllDepositSources);
+router.get(
+  "/",
+  verifyTokenOfAxios,
+  verifyIfUserIsAdminOrSupperAdmin,
+  controller.getAllDepositSources,
+);
 
 // Get by UUID
 router.get(
   "/:depositSourceUniqueId",
   verifyTokenOfAxios,
+  verifyIfUserIsAdminOrSupperAdmin,
   validator(depositSourceParams, "params"),
   controller.getDepositSourceByUniqueId,
 );
@@ -34,6 +44,7 @@ router.get(
 router.put(
   "/:depositSourceUniqueId",
   verifyTokenOfAxios,
+  verifyIfUserIsAdminOrSupperAdmin,
   validator(depositSourceParams, "params"),
   validator(updateDepositSource),
   controller.updateDepositSourceByUniqueId,
@@ -43,6 +54,7 @@ router.put(
 router.delete(
   "/:depositSourceUniqueId",
   verifyTokenOfAxios,
+  verifyIfUserIsAdminOrSupperAdmin,
   validator(depositSourceParams, "params"),
   controller.deleteDepositSourceByUniqueId,
 );

@@ -104,6 +104,18 @@ const updateDepositSourceByUniqueId = async (
 
 // Delete by UUID
 const deleteDepositSourceByUniqueId = async (depositSourceUniqueId, user) => {
+  // first check if it was deleted before
+  const checkDeletedSql = `SELECT depositSourceDeletedAt FROM DepositSource WHERE depositSourceUniqueId = ?`;
+  const [existing] = await pool.query(checkDeletedSql, [depositSourceUniqueId]);
+
+  if (existing.length === 0) {
+    throw new AppError("Deposit source not found", 404);
+  }
+
+  if (existing[0].depositSourceDeletedAt) {
+    throw new AppError("Deposit source is already deleted", 400);
+  }
+
   const userUniqueId = user?.userUniqueId;
   const sql = `UPDATE DepositSource SET depositSourceDeletedAt = ?, depositSourceDeletedBy = ? WHERE depositSourceUniqueId = ?`;
   const [result] = await pool.query(sql, [

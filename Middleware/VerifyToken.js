@@ -91,11 +91,16 @@ const verifyIfUserIsSupperAdmin = async (req, res, next) => {
     const data = decoded?.data;
     const roleId = data?.roleId;
     if (roleId !== usersRoles.supperAdminRoleId) {
-      return next(new AppError("User is not a supper admin", 401));
+      return next(new AppError("You are not allowed to do this action", 401));
     }
     next();
   } catch {
-    next(new AppError("User is not a supper admin", 401));
+    next(
+      new AppError(
+        "Sorry, unexpected error happened, you are not allowed to do this action",
+        401,
+      ),
+    );
   }
 };
 
@@ -114,11 +119,16 @@ const verifyIfUserIsAdminOrSupperAdmin = async (req, res, next) => {
       roleId !== usersRoles.adminRoleId &&
       roleId !== usersRoles.supperAdminRoleId
     ) {
-      return next(new AppError("User is not an admin or supper admin", 401));
+      return next(new AppError("You are not allowed to do this action", 401));
     }
     next();
   } catch {
-    next(new AppError("User is not an admin or supper admin", 401));
+    next(
+      new AppError(
+        "Sorry, unexpected error happened, you are not allowed to do this action",
+        401,
+      ),
+    );
   }
 };
 
