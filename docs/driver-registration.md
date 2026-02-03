@@ -1,8 +1,8 @@
-# Driver Registration
+ #  Driver Registration
 
 Complete guide to driver account creation, verification, and management.
 
-## Driver Registration Flow
+ Driver Registration Flow
 
 ### 1. Create Driver Account
 
@@ -14,7 +14,6 @@ Complete guide to driver account creation, verification, and management.
 {
   "fullName": "user 80",
   "phoneNumber": "+251922112481",
-  "roleId": "2",
   "statusId": "2"
 }
 ```
@@ -845,12 +844,44 @@ Drivers receive real-time notifications through WebSocket connections and can ve
 
 **Error Responses**:
 
-- **400 Bad Request**: Missing required fields or invalid passenger request ID
+- **400 Bad Request**: Missing required fields or request not in negative status
 - **401 Unauthorized**: Invalid or missing driver token
-- **403 Forbidden**: Driver not authorized or account not active
-- **404 Not Found**: Passenger request not found or not available
-- **409 Conflict**: Request already accepted by another driver
-- **500 Internal Server Error**: Server error during manual acceptance
+- **403 Forbidden**: Driver request does not belong to this user
+- **404 Not Found**: Driver request or journey decision not found
+- **500 Internal Server Error**: Server error during status update
+
+**For canceling active requests, use:** `DELETE /api/driver/cancelDriverRequest?ownerUserUniqueId=self&roleId=2&cancellationReasonsTypeId=2`
+
+### Mark Negative Status as Seen
+
+**Endpoint**: `PUT /api/driver/markNegativeStatusAsSeen`
+**Description**: Allows drivers to mark negative notifications as seen. Handles multiple negative statuses: not selected in bid, rejected by passenger, cancelled by passenger, cancelled by admin, or cancelled by system.
+**Authentication**: Driver token required
+
+**Request Body:**
+
+```json
+{
+  "driverRequestUniqueId": "2e957815-a749-4fa3-8a26-b2ce338a24af"
+}
+```
+
+**Success Response:**
+
+```json
+{
+  "message": "success",
+  "data": "not selected in bid notification marked as seen"
+}
+```
+
+**Error Responses**:
+
+- **400 Bad Request**: Missing required fields or request not in negative status
+- **401 Unauthorized**: Invalid or missing driver token
+- **403 Forbidden**: Driver request does not belong to this user
+- **404 Not Found**: Driver request or journey decision not found
+- **500 Internal Server Error**: Server error during status update
 
 **For canceling active requests, use:** `DELETE /api/driver/cancelDriverRequest?ownerUserUniqueId=self&roleId=2&cancellationReasonsTypeId=2`
 
@@ -1000,6 +1031,102 @@ Drivers receive real-time notifications through WebSocket connections and can ve
 - **404 Not Found**: Journey, driver request, or passenger request not found
 - **409 Conflict**: Journey already completed or in invalid status
 - **500 Internal Server Error**: Server error during journey completion
+
+### Driver Request History
+
+**Endpoint**: `GET /api/user/getDriverRequest`
+**Description**: Get driver request history with filtering options. Used for viewing completed journeys and request history.
+**Authentication**: Driver token required
+
+**Query Parameters:**
+- `target=single` - Get single request or `all` for multiple
+- `journeyStatusIds=6` - Filter by journey status (6 = completed)
+- `driverUserUniqueId=self` - Current user's requests
+- `page=1` - Page number (default: 1)
+- `limit=10` - Results per page (default: 10)
+- `startDate=2026-01-01` - Filter by start date
+- `endDate=2026-01-31` - Filter by end date
+- `sortBy=createdAt` - Sort field
+- `sortOrder=desc` - Sort direction (asc/desc)
+
+**Success Response:**
+```json
+{
+  "message": "success",
+  "data": [
+    {
+      "driverRequestId": 15,
+      "driverRequestUniqueId": "uuid-here",
+      "journeyStatusId": 6,
+      "originLatitude": "9.02046830",
+      "originLongitude": "38.80246000",
+      "originPlace": "Addis Ababa, Ethiopia",
+      "driverRequestCreatedAt": "2026-02-02T13:49:38.000Z",
+      "passenger": {
+        "passengerRequestId": 144,
+        "passengerRequestUniqueId": "uuid-here",
+        "fullName": "Birhanu Gardie",
+        "phoneNumber": "+251922112481",
+        "destinationPlace": "Gayint, South Gonder, Amhara Region, Ethiopia",
+        "shippableItemName": "Vccc",
+        "shippingCost": "45000.00"
+      },
+      "journey": {
+        "journeyId": 25,
+        "journeyUniqueId": "uuid-here",
+        "journeyStartedAt": "2026-02-02T14:30:00.000Z",
+        "journeyCompletedAt": "2026-02-02T16:45:00.000Z"
+      }
+    }
+  ],
+  "pagination": {
+    "currentPage": 1,
+    "totalPages": 5,
+    "totalRecords": 47,
+    "hasNext": true,
+    "hasPrev": false
+  }
+}
+```
+
+**Error Responses**:
+- **400 Bad Request**: Invalid query parameters
+- **401 Unauthorized**: Invalid or missing driver token
+- **403 Forbidden**: Not authorized to view these requests
+- **500 Internal Server Error**: Server error during request retrieval
+
+### Passenger No Answer Report
+
+**Endpoint**: `PUT /api/passenger/noAnswerFromDriver`
+**Description**: Allows passengers to report when a driver doesn't answer their request. Updates driver status to "no answer" and creates new passenger request if needed.
+**Authentication**: Passenger token required
+
+**Request Body:**
+```json
+{
+  "passengerRequestUniqueId": "f64ca621-8b44-4adc-92a9-dc0767542099",
+  "driverRequestUniqueId": "8f66482b-f0f0-4f94-9d7a-d7d0a6d2c894"
+}
+```
+
+**Success Response:**
+```json
+{
+  "message": "success",
+  "status": 1,
+  "data": "driver_not_answered"
+}
+```
+
+**Error Responses**:
+- **400 Bad Request**: Missing required fields or invalid request status
+- **401 Unauthorized**: Invalid or missing passenger token
+- **403 Forbidden**: Not authorized to report this request
+- **404 Not Found**: Passenger request or driver request not found
+- **409 Conflict**: Driver already answered or request in invalid status
+- **500 Internal Server Error**: Server error during no answer processing
+
+**Payment Transactions**
 
 **Description**: View payment transactions
 **Authentication**: Driver token required
