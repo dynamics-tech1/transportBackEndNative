@@ -44,8 +44,10 @@ const AppError = require("../../Utils/AppError");
 const takeFromStreet = async (body, user) => {
   try {
     // first verify if driver has active request
-    const { verifyDriverStatus } = require("./statusVerification.service");
-    const driverStatus = await verifyDriverStatus({
+    const {
+      verifyDriverJourneyStatus,
+    } = require("./statusVerification.service");
+    const driverStatus = await verifyDriverJourneyStatus({
       userUniqueId: user?.userUniqueId,
     });
     // console.log("@takeFromStreet driverStatus", driverStatus);
@@ -537,8 +539,10 @@ const createAndAcceptNewRequest = async (body, connection = null) => {
       );
     }
 
-    const { verifyDriverStatus } = require("./statusVerification.service");
-    return await verifyDriverStatus({
+    const {
+      verifyDriverJourneyStatus,
+    } = require("./statusVerification.service");
+    return await verifyDriverJourneyStatus({
       userUniqueId,
     });
   } catch (error) {
@@ -684,8 +688,8 @@ const acceptPassengerRequest = async (body) => {
       });
     }
 
-    // Build response structure matching verifyDriverStatus/handleExistingJourney format
-    // Use data we already have instead of calling verifyDriverStatus
+    // Build response structure matching verifyDriverJourneyStatus/handleExistingJourney format
+    // Use data we already have instead of calling verifyDriverJourneyStatus
     const uniqueIds = {
       driverRequestUniqueId: driverInfo?.driver?.driverRequestUniqueId,
       passengerRequestUniqueId: passengerRequest?.passengerRequestUniqueId,

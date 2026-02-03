@@ -70,6 +70,14 @@ router.get(
   installPreDefinedDataController,
 );
 
+// POST method for installing predefined data
+router.post(
+  "/api/admin/installPreDefinedData",
+  verifyTokenOfAxios,
+  validator(installDataQuery, "query"),
+  installPreDefinedDataController,
+);
+
 // Database migration endpoints
 router.post(
   "/api/admin/migrations/run",

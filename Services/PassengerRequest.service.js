@@ -30,7 +30,7 @@ const {
 } = require("../Utils/ListOfSeedData");
 const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 const { updateJourneyStatus } = require("./JourneyStatus.service");
-const { verifyDriverStatus } = require("./DriverRequest.service");
+const { verifyDriverJourneyStatus } = require("./DriverRequest.service");
 const {
   getJourneyDecision4AllOrSingleUser,
 } = require("./JourneyDecisions.service");
@@ -144,7 +144,7 @@ const acceptDriverRequest = async (body) => {
 
     await updateJourneyStatus(updatePayload);
 
-    const driverStatus = await verifyDriverStatus({
+    const driverStatus = await verifyDriverJourneyStatus({
       userUniqueId: driver?.userUniqueId,
     });
 

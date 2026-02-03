@@ -5,7 +5,7 @@ const { createDriverRequest } = require("../../CRUD/Create/CreateData");
 const { pool } = require("../../Middleware/Database.config");
 const { journeyStatusMap } = require("../../Utils/ListOfSeedData");
 const { checkIfDriverIsHealthy } = require("./helpers");
-const { verifyDriverStatus } = require("./statusVerification.service");
+const { verifyDriverJourneyStatus } = require("./statusVerification.service");
 const AppError = require("../../Utils/AppError");
 
 /**
@@ -39,16 +39,16 @@ const createRequest = async ({
     }
 
     if (!findNewRequest) {
-      // When findNewRequest is false, still return standardized format using verifyDriverStatus
-      return await verifyDriverStatus({
+      // When findNewRequest is false, still return standardized format using verifyDriverJourneyStatus
+      return await verifyDriverJourneyStatus({
         userUniqueId,
         activeRequest,
       });
     }
 
     // Find matching passengers and update status
-    // This returns the standardized format matching verifyDriverStatus endpoint
-    return await verifyDriverStatus({
+    // This returns the standardized format matching verifyDriverJourneyStatus endpoint
+    return await verifyDriverJourneyStatus({
       userUniqueId,
       activeRequest,
     });

@@ -42,7 +42,7 @@ module.exports = {
   sendUpdatedLocation: journeyManagement.sendUpdatedLocation,
 
   // Status Verification
-  verifyDriverStatus: statusVerification.verifyDriverStatus,
+  verifyDriverJourneyStatus: statusVerification.verifyDriverJourneyStatus,
   handleJourneyStatusOne: statusVerification.handleJourneyStatusOne,
   handleExistingJourney: statusVerification.handleExistingJourney,
   getNotificationStatuses: statusVerification.getNotificationStatuses,

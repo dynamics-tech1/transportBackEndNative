@@ -27,7 +27,7 @@ const { verifyPassengerStatus } = require("./statusVerification.service");
 const { executeInTransaction } = require("../../Utils/DatabaseTransaction");
 const { currentDate } = require("../../Utils/CurrentDate");
 // Lazy require to avoid circular dependency
-// const { verifyDriverStatus } = require("../DriverRequest.service");
+// const { verifyDriverJourneyStatus } = require("../DriverRequest.service");
 
 /**
  * Accepts a driver's request/offer
@@ -272,11 +272,11 @@ const acceptDriverRequest = async (body) => {
       // Provide unique IDs so frontend knows what to fetch
       uniqueIds: acceptedDriver[0]
         ? {
-          driverRequestUniqueId: acceptedDriver[0]?.driverRequestUniqueId,
-          passengerRequestUniqueId:
+            driverRequestUniqueId: acceptedDriver[0]?.driverRequestUniqueId,
+            passengerRequestUniqueId:
               acceptedDriver[0]?.passengerRequestUniqueId,
-          journeyDecisionUniqueId: acceptedDriver[0]?.journeyDecisionUniqueId,
-        }
+            journeyDecisionUniqueId: acceptedDriver[0]?.journeyDecisionUniqueId,
+          }
         : null,
       // Include updated status counts (totalRecords) for frontend to update UI
       totalRecords: statusResult?.totalRecords || null,

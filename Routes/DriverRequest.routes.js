@@ -1,7 +1,7 @@
 const express = require("express");
 const {
   deleteRequestController,
-  verifyDriverStatusController,
+  verifyDriverJourneyStatusController,
   createRequest,
   acceptPassengerRequest,
   startJourney,
@@ -28,7 +28,7 @@ const {
   getCancellationNotificationsQuery: getCancellationNotificationsQuerySchema,
   markNegativeStatusAsSeen: markNegativeStatusAsSeenSchema,
   acceptPassengerRequest: acceptPassengerRequestSchema,
-  verifyDriverStatus: verifyDriverStatusSchema,
+  verifyDriverJourneyStatus: verifyDriverJourneyStatusSchema,
   sendUpdatedLocation: sendUpdatedLocationSchema,
   completeJourney: completeJourneySchema,
   startJourney: startJourneySchema,
@@ -258,7 +258,7 @@ router.post(
  *      - Updates PassengerRequest: journeyStatusId → 3 (acceptedByDriver)
  *      - All operations atomic (15 second timeout)
  *
- * 4. Returns driver status via verifyDriverStatus() with complete journey data
+ * 4. Returns driver status via verifyDriverJourneyStatus() with complete journey data
  *
  * Request Body:
  * - passengerRequestUniqueId: Unique ID of the passenger request to accept (required)
@@ -266,7 +266,7 @@ router.post(
  * - currentLocation: {latitude, longitude, description} - Driver's current location (required if no existing DriverRequest)
  *
  * Response:
- * - Returns driver status from verifyDriverStatus() including:
+ * - Returns driver status from verifyDriverJourneyStatus() including:
  *   - driver: Driver request data with vehicle information
  *   - passenger: Accepted passenger request data
  *   - decision: JourneyDecision linking driver and passenger
@@ -300,7 +300,7 @@ router.post(
  * - Checks for existing JourneyDecision before creating new one (avoids duplicates)
  * - If existing linkage found, updates are wrapped in transaction (atomic)
  * - If new linkage created, all operations are wrapped in transaction (atomic)
- * - Final verifyDriverStatus() call fetches complete journey data for response
+ * - Final verifyDriverJourneyStatus() call fetches complete journey data for response
  *
  * Transaction Coverage:
  * - ✅ Existing JourneyDecision path: Fully wrapped in transaction (lines 351-388, 10 second timeout)
@@ -440,7 +440,7 @@ router.post(
  * - Transaction ensures atomic updates across 3 tables (prevents partial updates)
  * - Fetches notification data after transaction commit (ensures consistency)
  * - Notifications sent after successful database commit (prevents notifications for failed updates)
- * - Returns data without calling verifyDriverStatus (optimized, uses already-fetched data)
+ * - Returns data without calling verifyDriverJourneyStatus (optimized, uses already-fetched data)
  *
  * Transaction Coverage:
  * - ✅ Fully wrapped in transaction via updateJourneyStatus()
@@ -1458,7 +1458,7 @@ router.delete(
  *
  * Flow Diagram:
  * ┌─────────────────────────────────────────────────────────────┐
- * │ verifyDriverStatus (Entry Point)                           │
+ * │ verifyDriverJourneyStatus (Entry Point)                           │
  * └────────────────┬────────────────────────────────────────────┘
  *                  │
  *                  ├─→ Step 1: Check Vehicle
@@ -1654,29 +1654,29 @@ router.delete(
  *
  * Example 1: New Driver Request (Auto-match)
  * 1. Driver creates request → status: waiting (1)
- * 2. Driver calls verifyDriverStatus → Finds nearby passenger
+ * 2. Driver calls verifyDriverJourneyStatus → Finds nearby passenger
  * 3. System auto-matches → Creates JourneyDecision → Updates statuses
  * 4. Response: status: requested (2), includes passenger and decision data
  * 5. Passenger receives notification about driver match
  *
  * Example 2: Driver Accepted by Passenger
  * 1. Passenger selects driver → status: acceptedByPassenger (4)
- * 2. Driver calls verifyDriverStatus → Returns status: 4 with passenger data
+ * 2. Driver calls verifyDriverJourneyStatus → Returns status: 4 with passenger data
  * 3. Driver can see passenger details and prepare to pick up
  *
  * Example 3: Journey In Progress
  * 1. Driver starts journey → status: journeyStarted (5)
- * 2. Driver calls verifyDriverStatus → Returns status: 5 with journey data
+ * 2. Driver calls verifyDriverJourneyStatus → Returns status: 5 with journey data
  * 3. Driver can see journey route, passenger location, etc.
  *
  * Example 4: Journey Completed
  * 1. Driver completes journey → status: journeyCompleted (6)
- * 2. Driver calls verifyDriverStatus → Returns status: 6 with completed journey data
+ * 2. Driver calls verifyDriverJourneyStatus → Returns status: 6 with completed journey data
  * 3. Driver can see payment information and close request
  *
  * Example 5: Passenger Cancelled
  * 1. Passenger cancels request → status: cancelledByPassenger (7)
- * 2. Driver calls verifyDriverStatus → Returns status: 7 with cancellation notification
+ * 2. Driver calls verifyDriverJourneyStatus → Returns status: 7 with cancellation notification
  * 3. Driver can see cancellation reason and mark as seen
  *
  * Important Logic - Auto-matching (Status = waiting):
@@ -1732,11 +1732,11 @@ router.delete(
  * - Other endpoints are called for specific actions (accept, start, complete)
  */
 router.get(
-  "/api/driver/verifyDriverStatus",
+  "/api/driver/verifyDriverJourneyStatus",
   verifyTokenOfAxios,
-  validator(verifyDriverStatusSchema, "query"), // Validates query parameters (empty object - no params needed)
+  validator(verifyDriverJourneyStatusSchema, "query"), // Validates query parameters (empty object - no params needed)
   // verifyDriversIdentity, // Commented out - uses token userUniqueId directly
-  verifyDriverStatusController,
+  verifyDriverJourneyStatusController,
 );
 // api/user/getDriverRequest?driverUniqueId=uuidv4&target=allOrSingleDriverRequests
 router.get(
@@ -2016,7 +2016,7 @@ router.get(
  * Differences from Other Endpoints:
  * - Unlike /api/driver/startJourney: This endpoint sends location updates, doesn't start journey
  * - Unlike /api/driver/completeJourney: This endpoint tracks location, doesn't complete journey
- * - Unlike /api/driver/verifyDriverStatus: This endpoint stores location, not just verifies status
+ * - Unlike /api/driver/verifyDriverJourneyStatus: This endpoint stores location, not just verifies status
  * - This endpoint is called frequently during journey (GPS tracking pattern)
  * - Other endpoints are called for specific journey actions (start, complete, accept)
  */
@@ -2326,7 +2326,7 @@ router.put(
  * - Query execution time: Depends on number of cancellations and indexes
  *
  * Differences from Other Endpoints:
- * - Unlike /api/driver/verifyDriverStatus: This endpoint focuses on cancellations only, not all statuses
+ * - Unlike /api/driver/verifyDriverJourneyStatus: This endpoint focuses on cancellations only, not all statuses
  * - Unlike /api/passenger/getCancellationNotifications: This endpoint is for drivers, filters by cancelledByPassenger/cancelledByAdmin
  * - Unlike /api/driver/markNegativeStatusAsSeen: This endpoint only reads data, doesn't update seen status
  * - This endpoint is specifically for cancellation notifications
@@ -2681,7 +2681,7 @@ router.get(
  * Differences from Other Endpoints:
  * - Unlike /api/driver/getCancellationNotifications: This endpoint UPDATES seen status, doesn't just read
  * - Unlike /api/driver/markCancellationAsSeen (if exists): This endpoint handles ALL negative statuses, not just cancellations
- * - Unlike /api/driver/verifyDriverStatus: This endpoint marks notifications as seen, doesn't verify current status
+ * - Unlike /api/driver/verifyDriverJourneyStatus: This endpoint marks notifications as seen, doesn't verify current status
  * - This endpoint is specifically for updating seen status
  * - Other endpoints handle different aspects (reading, verifying, etc.)
  *

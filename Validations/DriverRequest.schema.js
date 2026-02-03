@@ -49,7 +49,7 @@ exports.markNegativeStatusAsSeen = Joi.object({
 
 // Verify driver status - no query parameters required (uses authenticated user's userUniqueId from token)
 // Allows unknown query parameters for flexibility, but validates none are required
-exports.verifyDriverStatus = Joi.object({}).unknown(true);
+exports.verifyDriverJourneyStatus = Joi.object({}).unknown(true);
 
 exports.acceptPassengerRequest = Joi.object({
   driverRequestUniqueId: uuidSchema,

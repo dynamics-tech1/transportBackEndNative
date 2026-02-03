@@ -639,14 +639,7 @@ const depositSources = [
     sourceKey: "Driver",
     sourceLabel: "when drivers make direct deposit to there account",
   },
-  {
-    sourceKey: "Transfer",
-    sourceLabel: "When one driver make direct transfer to other driver",
-  },
-  {
-    sourceKey: "Admin",
-    sourceLabel: "When admin make direct deposit to there account",
-  },
+
   {
     sourceKey: "Bonus",
     sourceLabel: "When one driver make direct transfer to other driver",

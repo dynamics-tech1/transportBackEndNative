@@ -184,8 +184,8 @@ const startJourney = async (body) => {
       });
     }
 
-    // Build response structure matching verifyDriverStatus/handleExistingJourney format
-    // Use data we already have instead of calling verifyDriverStatus
+    // Build response structure matching verifyDriverJourneyStatus/handleExistingJourney format
+    // Use data we already have instead of calling verifyDriverJourneyStatus
     const uniqueIds = {
       driverRequestUniqueId: driverInfo?.driver?.driverRequestUniqueId,
       passengerRequestUniqueId: passengerRequest?.passengerRequestUniqueId,
@@ -367,8 +367,8 @@ const completeJourney = async (body) => {
       }
     }
 
-    // Build response structure matching verifyDriverStatus/handleExistingJourney format
-    // Use data we already have instead of calling verifyDriverStatus
+    // Build response structure matching verifyDriverJourneyStatus/handleExistingJourney format
+    // Use data we already have instead of calling verifyDriverJourneyStatus
     const uniqueIds = {
       driverRequestUniqueId: driverInfo?.driver?.driverRequestUniqueId,
       passengerRequestUniqueId: passengerRequest?.passengerRequestUniqueId,

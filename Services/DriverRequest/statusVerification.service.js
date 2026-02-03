@@ -30,7 +30,7 @@ const {
   fetchJourneyNotificationData,
 } = require("./helpers");
 
-const verifyDriverStatus = async ({ userUniqueId, activeRequest }) => {
+const verifyDriverJourneyStatus = async ({ userUniqueId, activeRequest }) => {
   try {
     // Step 1: Check if the driver has a vehicle via VehicleDriver relation
     const vdResult = await getVehicleDrivers({
@@ -95,7 +95,7 @@ const verifyDriverStatus = async ({ userUniqueId, activeRequest }) => {
 
     return await handleExistingJourney(driverRequest, vehicle);
   } catch (error) {
-    logger.error("Error in verifyDriverStatus", {
+    logger.error("Error in verifyDriverJourneyStatus", {
       error: error.message,
       stack: error.stack,
     });
@@ -581,9 +581,9 @@ const isTerminalStatus = (journeyStatusId) => {
   return journeyStatusId > journeyStatusMap.journeyCompleted;
 };
 
-// verifyDriverStatus starts here
+// verifyDriverJourneyStatus starts here
 module.exports = {
-  verifyDriverStatus,
+  verifyDriverJourneyStatus,
   handleJourneyStatusOne,
   handleExistingJourney,
   getNotificationStatuses,

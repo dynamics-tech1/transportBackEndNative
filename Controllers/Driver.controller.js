@@ -79,10 +79,10 @@ const deleteRequestController = async (req, res, next) => {
   }
 };
 
-const verifyDriverStatusController = async (req, res, next) => {
+const verifyDriverJourneyStatusController = async (req, res, next) => {
   try {
     const { userUniqueId } = req?.user;
-    const result = await services.verifyDriverStatus({
+    const result = await services.verifyDriverJourneyStatus({
       userUniqueId,
     });
 
@@ -288,7 +288,7 @@ module.exports = {
   acceptPassengerRequest,
   deleteRequestController,
   takeFromStreet,
-  verifyDriverStatusController,
+  verifyDriverJourneyStatusController,
   getDriverRequestController,
   getCancellationNotificationsController,
   markNegativeStatusAsSeenController,
