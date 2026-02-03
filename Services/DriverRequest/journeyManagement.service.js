@@ -15,11 +15,10 @@ const messageTypes = require("../../Utils/MessageTypes");
 const { fetchJourneyNotificationData } = require("./helpers");
 const { currentDate } = require("../../Utils/CurrentDate");
 const AppError = require("../../Utils/AppError");
+const { createCommission } = require("../Commission.service");
 
 const startJourney = async (body) => {
   try {
-    // console.log("@startJourney body =====> ", body);
-    // return;
     const journeyUniqueId = uuidv4();
     const journeyDecisionUniqueId = body?.journeyDecisionUniqueId;
     const userUniqueId = body?.userUniqueId;
@@ -291,6 +290,23 @@ const completeJourney = async (body) => {
           connection, // Pass connection for transaction support
         });
 
+        // Create commission record (rate and status handled internally by service)
+        const paymentAmount = combinedData.shippingCostByDriver;
+
+        if (!paymentAmount || paymentAmount <= 0) {
+          throw new AppError(
+            "Invalid payment amount from journey decision",
+            400,
+          );
+        }
+
+        await createCommission({
+          journeyDecisionUniqueId: body.journeyDecisionUniqueId,
+          paymentAmount,
+          commissionCreatedBy: userUniqueId, // Driver who completed the journey
+          connection, // Pass connection for transaction support
+        });
+
         // Record completion location in JourneyRoutePoints
         await createJourneyRoutePoint(
           {
@@ -321,7 +337,7 @@ const completeJourney = async (body) => {
       journeyDecisionUniqueId: combinedData.journeyDecisionUniqueId,
       passengerRequestId: combinedData.passengerRequestId,
       driverRequestId: combinedData.driverRequestId,
-      journeyStatusId: combinedData.journeyStatusId,
+      journeyStatusId: journeyStatusMap.journeyCompleted, // Use updated status, not combinedData.journeyStatusId
       decisionTime: combinedData.decisionTime,
       decisionBy: combinedData.decisionBy,
       shippingCostByDriver: combinedData.shippingCostByDriver,
