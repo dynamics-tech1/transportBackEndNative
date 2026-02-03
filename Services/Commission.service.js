@@ -4,6 +4,9 @@ const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
 const logger = require("../Utils/logger");
 const { journeyStatusMap } = require("../Utils/ListOfSeedData");
+const {
+  prepareAndCreateNewBalance,
+} = require("./UserBalance.service/UserBalance.post.service");
 
 // Cached commission status ID (lazy loaded)
 let cachedCommissionStatusId = null;
@@ -140,9 +143,10 @@ async function createCommissionInConnection(
 
   // 1. Verify journey decision exists
   const [journeyData] = await connection.query(
-    `SELECT journeyDecisionUniqueId, journeyStatusId
-     FROM JourneyDecisions
-     WHERE journeyDecisionUniqueId = ?`,
+    `SELECT jd.journeyDecisionUniqueId, jd.journeyStatusId, dr.driverUniqueId
+     FROM JourneyDecisions jd
+     JOIN DriverRequest dr ON jd.driverRequestUniqueId = dr.driverRequestId
+     WHERE jd.journeyDecisionUniqueId = ?`,
     [journeyDecisionUniqueId],
   );
 
@@ -242,6 +246,18 @@ async function createCommissionInConnection(
 
   // Log business event
   logger.application.commissionCreated(commissionData[0], commissionCreatedBy);
+
+  // Deduct commission from driver balance
+  const driverUniqueId = journeyData[0].driverUniqueId;
+
+  await prepareAndCreateNewBalance({
+    addOrDeduct: "deduct",
+    amount: commissionAmount,
+    driverUniqueId: driverUniqueId,
+    transactionUniqueId: commissionUniqueId,
+    transactionType: "Commission",
+    userBalanceCreatedBy: commissionCreatedBy,
+  });
 
   return {
     message: "Commission created successfully",

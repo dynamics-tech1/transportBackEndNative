@@ -229,18 +229,14 @@ const completeJourney = async (body) => {
     // 1. Validate all UUIDs in one optimized query
     // Use explicit column selection to avoid userUniqueId collision between DriverRequest and PassengerRequest
     const validateQuery = `
-      SELECT 
-        JourneyDecisions.*,
-        DriverRequest.driverRequestUniqueId,
+      SELECT JourneyDecisions.*, DriverRequest.driverRequestUniqueId,
         DriverRequest.userUniqueId as driverUserUniqueId,
         PassengerRequest.passengerRequestUniqueId,
         PassengerRequest.userUniqueId as passengerUserUniqueId,
         Journey.journeyUniqueId,
-        Journey.startTime,
-        Journey.endTime,
+        Journey.startTime, Journey.endTime,
         Users.fullName as driverFullName,
-        Users.phoneNumber as driverPhoneNumber
-      FROM JourneyDecisions
+        Users.phoneNumber as driverPhoneNumber FROM JourneyDecisions
       JOIN DriverRequest ON JourneyDecisions.driverRequestId = DriverRequest.driverRequestId
       JOIN PassengerRequest ON JourneyDecisions.passengerRequestId = PassengerRequest.passengerRequestId
       JOIN Journey ON Journey.journeyDecisionUniqueId = JourneyDecisions.journeyDecisionUniqueId
@@ -267,14 +263,14 @@ const completeJourney = async (body) => {
       );
     }
 
-    const combinedData = journeyDecisionDriverData[0];
+    const combinedData = journeyDecisionDriverData?.[0];
 
     // Validate driver identity (userUniqueId from token must match driver in database)
     // Skip validation if user is admin or super admin (they can complete journeys on behalf of drivers)
     const isAdmin =
-      body.roleId === usersRoles.adminRoleId ||
-      body.roleId === usersRoles.supperAdminRoleId;
-    if (!isAdmin && combinedData.driverUserUniqueId !== userUniqueId) {
+      body.roleId === usersRoles?.adminRoleId ||
+      body.roleId === usersRoles?.supperAdminRoleId;
+    if (!isAdmin && combinedData?.driverUserUniqueId !== userUniqueId) {
       throw new AppError("Driver user does not match journey decision", 403);
     }
 
@@ -291,7 +287,7 @@ const completeJourney = async (body) => {
         });
 
         // Create commission record (rate and status handled internally by service)
-        const paymentAmount = combinedData.shippingCostByDriver;
+        const paymentAmount = combinedData?.shippingCostByDriver;
 
         if (!paymentAmount || paymentAmount <= 0) {
           throw new AppError(
@@ -299,20 +295,22 @@ const completeJourney = async (body) => {
             400,
           );
         }
-        // enable it to register commissions
-        // await createCommission({
-        //   journeyDecisionUniqueId: body.journeyDecisionUniqueId,
-        //   paymentAmount,
-        //   commissionCreatedBy: userUniqueId, // Driver who completed the journey
-        //   connection, // Pass connection for transaction support
-        // });
+        // set DRIVERS_PAYMENT_SYSTEM=COMMISSION in env to register commissions
+        if (process.env.DRIVERS_PAYMENT_SYSTEM === "COMMISSION") {
+          await createCommission({
+            journeyDecisionUniqueId: body?.journeyDecisionUniqueId,
+            paymentAmount,
+            commissionCreatedBy: userUniqueId, // Driver who completed the journey
+            connection, // Pass connection for transaction support
+          });
+        }
 
         // Record completion location in JourneyRoutePoints
         await createJourneyRoutePoint(
           {
-            journeyDecisionUniqueId: body.journeyDecisionUniqueId,
-            latitude: body.latitude,
-            longitude: body.longitude,
+            journeyDecisionUniqueId: body?.journeyDecisionUniqueId,
+            latitude: body?.latitude,
+            longitude: body?.longitude,
             userUniqueId,
           },
           connection, // Pass connection for transaction support
