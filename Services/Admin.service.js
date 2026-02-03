@@ -150,20 +150,20 @@ const adminServices = {
     LEFT JOIN VehicleTypes vt ON v.vehicleTypeUniqueId = vt.vehicleTypeUniqueId
     ${whereClause}
     ORDER BY ${
-  sortField === "createdAt"
-    ? "u.userCreatedAt"
-    : sortField === "fullName"
-      ? "u.fullName"
-      : sortField === "email"
-        ? "u.email"
-        : sortField === "phoneNumber"
-          ? "u.phoneNumber"
-          : sortField === "licensePlate"
-            ? "v.licensePlate"
-            : sortField === "vehicleTypeName"
-              ? "vt.vehicleTypeName"
-              : "ursc.userRoleStatusCreatedAt"
-} ${sortDirection}
+      sortField === "createdAt"
+        ? "u.userCreatedAt"
+        : sortField === "fullName"
+          ? "u.fullName"
+          : sortField === "email"
+            ? "u.email"
+            : sortField === "phoneNumber"
+              ? "u.phoneNumber"
+              : sortField === "licensePlate"
+                ? "v.licensePlate"
+                : sortField === "vehicleTypeName"
+                  ? "vt.vehicleTypeName"
+                  : "ursc.userRoleStatusCreatedAt"
+    } ${sortDirection}
     LIMIT ? OFFSET ?
     `;
 
@@ -702,18 +702,18 @@ const adminServices = {
         UserRoleStatusCurrent.userRoleStatusId
     ORDER BY 
         ${
-  sortField === "fullName"
-    ? "Users.fullName"
-    : sortField === "email"
-      ? "Users.email"
-      : sortField === "phoneNumber"
-        ? "Users.phoneNumber"
-        : sortField === "createdAt"
-          ? "Users.userCreatedAt"
-          : sortField === "statusName"
-            ? "Statuses.statusName"
-            : "UserRoleStatusCurrent.userRoleStatusCreatedAt"
-} ${sortDirection}
+          sortField === "fullName"
+            ? "Users.fullName"
+            : sortField === "email"
+              ? "Users.email"
+              : sortField === "phoneNumber"
+                ? "Users.phoneNumber"
+                : sortField === "createdAt"
+                  ? "Users.userCreatedAt"
+                  : sortField === "statusName"
+                    ? "Statuses.statusName"
+                    : "UserRoleStatusCurrent.userRoleStatusCreatedAt"
+        } ${sortDirection}
     LIMIT ? OFFSET ?
     `;
 
@@ -728,11 +728,8 @@ const adminServices = {
           ownerUserUniqueId: userUniqueId,
           user: user,
         });
-
         return {
-          ...user,
-          ...statusResult, // This will include vehicle, attachedDocumentsByStatus, etc.
-          documents: statusResult?.attachedDocumentsByStatus || {},
+          ...statusResult,
         };
       }),
     );
