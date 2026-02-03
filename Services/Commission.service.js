@@ -3,6 +3,7 @@ const { pool } = require("../Middleware/Database.config");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
 const logger = require("../Utils/logger");
+const { journeyStatusMap } = require("../Utils/ListOfSeedData");
 
 // Cached commission status ID (lazy loaded)
 let cachedCommissionStatusId = null;
@@ -36,7 +37,7 @@ const getCommissionRateData = async () => {
   }
 
   const [commissionRateData] = await pool.query(
-    `SELECT commissionRateUniqueId, commissionRateValue FROM CommissionRates WHERE commissionRateDeletedAt IS NULL LIMIT 1`,
+    `SELECT commissionRateUniqueId, commissionRate AS commissionRateValue FROM CommissionRates WHERE commissionRateDeletedAt IS NULL LIMIT 1`,
     [],
   );
 
@@ -139,7 +140,7 @@ async function createCommissionInConnection(
 
   // 1. Verify journey decision exists
   const [journeyData] = await connection.query(
-    `SELECT journeyDecisionUniqueId, journeyDecisionStatus
+    `SELECT journeyDecisionUniqueId, journeyStatusId
      FROM JourneyDecisions
      WHERE journeyDecisionUniqueId = ?`,
     [journeyDecisionUniqueId],
@@ -156,12 +157,12 @@ async function createCommissionInConnection(
   }
 
   // Check if journey is completed (commission only for completed journeys)
-  if (journeyData[0].journeyDecisionStatus !== "completed") {
+  if (journeyData[0].journeyStatusId !== journeyStatusMap.journeyCompleted) {
     throw new AppError(
       {
         message: "Commissions can only be created for completed journeys",
         code: "INVALID_JOURNEY_STATUS",
-        details: `Current status is ${journeyData[0].journeyDecisionStatus}`,
+        details: `Current status is ${journeyData[0].journeyStatusId}`,
       },
       400,
     );
@@ -188,10 +189,7 @@ async function createCommissionInConnection(
 
   // 3. Verify commission rate exists (already fetched via cache, but double-check)
   const [rateExists] = await connection.query(
-    `SELECT commissionRateId, commissionRateValue
-     FROM CommissionRates
-     WHERE commissionRateUniqueId = ?
-     AND commissionRateDeletedAt IS NULL`,
+    `SELECT commissionRateId, commissionRate AS commissionRateValue FROM CommissionRates WHERE commissionRateUniqueId = ? AND commissionRateDeletedAt IS NULL`,
     [commissionRateUniqueId],
   );
 
@@ -233,8 +231,7 @@ async function createCommissionInConnection(
   const [commissionData] = await connection.query(
     `SELECT
       c.*,
-      cr.commissionRateValue,
-      cr.commissionRateName,
+      cr.commissionRate AS commissionRateValue,
       cs.statusName as commissionStatus
      FROM Commission c
      JOIN CommissionRates cr ON c.commissionRateUniqueId = cr.commissionRateUniqueId

@@ -299,13 +299,13 @@ const completeJourney = async (body) => {
             400,
           );
         }
-
-        await createCommission({
-          journeyDecisionUniqueId: body.journeyDecisionUniqueId,
-          paymentAmount,
-          commissionCreatedBy: userUniqueId, // Driver who completed the journey
-          connection, // Pass connection for transaction support
-        });
+        // enable it to register commissions
+        // await createCommission({
+        //   journeyDecisionUniqueId: body.journeyDecisionUniqueId,
+        //   paymentAmount,
+        //   commissionCreatedBy: userUniqueId, // Driver who completed the journey
+        //   connection, // Pass connection for transaction support
+        // });
 
         // Record completion location in JourneyRoutePoints
         await createJourneyRoutePoint(

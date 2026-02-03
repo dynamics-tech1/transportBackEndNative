@@ -559,10 +559,11 @@ const TariffRateList = [
 
 const CommissionRates = [
   {
-    commissionRateUniqueId: uuidv4(),
-    commissionRateId: 1,
+    commissionRateUniqueId: "default-rate",
     commissionRate: 0.1,
     commissionRateEffectiveDate: "2029-01-01",
+    commissionRateExpirationDate: "2030-01-01",
+    commissionRateDeletedAt: null,
   },
 ];
 const financialInstitutionAccount = [

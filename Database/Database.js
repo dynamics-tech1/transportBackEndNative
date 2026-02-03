@@ -817,7 +817,7 @@ CREATE TABLE IF NOT EXISTS TariffRateForVehicleTypes (
     CREATE TABLE IF NOT EXISTS Commission (
     commissionId INT AUTO_INCREMENT PRIMARY KEY,
     commissionUniqueId VARCHAR(36) UNIQUE NOT NULL,  -- UUID for commission
-   paymentUniqueId varchar(36) NOT NULL,  -- Foreign key to Payments if it is journey base charges not time base charges
+   paymentUniqueId varchar(36) NULL,  -- Optional foreign key to Payments if payment exists
    journeyDecisionUniqueId varchar(36) NOT NULL,  -- Foreign key to JourneyDecisions
     commissionRateUniqueId varchar(36) NOT NULL,  -- Foreign key to CommissionRates
     commissionAmount DECIMAL(10, 2) NOT NULL,  -- Commission amount
