@@ -252,25 +252,25 @@ const handleExistingJourney = async (
   const journeyDecisionUniqueId = journeyDecision?.journeyDecisionUniqueId;
 
   // If no journeyDecisionUniqueId, handle early return
-  // This is a data consistency fix: if status > 1 but no JourneyDecision exists, mark as cancelledByDriver
+  // This is a data consistency fix: if status > 1 but no JourneyDecision exists, mark as waiting
   if (!journeyDecisionUniqueId) {
-    // if driverRequest?.journeyStatusId > 1 there must be a connection with shipper and JourneyDecisions can't be null/undefined but here it is null/undefined so we need to handle this case so let us update the journeyStatusId to cancelledByDriver
+    // if driverRequest?.journeyStatusId > 1 there must be a connection with shipper and JourneyDecisions can't be null/undefined but here it is null/undefined so we need to handle this case so let us update the journeyStatusId to waiting
     // Single table update - no transaction needed (only updating DriverRequest)
     if (driverRequest?.journeyStatusId > 1) {
       await updateData({
         tableName: "DriverRequest",
         conditions: { driverRequestUniqueId },
-        updateValues: { journeyStatusId: journeyStatusMap?.cancelledByDriver },
+        updateValues: { journeyStatusId: journeyStatusMap?.waiting },
       });
     }
 
     return {
       message: "success",
-      status: journeyStatusMap?.cancelledByDriver,
+      status: journeyStatusMap?.waiting,
       driver: {
         driver: {
           ...driverRequest,
-          journeyStatusId: journeyStatusMap?.cancelledByDriver,
+          journeyStatusId: journeyStatusMap?.waiting,
         },
         vehicle,
       },
@@ -291,7 +291,6 @@ const handleExistingJourney = async (
   );
 
   // If helper returned error or no passenger data, handle early return
-  // This indicates data inconsistency - mark journey as cancelledByDriver
   if (
     notificationData.message === "error" ||
     !notificationData.passengerRequest
