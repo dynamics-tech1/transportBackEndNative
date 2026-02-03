@@ -44,26 +44,48 @@ Complete guide to passenger ride requests, journey management, and transportatio
 {
   "message": "success",
   "totalRecords": {
-    "totalCount": 4,
-    "waitingCount": 4,
-    "requestedCount": 0,
+    "totalCount": 75,
+    "waitingCount": 73,
+    "requestedCount": 1,
     "acceptedByDriverCount": 0,
     "acceptedByPassengerCount": 0,
     "journeyStartedCount": 0,
-    "notSeenCompletedCount": 0,
+    "notSeenCompletedCount": 1,
     "notSeenCancelledByDriverCount": 0
-  }
+  },
+  "pageSize": 10,
+  "page": 1
 }
 ```
 
 ### 2. Get Passenger Requests
 
-**Endpoint**: `GET /api/user/getPassengerRequest4allOrSingleUser?journeyStatusId=5,1,2`
-**Description**: Retrieves ride requests with optional filtering by journey status.
+**Endpoint**: `GET /api/user/getPassengerRequest4allOrSingleUser?journeyStatusId={JourneyStatusId}`
+**Description**: Retrieves detailed passenger request data filtered by journey status. Use this endpoint to get the actual request details for each status count.
+
 **Authentication**: User token required
+
 **Query Parameters**:
 
-- `journeyStatusId`: Comma-separated list of status IDs to filter by
+- `journeyStatusId`: Single status ID or comma-separated list of status IDs to filter by
+
+**Status ID Reference**:
+
+- `journeyStatusId=1` - Waiting for driver
+- `journeyStatusId=2` - Requested (sent to driver)
+- `journeyStatusId=3` - Accepted by driver
+- `journeyStatusId=4` - Accepted by passenger
+- `journeyStatusId=5` - Journey started
+- `journeyStatusId=6` - Journey completed
+
+**Example Usage**:
+
+```
+GET /api/user/getPassengerRequest4allOrSingleUser?journeyStatusId=1          # Get waiting requests
+GET /api/user/getPassengerRequest4allOrSingleUser?journeyStatusId=3          # Get driver-accepted requests
+GET /api/user/getPassengerRequest4allOrSingleUser?journeyStatusId=5,3        # Get active journeys and driver-accepted
+GET /api/user/getPassengerRequest4allOrSingleUser?journeyStatusId=6          # Get completed journeys
+```
 
 **Response**:
 
@@ -260,31 +282,18 @@ Complete guide to passenger ride requests, journey management, and transportatio
 ```json
 {
   "message": "success",
-  "status": 7,
-  "uniqueIds": {
-    "passengerRequestUniqueId": "0099014f-c59a-4945-a7b6-3aef2ab3048b",
-    "journeyDecisionUniqueIds": ["uuid-here", "uuid-here"],
-    "driverRequestUniqueIds": ["uuid-here", "uuid-here"]
-  },
   "totalRecords": {
-    "totalCount": 4,
-    "waitingCount": 0,
-    "requestedCount": 0,
+    "totalCount": 75,
+    "waitingCount": 73,
+    "requestedCount": 1,
     "acceptedByDriverCount": 0,
     "acceptedByPassengerCount": 0,
     "journeyStartedCount": 0,
-    "journeyCompletedCount": 0,
-    "notSeenCompletedCount": 0,
-    "notSeenCancelledByDriverCount": 0,
-    "cancelledByPassengerCount": 1,
-    "cancelledByDriverCount": 0,
-    "cancelledByAdminCount": 0,
-    "cancelledBySystemCount": 0,
-    "notSeenCancelledByPassengerCount": 0,
-    "notSeenNotSelectedInBidCount": 0,
-    "notSeenRejectedByDriverCount": 0,
-    "notSeenRejectedByPassengerCount": 0
-  }
+    "notSeenCompletedCount": 1,
+    "notSeenCancelledByDriverCount": 0
+  },
+  "pageSize": 10,
+  "page": 1
 }
 ```
 
@@ -320,33 +329,18 @@ Complete guide to passenger ride requests, journey management, and transportatio
 ```json
 {
   "message": "success",
-  "status": 4,
-  "uniqueIds": {
-    "passengerRequestUniqueId": "f64ca621-8b44-4adc-92a9-dc0767542099",
-    "journeyDecisionUniqueId": "68ed97a0-a18d-4a92-b15e-808032f96bf3",
-    "driverRequestUniqueId": "8f66482b-f0f0-4f94-9d7a-d7d0a6d2c894",
-    "notSelectedDriverRequestUniqueIds": ["uuid-here", "uuid-here"],
-    "notSelectedJourneyDecisionUniqueIds": ["uuid-here", "uuid-here"]
-  },
   "totalRecords": {
-    "totalCount": 4,
-    "waitingCount": 0,
-    "requestedCount": 0,
+    "totalCount": 75,
+    "waitingCount": 73,
+    "requestedCount": 1,
     "acceptedByDriverCount": 0,
-    "acceptedByPassengerCount": 1,
+    "acceptedByPassengerCount": 0,
     "journeyStartedCount": 0,
-    "journeyCompletedCount": 0,
-    "notSeenCompletedCount": 0,
-    "notSeenCancelledByDriverCount": 0,
-    "cancelledByPassengerCount": 0,
-    "cancelledByDriverCount": 0,
-    "cancelledByAdminCount": 0,
-    "cancelledBySystemCount": 0,
-    "notSeenCancelledByPassengerCount": 0,
-    "notSeenNotSelectedInBidCount": 3,
-    "notSeenRejectedByDriverCount": 0,
-    "notSeenRejectedByPassengerCount": 0
-  }
+    "notSeenCompletedCount": 1,
+    "notSeenCancelledByDriverCount": 0
+  },
+  "pageSize": 10,
+  "page": 1
 }
 ```
 
@@ -585,41 +579,3 @@ Journey status IDs and descriptions:
 ```
 
 **For passengers and drivers**, use `GET /api/user/getPassengerRequest4allOrSingleUser` with appropriate journey status filters.
-
-## Payment Processing
-
-### Make Payment
-
-**Endpoint**: `POST /api/payment/create`
-**Description**: Process payment for journey
-**Authentication**: User token required
-
-### Payment History
-
-**Endpoint**: `GET /api/payment/history`
-**Description**: View payment transactions
-**Authentication**: User token required
-
-## Rating and Feedback
-
-### Rate Driver
-
-**Endpoint**: `POST /api/rating/driver`
-**Description**: Submit rating for completed journey
-**Authentication**: User token required
-
-**Request Body**:
-
-```json
-{
-  "journeyId": "journey-uuid",
-  "rating": 5,
-  "comment": "Excellent service"
-}
-```
-
-### View Ratings
-
-**Endpoint**: `GET /api/rating/history`
-**Description**: View submitted ratings
-**Authentication**: User token required

@@ -62,6 +62,38 @@ Complete guide to user registration, verification, and profile management.
 }
 ```
 
+### 3. User Login
+
+**Endpoint**: `POST /api/user/loginUser`
+**Description**: Authenticate user with phone number and role
+**Authentication**: None required
+
+**Request Body**:
+
+```json
+{
+  "phoneNumber": "+251983222221",
+  "roleId": 6,
+  "statusId": 1
+}
+```
+
+**Response**:
+
+```json
+{
+  "token": "jwt-token-here",
+  "message": "success",
+  "data": {
+    "userUniqueId": "user-uuid-here",
+    "fullName": "User Name",
+    "phoneNumber": "+251983222221",
+    "roleId": 6,
+    "statusId": 1
+  }
+}
+```
+
 ## Admin User Management
 
 ### 1.1 Create Admin User
@@ -127,9 +159,83 @@ Complete guide to user registration, verification, and profile management.
 
 ### Get Users by Filter
 
-**Endpoint**: `GET /api/admin/getUserByFilterDetailed`
-**Description**: Search and filter users by various criteria
+**Endpoint**: `GET /api/admin/getUserByFilterDetailed?page=1&limit=10`
+**Description**: Search and filter users by various criteria with pagination
 **Authentication**: Admin token required
+
+**Query Parameters**:
+
+- `page`: Page number for pagination (default: 1)
+- `limit`: Number of results per page (default: 10)
+- `fullName`: Filter by user name (optional)
+- `phoneNumber`: Filter by phone number (optional)
+- `email`: Filter by email address (optional)
+- `roleId`: Filter by role ID (optional)
+- `statusId`: Filter by status ID (optional)
+- `startDate`: Filter users created from date (YYYY-MM-DD)
+- `endDate`: Filter users created to date (YYYY-MM-DD)
+
+**Response**:
+
+```json
+{
+  "message": "success",
+  "data": [
+    {
+      "userUniqueId": "e4174857-7242-46a4-a8d3-c640b7a10e70",
+      "fullName": "John Doe",
+      "phoneNumber": "+251983222221",
+      "email": "john@example.com",
+      "roleId": 1,
+      "statusId": 1,
+      "userCreatedAt": "2026-01-31T12:00:00.000Z",
+      "userCreatedBy": "admin-uuid-here",
+      "roleName": "Passenger",
+      "statusName": "Active"
+    },
+    {
+      "userUniqueId": "f51c5673-b309-4837-9967-ed74b3d02ff2",
+      "fullName": "Jane Smith",
+      "phoneNumber": "+251983222222",
+      "email": "jane@example.com",
+      "roleId": 2,
+      "statusId": 1,
+      "userCreatedAt": "2026-01-31T13:00:00.000Z",
+      "userCreatedBy": "admin-uuid-here",
+      "roleName": "Driver",
+      "statusName": "Active"
+    }
+  ],
+  "pagination": {
+    "currentPage": 1,
+    "totalPages": 5,
+    "totalItems": 47,
+    "itemsPerPage": 10,
+    "hasNext": true,
+    "hasPrev": false
+  },
+  "filters": {
+    "page": 1,
+    "limit": 10,
+    "appliedFilters": {}
+  }
+}
+```
+
+**Error Responses**:
+
+- **400 Bad Request**: Invalid query parameters
+- **401 Unauthorized**: Invalid or missing admin token
+- **403 Forbidden**: Not authorized to access user data
+- **500 Internal Server Error**: Server error during retrieval
+
+**Example Usage**:
+
+```
+GET /api/admin/getUserByFilterDetailed?page=1&limit=10&roleId=1&statusId=1
+GET /api/admin/getUserByFilterDetailed?fullName=John&phoneNumber=251983222221
+GET /api/admin/getUserByFilterDetailed?startDate=2026-01-01&endDate=2026-01-31
+```
 
 ## Regular User Management
 
@@ -174,11 +280,83 @@ Complete guide to user registration, verification, and profile management.
 **Description**: Update user profile information
 **Authentication**: User token required
 
-### Get Profile
+### Update User Data
 
-**Endpoint**: `GET /api/user/profile`
-**Description**: Retrieve current user profile
+**Endpoint**: `PUT /api/user/updateUser/{userUniqueId}`
+**Description**: Update specific user data by user unique ID
 **Authentication**: User token required
+
+**Request Body**:
+
+```json
+{
+  "fullName": "Updated User Name",
+  "phoneNumber": "+251983222222",
+  "email": "updated@example.com",
+  "roleId": 1,
+  "statusId": 1
+}
+```
+
+**Response**:
+
+```json
+{
+  "message": "success",
+  "data": {
+    "userUniqueId": "e4174857-7242-46a4-a8d3-c640b7a10e70",
+    "fullName": "Updated User Name",
+    "phoneNumber": "+251983222222",
+    "email": "updated@example.com",
+    "roleId": 1,
+    "statusId": 1,
+    "userUpdatedAt": "2026-02-03T09:18:00.000Z"
+  }
+}
+```
+
+**Error Responses**:
+
+- **400 Bad Request**: Invalid user data or missing required fields
+- **401 Unauthorized**: Invalid or missing user token
+- **403 Forbidden**: Not authorized to update this user
+- **404 Not Found**: User not found
+- **500 Internal Server Error**: Server error during update
+
+### Delete User
+
+**Endpoint**: `DELETE /api/user/deleteUser/{userUniqueId}`
+**Description**: Permanently delete a user account by user unique ID
+**Authentication**: User token required (own account) or Admin token (any user)
+
+**Response**:
+
+```json
+{
+  "message": "success",
+  "data": {
+    "userUniqueId": "fd82aca9-4a3d-44bc-a7d8-8f8c18a51e74",
+    "deletedAt": "2026-02-03T09:19:00.000Z",
+    "deletedBy": "user-uuid-here"
+  }
+}
+```
+
+**Error Responses**:
+
+- **400 Bad Request**: Invalid user unique ID format
+- **401 Unauthorized**: Invalid or missing token
+- **403 Forbidden**: Not authorized to delete this user
+- **404 Not Found**: User not found
+- **409 Conflict**: User cannot be deleted (active journeys, pending payments, etc.)
+- **500 Internal Server Error**: Server error during deletion
+
+**Important Notes**:
+
+- Users with active journeys or pending transactions cannot be deleted
+- Admin can delete any user, regular users can only delete their own account
+- Deletion is permanent and cannot be undone
+- All associated data (requests, journeys, payments) will be anonymized or deleted
 
 ## User Status Management
 
@@ -186,24 +364,4 @@ Complete guide to user registration, verification, and profile management.
 
 **Endpoint**: `GET /api/account/status?ownerUserUniqueId=self&roleId=2`
 **Description**: Check account status and requirements
-**Authentication**: User token required
-
-### User Role Management
-
-**Endpoint**: `POST /api/admin/userRole/create`
-**Description**: Assign roles to users (Super Admin only)
-**Authentication**: Super Admin token required
-
-## User Data Privacy
-
-### Data Export
-
-**Endpoint**: `GET /api/user/data`
-**Description**: Export user data for GDPR compliance
-**Authentication**: User token required
-
-### Account Deletion
-
-**Endpoint**: `DELETE /api/user/account`
-**Description**: Permanently delete user account
 **Authentication**: User token required
