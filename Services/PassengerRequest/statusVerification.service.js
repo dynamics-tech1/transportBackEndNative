@@ -255,6 +255,7 @@ async function handleWaitingRequest({
       tableName: "PassengerRequest",
       conditions: { passengerRequestId },
       updateValues: { journeyStatusId: journeyStatusMap.requested },
+      connection,
     });
 
     // Update driver request status
@@ -262,6 +263,7 @@ async function handleWaitingRequest({
       tableName: "DriverRequest",
       conditions: { driverRequestId: driver.driverRequestId },
       updateValues: { journeyStatusId: journeyStatusMap.requested },
+      connection,
     });
     // END CRITICAL TRANSACTION BLOCK
 

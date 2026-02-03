@@ -59,7 +59,7 @@ const createPassengerRequest = async (
 
   let dataByBatchId;
   if (connection) {
-    const batchCheckSql = `SELECT * FROM PassengerRequest WHERE passengerRequestBatchId = ? AND userUniqueId = ?`;
+    const batchCheckSql = `SELECT * FROM PassengerRequest WHERE passengerRequestBatchId = ? AND userUniqueId = ? FOR UPDATE`;
     const [batchCheckResult] = await connection.query(batchCheckSql, [
       passengerRequestBatchId,
       userUniqueId,
