@@ -29,7 +29,7 @@ const getCommissionStatusId = async () => {
     throw new AppError("Commission status 'PAID' not found", 404);
   }
 
-  cachedCommissionStatusId = commissionStatusData[0].commissionStatusUniqueId;
+  cachedCommissionStatusId = commissionStatusData?.[0].commissionStatusUniqueId;
   return cachedCommissionStatusId;
 };
 
@@ -49,8 +49,8 @@ const getCommissionRateData = async () => {
   }
 
   cachedCommissionRateData = {
-    commissionRateUniqueId: commissionRateData[0].commissionRateUniqueId,
-    commissionRateValue: commissionRateData[0].commissionRateValue,
+    commissionRateUniqueId: commissionRateData?.[0].commissionRateUniqueId,
+    commissionRateValue: commissionRateData?.[0].commissionRateValue,
   };
   return cachedCommissionRateData;
 };
