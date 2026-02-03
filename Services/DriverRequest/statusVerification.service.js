@@ -292,8 +292,8 @@ const handleExistingJourney = async (
 
   // If helper returned error or no passenger data, handle early return
   if (
-    notificationData.message === "error" ||
-    !notificationData.passengerRequest
+    notificationData?.message === "error" ||
+    !notificationData?.passengerRequest
   ) {
     // Prepare payload for updateJourneyStatus
     // This may update multiple tables: JourneyDecisions, PassengerRequest, DriverRequest, Journey
