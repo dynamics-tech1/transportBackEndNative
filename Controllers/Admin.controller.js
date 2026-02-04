@@ -1,5 +1,6 @@
 const adminServices = require("../Services/Admin.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 const AdminController = {
   // Fetch online drivers
@@ -32,7 +33,12 @@ const AdminController = {
     try {
       ServerResponder(
         res,
-        await adminServices.getUnauthorizedDriver(req?.query),
+        await executeInTransaction(async (connection) => {
+          return await adminServices.getUnauthorizedDriver(
+            req?.query,
+            connection,
+          );
+        }),
       );
     } catch (error) {
       next(error);

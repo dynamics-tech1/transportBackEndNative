@@ -3,6 +3,7 @@ const { journeyStatusMap } = require("../Utils/ListOfSeedData");
 
 const ServerResponder = require("../Utils/ServerResponder");
 const AppError = require("../Utils/AppError");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 const createRequest = async (req, res, next) => {
   try {
@@ -194,7 +195,9 @@ const completeJourney = async (req, res, next) => {
     req.body.journeyStatusId = journeyStatusMap.journeyCompleted;
     req.body.previousStatusId = journeyStatusMap.journeyStarted;
 
-    const result = await services.completeJourney(req.body);
+    const result = await executeInTransaction(async (connection) => {
+      return await services.completeJourney(req.body, connection);
+    });
 
     ServerResponder(res, result);
   } catch (error) {

@@ -541,7 +541,7 @@ const adminServices = {
     }
   },
 
-  getUnauthorizedDriver: async (query) => {
+  getUnauthorizedDriver: async (query, connection) => {
     const {
       page = 1,
       limit = 10,
@@ -664,7 +664,7 @@ const adminServices = {
     ${whereClause}
     `;
 
-    const [countRows] = await pool.query(countSql, params);
+    const [countRows] = await (connection || pool).query(countSql, params);
     const total = countRows[0].total;
     const totalPages = Math.ceil(total / limit);
     const currentPage = parseInt(page);
@@ -718,7 +718,11 @@ const adminServices = {
     `;
 
     const dataParams = [...params, parseInt(limit), parseInt(offset)];
-    const [unauthorizedUsers] = await pool.query(dataSql, dataParams);
+
+    const [unauthorizedUsers] = await (connection || pool).query(
+      dataSql,
+      dataParams,
+    );
 
     // Get documents and status for each user using the unified accountStatus service
     const usersWithDocuments = await Promise.all(
@@ -727,6 +731,7 @@ const adminServices = {
         const statusResult = await accountStatus({
           ownerUserUniqueId: userUniqueId,
           user: user,
+          body: { roleId: user.roleId },
         });
         return {
           ...statusResult,

@@ -41,6 +41,7 @@ const accountStatus = async ({
   user,
   body,
   enableDocumentChecks = true,
+  connection, // Optional: use existing connection if provided
 }) => {
   // --- Initialize state for all checks ---
   let userVehicle = null;
@@ -187,22 +188,22 @@ const accountStatus = async ({
         // 2. Vehicle Check
         requiresVehicle
           ? getVehicleDrivers({
-            driverUserUniqueId: resolvedUserUniqueId,
-            assignmentStatus: "active",
-            limit: 1,
-            page: 1,
-          })
+              driverUserUniqueId: resolvedUserUniqueId,
+              assignmentStatus: "active",
+              limit: 1,
+              page: 1,
+            })
           : Promise.resolve({ data: [] }),
 
         // 3. Document Requirements List
         enableDocumentChecks
           ? getRoleDocumentRequirements({
-            roleId,
-            page: 1,
-            limit: 1000,
-            sortBy: "documentTypeId",
-            sortOrder: "ASC",
-          })
+              roleId,
+              page: 1,
+              limit: 1000,
+              sortBy: "documentTypeId",
+              sortOrder: "ASC",
+            })
           : Promise.resolve({ data: [] }),
 
         // 4. Subscription Check (Drivers Only)
@@ -244,7 +245,10 @@ const accountStatus = async ({
           WHERE rdr.roleId = ?
           ORDER BY dt.documentTypeId
         `;
-        const [allDocs] = await pool.query(sql, [resolvedUserUniqueId, roleId]);
+        const [allDocs] = await (connection || pool).query(sql, [
+          resolvedUserUniqueId,
+          roleId,
+        ]);
         allDocs.forEach((doc) => {
           if (doc.doc_status === "NOT_ATTACHED") {
             unAttachedDocumentTypes.push(doc);

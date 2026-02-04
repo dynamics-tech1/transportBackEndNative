@@ -1,5 +1,6 @@
 const ServerResponder = require("../Utils/ServerResponder");
 const AccountService = require("../Services/Account.service");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 // GET /api/account/status
 // Supports: ownerUserUniqueId, phoneNumber, or email as query parameters
@@ -26,13 +27,16 @@ const accountStatus = async (req, res, next) => {
       user = null;
     }
 
-    const result = await AccountService?.accountStatus({
-      ownerUserUniqueId,
-      phoneNumber,
-      email,
-      user,
-      body: req?.query || {},
-      enableDocumentChecks,
+    const result = await executeInTransaction(async (connection) => {
+      return await AccountService?.accountStatus({
+        ownerUserUniqueId,
+        phoneNumber,
+        email,
+        user,
+        body: req?.query || {},
+        enableDocumentChecks,
+        connection, // Pass connection for transaction support
+      });
     });
 
     ServerResponder(res, result);
