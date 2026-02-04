@@ -4,8 +4,6 @@ const { v4: uuidv4 } = require("uuid");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
 const logger = require("../Utils/logger");
-const { accountStatus } = require("./Account.service");
-const { usersRoles } = require("../Utils/ListOfSeedData");
 
 // Create a new VehicleDriver assignment
 const createVehicleDriver = async (data) => {
@@ -81,6 +79,8 @@ const createVehicleDriver = async (data) => {
 
   // Automatically update driver status after vehicle assignment
   try {
+    const { accountStatus } = require("./Account.service");
+    const { usersRoles } = require("../Utils/ListOfSeedData");
     await accountStatus({
       ownerUserUniqueId: driverUserUniqueId,
       body: { roleId: usersRoles.driverRoleId },
@@ -295,6 +295,8 @@ const updateVehicleDriverByUniqueId = async (
 
     // Automatically update driver status after vehicle assignment update
     try {
+      const { accountStatus } = require("./Account.service");
+      const { usersRoles } = require("../Utils/ListOfSeedData");
       await accountStatus({
         ownerUserUniqueId: driverUserUniqueId,
         body: { roleId: usersRoles.driverRoleId },
@@ -343,6 +345,8 @@ const deleteVehicleDriverByUniqueId = async (vehicleDriverUniqueId) => {
 
   // Automatically update driver status after vehicle assignment deletion
   try {
+    const { accountStatus } = require("./Account.service");
+    const { usersRoles } = require("../Utils/ListOfSeedData");
     await accountStatus({
       ownerUserUniqueId: driverUserUniqueId,
       body: { roleId: usersRoles.driverRoleId },

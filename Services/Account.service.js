@@ -445,9 +445,22 @@ const accountStatus = async ({
       reason,
       banData: banData?.isBanned ? banData.banDetails : null,
     };
-  } catch {
+  } catch (error) {
+    logger.error("Error in accountStatus evaluation", {
+      error: error.message,
+      stack: error.stack,
+      params: {
+        ownerUserUniqueId,
+        phoneNumber,
+        email,
+        user: user
+          ? { userUniqueId: user.userUniqueId, roleId: user.roleId }
+          : null,
+        body,
+      },
+    });
     throw new AppError(
-      "An error occurred during account status evaluation",
+      `An error occurred during account status evaluation: ${error.message}`,
       500,
     );
   }
