@@ -648,19 +648,34 @@ const adminServices = {
         ? sortOrder.toUpperCase()
         : "DESC";
 
-    // Count query for pagination - UPDATED WITH VehicleDriver
-    const countSql = `
-    SELECT COUNT(DISTINCT Users.userUniqueId) AS total
-    FROM Users 
-    JOIN UserRole ON Users.userUniqueId = UserRole.userUniqueId
-    JOIN UserRoleStatusCurrent ON UserRole.userRoleId = UserRoleStatusCurrent.userRoleId 
+    // Build JOINs conditionally based on filters
+    let joins = `
+    JOIN UserRole ON Users.userUniqueId = UserRole.userUniqueId 
+      AND UserRole.userRoleDeletedAt IS NULL
+    JOIN UserRoleStatusCurrent ON UserRole.userRoleId = UserRoleStatusCurrent.userRoleId
     JOIN Roles ON UserRole.roleId = Roles.roleId 
+      AND Roles.roleDeletedAt IS NULL
     JOIN Statuses ON UserRoleStatusCurrent.statusId = Statuses.statusId
+    `;
+
+    // Add vehicle-related JOINs only if vehicle filters are provided
+    if (vehicleType || licensePlate) {
+      joins += `
     LEFT JOIN VehicleDriver ON Users.userUniqueId = VehicleDriver.driverUserUniqueId 
       AND VehicleDriver.assignmentStatus = 'active'
       AND VehicleDriver.assignmentEndDate IS NULL
     LEFT JOIN Vehicle ON VehicleDriver.vehicleUniqueId = Vehicle.vehicleUniqueId
+      AND Vehicle.vehicleDeletedAt IS NULL
     LEFT JOIN VehicleTypes ON Vehicle.vehicleTypeUniqueId = VehicleTypes.vehicleTypeUniqueId
+      AND VehicleTypes.vehicleTypeDeletedAt IS NULL
+      `;
+    }
+
+    // Count query for pagination
+    const countSql = `
+    SELECT COUNT(DISTINCT Users.userUniqueId) AS total
+    FROM Users
+    ${joins}
     ${whereClause}
     `;
 
@@ -681,20 +696,8 @@ const adminServices = {
         UserRoleStatusCurrent.userRoleStatusId, UserRoleStatusCurrent.userRoleStatusUniqueId, 
         UserRoleStatusCurrent.statusId, UserRoleStatusCurrent.userRoleStatusCreatedAt,
         Statuses.statusName
-    FROM Users 
-    JOIN UserRole ON Users.userUniqueId = UserRole.userUniqueId 
-      AND UserRole.userRoleDeletedAt IS NULL
-    JOIN UserRoleStatusCurrent ON UserRole.userRoleId = UserRoleStatusCurrent.userRoleId
-    JOIN Roles ON UserRole.roleId = Roles.roleId 
-      AND Roles.roleDeletedAt IS NULL
-    JOIN Statuses ON UserRoleStatusCurrent.statusId = Statuses.statusId
-    LEFT JOIN VehicleDriver ON Users.userUniqueId = VehicleDriver.driverUserUniqueId 
-      AND VehicleDriver.assignmentStatus = 'active'
-      AND VehicleDriver.assignmentEndDate IS NULL
-    LEFT JOIN Vehicle ON VehicleDriver.vehicleUniqueId = Vehicle.vehicleUniqueId
-      AND Vehicle.vehicleDeletedAt IS NULL
-    LEFT JOIN VehicleTypes ON Vehicle.vehicleTypeUniqueId = VehicleTypes.vehicleTypeUniqueId
-      AND VehicleTypes.vehicleTypeDeletedAt IS NULL
+    FROM Users
+    ${joins}
     ${whereClause}
     GROUP BY 
         Users.userUniqueId,

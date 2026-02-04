@@ -18,6 +18,100 @@ const {
 const AppError = require("../Utils/AppError");
 
 /**
+ * Validates parameters for accountStatus function
+ * @param {Object} params - Parameters to validate
+ * @throws {AppError} If validation fails
+ */
+const validateAccountStatusParams = ({
+  ownerUserUniqueId,
+  phoneNumber,
+  email,
+  user,
+  body,
+  enableDocumentChecks,
+  connection,
+}) => {
+  // Check if at least one user identifier is provided
+  const hasUserIdentifier =
+    ownerUserUniqueId || phoneNumber || email || user?.userUniqueId;
+  if (!hasUserIdentifier) {
+    throw new AppError(
+      "At least one user identifier is required: ownerUserUniqueId, phoneNumber, email, or user.userUniqueId",
+      400,
+    );
+  }
+
+  // Validate ownerUserUniqueId if provided
+  if (
+    ownerUserUniqueId !== undefined &&
+    (typeof ownerUserUniqueId !== "string" || ownerUserUniqueId.trim() === "")
+  ) {
+    throw new AppError("ownerUserUniqueId must be a non-empty string", 400);
+  }
+
+  // Validate phoneNumber if provided
+  if (
+    phoneNumber !== undefined &&
+    (typeof phoneNumber !== "string" || phoneNumber.trim() === "")
+  ) {
+    throw new AppError("phoneNumber must be a non-empty string", 400);
+  }
+
+  // Validate email if provided
+  if (email !== undefined) {
+    if (typeof email !== "string" || email.trim() === "") {
+      throw new AppError("email must be a non-empty string", 400);
+    }
+    // Basic email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      throw new AppError("email must be a valid email address", 400);
+    }
+  }
+
+  // Validate user object if provided
+  if (user !== undefined) {
+    if (typeof user !== "object" || user === null) {
+      throw new AppError("user must be an object", 400);
+    }
+    if (
+      user.userUniqueId &&
+      (typeof user.userUniqueId !== "string" || user.userUniqueId.trim() === "")
+    ) {
+      throw new AppError("user.userUniqueId must be a non-empty string", 400);
+    }
+  }
+
+  // Validate that roleId is available (from body or user)
+  const hasRoleId = (body && body.roleId) || (user && user.roleId);
+  if (!hasRoleId) {
+    throw new AppError(
+      "roleId is required and must be provided in body.roleId or user.roleId",
+      400,
+    );
+  }
+
+  // Validate enableDocumentChecks
+  if (typeof enableDocumentChecks !== "boolean") {
+    throw new AppError("enableDocumentChecks must be a boolean", 400);
+  }
+
+  // Validate connection if provided
+  if (connection !== undefined) {
+    if (
+      typeof connection !== "object" ||
+      connection === null ||
+      typeof connection.query !== "function"
+    ) {
+      throw new AppError(
+        "connection must be a valid database connection object with a query method",
+        400,
+      );
+    }
+  }
+};
+
+/**
  * Consolidated account status check for a user (documents, vehicle, ban, subscription)
  * @param {Object} params - Parameters object
  * @param {string} [params.ownerUserUniqueId] - Unique ID of the user whose account status is being checked
@@ -43,6 +137,17 @@ const accountStatus = async ({
   enableDocumentChecks = true,
   connection, // Optional: use existing connection if provided
 }) => {
+  // ========== PARAMETER VALIDATION ==========
+  validateAccountStatusParams({
+    ownerUserUniqueId,
+    phoneNumber,
+    email,
+    user,
+    body,
+    enableDocumentChecks,
+    connection,
+  });
+
   // --- Initialize state for all checks ---
   let userVehicle = null;
   let banData = null;
