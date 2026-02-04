@@ -350,48 +350,9 @@ async function getAllCommissions(filters = {}) {
     const limit = Math.min(Math.max(1, parseInt(filters.limit) || 10), 100);
     const offset = (page - 1) * limit;
 
-    // Get total count
-    const countQuery = `
-      SELECT COUNT(*) as total
-      FROM Commission c
-      JOIN CommissionStatus cs ON c.commissionStatusUniqueId = cs.commissionStatusUniqueId
-      JOIN JourneyPayments jp ON c.journeyDecisionUniqueId = jp.journeyDecisionUniqueId
-      JOIN JourneyDecisions jd ON c.journeyDecisionUniqueId = jd.journeyDecisionUniqueId
-      JOIN DriverRequest dr ON jd.driverRequestId = dr.driverRequestId
-      JOIN Users u ON dr.userUniqueId = u.userUniqueId
-      JOIN PassengerRequest pr ON jd.passengerRequestId = pr.passengerRequestId
-      JOIN Users u_pass ON pr.userUniqueId = u_pass.userUniqueId
-      ${whereClause}
-    `;
-    // Logging query in dev
-    logger.application.databaseQuery(
-      countQuery,
-      values,
-      currentDate() - startTime,
-    );
-
-    const [countResult] = await pool.query(countQuery, values);
-    const totalCount = countResult[0]?.total || 0;
-
-    if (totalCount === 0) {
-      return {
-        message: "No commissions found",
-        data: [],
-        pagination: {
-          currentPage: page,
-          totalPages: 0,
-          totalCount: 0,
-          limit,
-          hasNext: false,
-          hasPrev: false,
-        },
-        code: "NO_COMMISSIONS_FOUND",
-      };
-    }
-
-    // Get paginated data
+    // Get total count and paginated data in single query using SQL_CALC_FOUND_ROWS
     const dataQuery = `
-      SELECT
+      SELECT SQL_CALC_FOUND_ROWS
         c.*,
         cs.statusName as commissionStatus,
         jp.paymentTime,
@@ -421,6 +382,10 @@ async function getAllCommissions(filters = {}) {
     `;
 
     const [rows] = await pool.query(dataQuery, [...values, limit, offset]);
+
+    // Get total count using FOUND_ROWS()
+    const [countResult] = await pool.query("SELECT FOUND_ROWS() as total");
+    const totalCount = countResult[0]?.total || 0;
 
     logger.debug("Commission Query Results", {
       type: "COMMISSION_QUERY",
