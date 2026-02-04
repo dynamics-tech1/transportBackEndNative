@@ -182,17 +182,18 @@ const acceptDriverRequest = async (body) => {
       // ... notification logic ...
     }
 
-    // Return success with unique IDs
+    // Get updated status counts after acceptance
+    const statusResult = await verifyPassengerStatus({
+      userUniqueId,
+      sendNotificationsToDrivers: false, // Don't send notifications, just get counts
+    });
+
+    // Return success with unique IDs and updated status counts
     return {
       message: "success",
-      status: journeyStatusMap.acceptedByPassenger,
-      data: "Driver request accepted successfully",
-      uniqueIds: {
-        driverRequestUniqueId,
-        passengerRequestUniqueId,
-        journeyDecisionUniqueId,
-      },
-      totalRecords: null, // Could calculate if needed
+      totalRecords: statusResult?.totalRecords || null,
+      pageSize: statusResult?.pageSize || 10,
+      page: statusResult?.page || 1,
     };
   } catch (error) {
     logger.error("Unable to accept driver request", {
