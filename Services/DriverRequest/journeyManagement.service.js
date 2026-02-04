@@ -289,14 +289,14 @@ const completeJourney = async (body) => {
         // Create commission record (rate and status handled internally by service)
         const paymentAmount = combinedData?.shippingCostByDriver;
 
-        if (!paymentAmount || paymentAmount <= 0) {
-          throw new AppError(
-            "Invalid payment amount from journey decision",
-            400,
-          );
-        }
         // set DRIVERS_PAYMENT_SYSTEM=COMMISSION in env to register commissions
         if (process.env.DRIVERS_PAYMENT_SYSTEM === "COMMISSION") {
+          if (!paymentAmount || paymentAmount <= 0) {
+            throw new AppError(
+              "Invalid payment amount from journey decision",
+              400,
+            );
+          }
           await createCommission({
             journeyDecisionUniqueId: body?.journeyDecisionUniqueId,
             paymentAmount,

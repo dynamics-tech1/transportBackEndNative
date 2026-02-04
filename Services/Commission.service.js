@@ -143,9 +143,9 @@ async function createCommissionInConnection(
 
   // 1. Verify journey decision exists
   const [journeyData] = await connection.query(
-    `SELECT jd.journeyDecisionUniqueId, jd.journeyStatusId, dr.driverUniqueId
+    `SELECT jd.journeyDecisionUniqueId, jd.journeyStatusId, dr.userUniqueId as driverUniqueId
      FROM JourneyDecisions jd
-     JOIN DriverRequest dr ON jd.driverRequestUniqueId = dr.driverRequestId
+     JOIN DriverRequest dr ON jd.driverRequestId = dr.driverRequestId
      WHERE jd.journeyDecisionUniqueId = ?`,
     [journeyDecisionUniqueId],
   );
