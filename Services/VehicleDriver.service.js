@@ -4,6 +4,8 @@ const { v4: uuidv4 } = require("uuid");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
 const logger = require("../Utils/logger");
+const { accountStatus } = require("./Account.service");
+const { usersRoles } = require("../Utils/ListOfSeedData");
 
 // Create a new VehicleDriver assignment
 const createVehicleDriver = async (data) => {
@@ -75,6 +77,22 @@ const createVehicleDriver = async (data) => {
 
   if (!result.affectedRows) {
     throw new AppError("Insert failed", 500);
+  }
+
+  // Automatically update driver status after vehicle assignment
+  try {
+    await accountStatus({
+      ownerUserUniqueId: driverUserUniqueId,
+      body: { roleId: usersRoles.driverRoleId },
+    });
+  } catch (statusError) {
+    logger.error("Failed to update driver status after vehicle assignment", {
+      error: statusError.message,
+      driverUserUniqueId,
+      vehicleUniqueId,
+      assignmentStatus,
+    });
+    // Don't fail the vehicle assignment if status update fails
   }
 
   return { message: "success", data: { vehicleDriverUniqueId } };
@@ -265,6 +283,35 @@ const updateVehicleDriverByUniqueId = async (
   if (!result.affectedRows) {
     throw new AppError("Update failed or assignment not found", 404);
   }
+
+  // Get the updated record to get driverUserUniqueId
+  const [updatedRecord] = await pool.query(
+    "SELECT driverUserUniqueId FROM VehicleDriver WHERE vehicleDriverUniqueId = ?",
+    [vehicleDriverUniqueId],
+  );
+
+  if (updatedRecord.length > 0) {
+    const driverUserUniqueId = updatedRecord[0].driverUserUniqueId;
+
+    // Automatically update driver status after vehicle assignment update
+    try {
+      await accountStatus({
+        ownerUserUniqueId: driverUserUniqueId,
+        body: { roleId: usersRoles.driverRoleId },
+      });
+    } catch (statusError) {
+      logger.error(
+        "Failed to update driver status after vehicle assignment update",
+        {
+          error: statusError.message,
+          driverUserUniqueId,
+          vehicleDriverUniqueId,
+        },
+      );
+      // Don't fail the vehicle update if status update fails
+    }
+  }
+
   return { message: "success", data: { updated: true } };
 };
 
@@ -274,6 +321,18 @@ const deleteVehicleDriverByUniqueId = async (vehicleDriverUniqueId) => {
     throw new AppError("Missing ID", 400);
   }
 
+  // Get the record before deletion to get driverUserUniqueId
+  const [existingRecord] = await pool.query(
+    "SELECT driverUserUniqueId FROM VehicleDriver WHERE vehicleDriverUniqueId = ?",
+    [vehicleDriverUniqueId],
+  );
+
+  if (existingRecord.length === 0) {
+    throw new AppError("Assignment not found", 404);
+  }
+
+  const driverUserUniqueId = existingRecord[0].driverUserUniqueId;
+
   const [result] = await pool.query(
     `DELETE FROM VehicleDriver WHERE vehicleDriverUniqueId = ?`,
     [vehicleDriverUniqueId],
@@ -281,6 +340,25 @@ const deleteVehicleDriverByUniqueId = async (vehicleDriverUniqueId) => {
   if (!result.affectedRows) {
     throw new AppError("Delete failed or assignment not found", 404);
   }
+
+  // Automatically update driver status after vehicle assignment deletion
+  try {
+    await accountStatus({
+      ownerUserUniqueId: driverUserUniqueId,
+      body: { roleId: usersRoles.driverRoleId },
+    });
+  } catch (statusError) {
+    logger.error(
+      "Failed to update driver status after vehicle assignment deletion",
+      {
+        error: statusError.message,
+        driverUserUniqueId,
+        vehicleDriverUniqueId,
+      },
+    );
+    // Don't fail the vehicle deletion if status update fails
+  }
+
   return { message: "success", data: { deleted: true } };
 };
 

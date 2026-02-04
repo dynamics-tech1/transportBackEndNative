@@ -18,6 +18,7 @@ const { usersRoles } = require("../Utils/ListOfSeedData");
 const { currentDate } = require("../Utils/CurrentDate");
 const { pool } = require("../Middleware/Database.config");
 const AppError = require("../Utils/AppError");
+const { accountStatus } = require("./Account.service");
 const createAttachedDocument = async ({
   attachedDocumentDescription,
   attachedDocumentName, // This is now the URL from FTP
@@ -96,6 +97,21 @@ const createAttachedDocument = async ({
     });
 
     if (result?.affectedRows > 0) {
+      // Automatically update user status after document attachment
+      try {
+        await accountStatus({
+          ownerUserUniqueId: userUniqueId,
+          body: { roleId },
+        });
+      } catch (statusError) {
+        logger.error("Failed to update user status after document attachment", {
+          error: statusError.message,
+          userUniqueId,
+          roleId,
+        });
+        // Don't fail the document creation if status update fails
+      }
+
       return { message: "success", data: "Document created successfully" };
     } else {
       throw new AppError("Failed to create document", 500);
@@ -336,6 +352,25 @@ const acceptRejectAttachedDocuments = async (body) => {
   };
 
   if (updatedDocument.affectedRows > 0) {
+    // Automatically update user status after document acceptance/rejection
+    try {
+      await accountStatus({
+        ownerUserUniqueId,
+        body: { roleId },
+      });
+    } catch (statusError) {
+      logger.error(
+        "Failed to update user status after document approval/rejection",
+        {
+          error: statusError.message,
+          ownerUserUniqueId,
+          roleId,
+          action,
+        },
+      );
+      // Don't fail the document update if status update fails
+    }
+
     if (roleId === usersRoles.adminRoleId) {
       sendSocketIONotificationToAdmin({ message, phoneNumber });
     }
