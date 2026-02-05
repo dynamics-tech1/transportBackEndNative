@@ -1,12 +1,19 @@
 const Joi = require("joi");
 
 exports.accountStatusParams = Joi.object({
-  ownerUserUniqueId: Joi.string()
-    .uuid({ version: "uuidv4" })
+  ownerUserUniqueId: Joi.alternatives()
+    .try(
+      Joi.string().valid("self").messages({
+        "any.only": "ownerUserUniqueId must be 'self' or a valid UUID",
+      }),
+      Joi.string().uuid({ version: "uuidv4" }).messages({
+        "string.uuid": "ownerUserUniqueId must be a valid UUID",
+        "string.base": "ownerUserUniqueId must be a string",
+      }),
+    )
     .optional()
     .messages({
-      "string.uuid": "ownerUserUniqueId must be a valid UUID",
-      "string.base": "ownerUserUniqueId must be a string",
+      "alternatives.match": "ownerUserUniqueId must be 'self' or a valid UUID",
     }),
 
   phoneNumber: Joi.string()
