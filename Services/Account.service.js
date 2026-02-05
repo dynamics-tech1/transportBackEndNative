@@ -78,9 +78,9 @@ const validateAccountStatusParams = ({
     }
   }
 
-  // Validate user object if provided
-  if (user !== undefined) {
-    if (typeof user !== "object" || user === null) {
+  // Validate user object if provided (allow null for phone/email lookups)
+  if (user !== undefined && user !== null) {
+    if (typeof user !== "object") {
       throw new AppError("user must be an object", 400);
     }
     if (
@@ -440,7 +440,7 @@ const accountStatus = async ({
     const latestUserData = await getUserRoleStatusCurrent({
       data: latestUserDataParams,
     });
-
+    console.log("@latestUserData", latestUserData);
     return {
       message: "success",
       messageType: "accountStatus",
