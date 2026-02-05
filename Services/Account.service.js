@@ -9,7 +9,7 @@ const {
 const { getUserByFilterDetailed } = require("./User.service");
 const logger = require("../Utils/logger");
 const { pool } = require("../Middleware/Database.config");
-const { usersRoles } = require("../Utils/ListOfSeedData");
+const { usersRoles, USER_STATUS } = require("../Utils/ListOfSeedData");
 const {
   getUserSubscriptionsWithFilters,
   createUserSubscription,
@@ -384,27 +384,27 @@ const accountStatus = async ({
 
     // Priority 1: Banned (6)
     if (banData?.isBanned) {
-      finalStatusId = 6;
+      finalStatusId = USER_STATUS.INACTIVE_USER_IS_BANNED_BY_ADMIN;
       reason = "User is banned";
     }
     // Priority 2: No Vehicle (2)
     else if (requiresVehicle && !userVehicle) {
-      finalStatusId = 2;
+      finalStatusId = USER_STATUS.INACTIVE_VEHICLE_NOT_REGISTERED;
       reason = "No vehicle registered for this role";
     }
     // Priority 3: Document Rejected (4)
     else if (attachedDocumentsByStatus.REJECTED.length > 0) {
-      finalStatusId = 4;
+      finalStatusId = USER_STATUS.INACTIVE_DOCUMENTS_REJECTED;
       reason = "One or more documents have been rejected";
     }
     // Priority 4: Documents Missing (3)
     else if (unAttachedDocumentTypes.length > 0) {
-      finalStatusId = 3;
+      finalStatusId = USER_STATUS.INACTIVE_REQUIRED_DOCUMENTS_MISSING;
       reason = "Some required documents are not attached";
     }
     // Priority 5: Documents Pending (5)
     else if (attachedDocumentsByStatus.PENDING.length > 0) {
-      finalStatusId = 5;
+      finalStatusId = USER_STATUS.INACTIVE_DOCUMENTS_PENDING;
       reason = "One or more documents are pending review";
     }
     // Priority 6: No Subscription (7)
@@ -412,7 +412,7 @@ const accountStatus = async ({
       Number(roleId) === usersRoles.driverRoleId &&
       !subscriptionInfo.hasActiveSubscription
     ) {
-      finalStatusId = 7;
+      finalStatusId = USER_STATUS.INACTIVE_DRIVER_DOESN_T_HAVE_A_SUBSCRIPTION;
       reason = "Driver doesn't have an active subscription";
     }
 
