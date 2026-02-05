@@ -18,6 +18,30 @@ const {
 const AppError = require("../Utils/AppError");
 
 /**
+ * @fileoverview Account Service
+ *
+ * Provides comprehensive account status evaluation and user management services.
+ * Handles complex business logic for determining user account health based on
+ * multiple criteria including bans, vehicles, documents, and subscriptions.
+ *
+ * Key Features:
+ * - Flexible user identification (ID, phone, email)
+ * - Priority-based status determination
+ * - Parallel data fetching for performance
+ * - Transaction support for data consistency
+ * - Automatic subscription granting for drivers
+ *
+ * Status Priority (highest to lowest):
+ * 1. Banned (6)
+ * 2. No Vehicle (2) - for vehicle-required roles
+ * 3. Documents Rejected (4)
+ * 4. Documents Missing (3)
+ * 5. Documents Pending (5)
+ * 6. No Subscription (7) - for drivers
+ * 7. Active (1) - all requirements met
+ */
+
+/**
  * Validates parameters for accountStatus function
  * @param {Object} params - Parameters to validate
  * @throws {AppError} If validation fails
