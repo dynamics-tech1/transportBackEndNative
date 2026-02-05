@@ -41,12 +41,21 @@ const validateAccountStatusParams = ({
     );
   }
 
-  // Validate ownerUserUniqueId if provided
+  // Validate ownerUserUniqueId if provided (not null/undefined)
   if (
     ownerUserUniqueId !== undefined &&
+    ownerUserUniqueId !== null &&
     (typeof ownerUserUniqueId !== "string" || ownerUserUniqueId.trim() === "")
   ) {
     throw new AppError("ownerUserUniqueId must be a non-empty string", 400);
+  }
+
+  // If ownerUserUniqueId is not provided, require phoneNumber or email
+  if (!ownerUserUniqueId && !phoneNumber && !email) {
+    throw new AppError(
+      "Either ownerUserUniqueId, phoneNumber, or email must be provided to identify the user",
+      400,
+    );
   }
 
   // Validate phoneNumber if provided
