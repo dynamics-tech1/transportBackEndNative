@@ -440,7 +440,6 @@ const accountStatus = async ({
     const latestUserData = await getUserRoleStatusCurrent({
       data: latestUserDataParams,
     });
-    console.log("@latestUserData", latestUserData);
     return {
       message: "success",
       messageType: "accountStatus",
@@ -505,11 +504,13 @@ async function checkAndGrantUserSubscription(driverUniqueId) {
     });
 
     if (activeSubscriptions?.data?.length > 0) {
-      const subscription = activeSubscriptions.data;
+      const subscriptions = activeSubscriptions.data;
+      const firstSubscription = subscriptions[0];
+
       return {
         hasActiveSubscription: true,
-        subscriptionType: subscription.isFree ? "free" : "paid",
-        subscriptionDetails: subscription,
+        subscriptionType: firstSubscription.isFree ? "free" : "paid",
+        subscriptionDetails: subscriptions,
         wasRecentlyGranted: wasGranted,
       };
     }
