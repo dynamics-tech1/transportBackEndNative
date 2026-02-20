@@ -27,7 +27,6 @@ router.post(
 router.get(
   "/",
   verifyTokenOfAxios,
-  verifyIfUserIsAdminOrSupperAdmin,
   controller.getAllDepositSources,
 );
 
@@ -35,7 +34,6 @@ router.get(
 router.get(
   "/:depositSourceUniqueId",
   verifyTokenOfAxios,
-  verifyIfUserIsAdminOrSupperAdmin,
   validator(depositSourceParams, "params"),
   controller.getDepositSourceByUniqueId,
 );

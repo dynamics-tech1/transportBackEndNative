@@ -510,9 +510,13 @@ async function checkAndGrantUserSubscription(driverUniqueId) {
       page: 1,
       limit: 1,
     });
+    console.log('@unassignedFreePlans',unassignedFreePlans);
+    
     // 2. Grant if found (but only one at a time)
     if (unassignedFreePlans?.data?.length > 0) {
       const plan = unassignedFreePlans.data[0];
+      console.log('@plan',plan);
+      
       await createUserSubscription({
         driverUniqueId,
         subscriptionPlanPricingUniqueId: plan.subscriptionPlanPricingUniqueId,

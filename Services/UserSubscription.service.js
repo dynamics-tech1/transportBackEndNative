@@ -567,7 +567,7 @@ const getUnassignedFreePlans = async (filters = {}) => {
           AND ds.driverUniqueId = ?
       ) as hasEverHadPlan
     FROM SubscriptionPlan sp
-    LEFT JOIN SubscriptionPlanPricing spp
+    INNER JOIN SubscriptionPlanPricing spp
       ON sp.subscriptionPlanUniqueId = spp.subscriptionPlanUniqueId
       AND CURDATE() BETWEEN DATE(spp.effectiveFrom) AND COALESCE(DATE(spp.effectiveTo), '9999-12-31')
     ${whereClause}

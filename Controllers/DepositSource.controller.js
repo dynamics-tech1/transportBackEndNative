@@ -31,7 +31,6 @@ exports.createDepositSource = async (req, res, next) => {
 
 exports.getAllDepositSources = async (req, res, next) => {
   try {
-    checkAdminAccess(req.user);
     const result = await service.getAllDepositSources();
     ServerResponder(res, result);
   } catch (error) {
@@ -41,7 +40,6 @@ exports.getAllDepositSources = async (req, res, next) => {
 
 exports.getDepositSourceByUniqueId = async (req, res, next) => {
   try {
-    checkAdminAccess(req.user);
     const { depositSourceUniqueId } = req.params;
     const result = await service.getDepositSourceByUniqueId(
       depositSourceUniqueId,
