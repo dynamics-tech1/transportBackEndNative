@@ -146,7 +146,7 @@ const createUserDeposit = async (data) => {
     message: { message: "success", data: result },
   });
 
-  return result;
+  return {message: "success", data: result};
 };
 
 // Removed specialized GET helpers in favor of consolidated getUserDeposit
