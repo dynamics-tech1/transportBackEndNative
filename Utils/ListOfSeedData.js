@@ -589,19 +589,22 @@ const subscriptionPlanLists = [
     planName: "One month Free",
     isFree: true,
     description: "This plan is free for one month",
+    durationInDays: 30,
   },
   {
     planName: "One month",
     isFree: false,
+    durationInDays: 30,
   },
   {
     planName: "Three Months",
     isFree: false,
+    durationInDays: 90,
   },
-
   {
     planName: "One Year",
     isFree: false,
+    durationInDays: 365,
   },
 ];
 const savedSubscriptionPlanLists = {};

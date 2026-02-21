@@ -5,6 +5,7 @@ exports.createSubscriptionPlan = Joi.object({
   planName: Joi.string().required(),
   description: Joi.string().optional(),
   isFree: Joi.boolean().optional(),
+  durationInDays: Joi.number().integer().min(1).required(),
 
   // Add other plan details
 }).unknown(true);
@@ -12,6 +13,8 @@ exports.createSubscriptionPlan = Joi.object({
 exports.updateSubscriptionPlan = Joi.object({
   planName: Joi.string().optional(),
   description: Joi.string().optional(),
+  isFree: Joi.boolean().optional(),
+  durationInDays: Joi.number().integer().min(1).optional(),
 }).unknown(true);
 
 exports.subscriptionPlanParams = Joi.object({

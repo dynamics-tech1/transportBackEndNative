@@ -842,6 +842,7 @@ CREATE TABLE IF NOT EXISTS SubscriptionPlan (
   planName VARCHAR(100) NOT NULL UNIQUE,
   description TEXT,
   isFree BOOLEAN DEFAULT FALSE,
+  durationInDays INT NOT NULL,
   subscriptionPlanCreatedBy VARCHAR(36) NOT NULL,  -- Who created the subscription plan
   subscriptionPlanUpdatedBy VARCHAR(36) NULL,  -- Who updated the subscription plan
   subscriptionPlanDeletedBy VARCHAR(36) NULL,  -- Who deleted the subscription plan
@@ -854,15 +855,15 @@ CREATE TABLE IF NOT EXISTS SubscriptionPlan (
 );
 
 
---  pricing for Subscription Plan Dynamic by effective date
+--  Pricing for Subscription Plan Dynamic by effective date
 
 CREATE TABLE IF NOT EXISTS SubscriptionPlanPricing (
   pricingId INT AUTO_INCREMENT PRIMARY KEY,
   subscriptionPlanPricingUniqueId VARCHAR(36) NOT NULL UNIQUE,
   subscriptionPlanUniqueId VARCHAR(36) NOT NULL,
   price DECIMAL(10, 2) NOT NULL,
-   effectiveFrom DATE NOT NULL,
-  effectiveTo DATE NOT NULL,
+  effectiveFrom DATE NOT NULL,
+  effectiveTo DATE NULL,
   subscriptionPlanPricingCreatedBy VARCHAR(36) NOT NULL,  -- Who created the pricing
   subscriptionPlanPricingUpdatedBy VARCHAR(36) NULL,  -- Who updated the pricing
   subscriptionPlanPricingDeletedBy VARCHAR(36) NULL,  -- Who deleted the pricing

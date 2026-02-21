@@ -8,6 +8,7 @@ const createSubscriptionPlan = async ({
   planName,
   description,
   isFree = false,
+  durationInDays,
   user,
 }) => {
   const checkSql = `SELECT * FROM SubscriptionPlan WHERE planName = ?`;
@@ -19,14 +20,15 @@ const createSubscriptionPlan = async ({
   const subscriptionPlanUniqueId = uuidv4();
   const createdBy = user?.userUniqueId || subscriptionPlanUniqueId;
   const insertSql = `
-    INSERT INTO SubscriptionPlan (subscriptionPlanUniqueId, planName, description, isFree, subscriptionPlanCreatedBy, subscriptionPlanCreatedAt)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO SubscriptionPlan (subscriptionPlanUniqueId, planName, description, isFree, durationInDays, subscriptionPlanCreatedBy, subscriptionPlanCreatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
   await pool.query(insertSql, [
     subscriptionPlanUniqueId,
     planName,
     description,
     isFree,
+    durationInDays,
     createdBy,
     currentDate(),
   ]);
@@ -131,6 +133,7 @@ const updateSubscriptionPlan = async (
   planName,
   description,
   isFree,
+  durationInDays,
   updatedBy,
 ) => {
   // Validate that uniqueId is provided
@@ -141,6 +144,7 @@ const updateSubscriptionPlan = async (
     planName,
     description,
     isFree,
+    durationInDays,
     subscriptionPlanUpdatedBy: updatedBy,
   };
   // Validate that updateData is provided and not empty
@@ -153,6 +157,7 @@ const updateSubscriptionPlan = async (
     "planName",
     "description",
     "isFree",
+    "durationInDays",
     "subscriptionPlanUpdatedBy",
   ];
 

@@ -50,29 +50,40 @@ const createPricing = async (
     throw new AppError("Invalid Subscription Plan ID. Plan not found.", 404);
   }
 
-  // 1. Calculate effectiveTo if not provided
+  const planRow = planExists[0];
+
+  // 1. Calculate effectiveTo if not provided and durationInDays given
   if (!effectiveTo && durationInDays) {
-    // Convert effectiveFrom to Date object if it's a string
     const fromDate = new Date(effectiveFrom);
     effectiveTo = addDays(fromDate, durationInDays);
   }
 
-  // 3. Improved active pricing check
-  // Should check for overlapping date ranges, not just existence
+  // 2. Enforce: free plans MUST have effectiveTo
+  if (planRow.isFree && !effectiveTo) {
+    throw new AppError(
+      "effectiveTo is required for free subscription plans.",
+      400,
+    );
+  }
+
+  // 3. Improved active pricing check with NULL-safe overlap detection
   const existingPricings = await getPricingWithFilters({
     subscriptionPlanUniqueId,
     isActive: true,
   });
 
   if (existingPricings?.data?.length > 0) {
-    // Check for date overlaps
     const hasOverlap = existingPricings.data.some((pricing) => {
       const existingFrom = new Date(pricing.effectiveFrom);
-      const existingTo = new Date(pricing.effectiveTo);
+      // NULL effectiveTo means "never ends" — treat as far future
+      const existingTo = pricing.effectiveTo
+        ? new Date(pricing.effectiveTo)
+        : new Date("9999-12-31");
       const newFrom = new Date(effectiveFrom);
-      const newTo = new Date(effectiveTo);
+      const newTo = effectiveTo
+        ? new Date(effectiveTo)
+        : new Date("9999-12-31");
 
-      // Check if date ranges overlap
       return newFrom <= existingTo && newTo >= existingFrom;
     });
 
@@ -99,7 +110,7 @@ const createPricing = async (
     subscriptionPlanUniqueId,
     price,
     effectiveFrom,
-    effectiveTo,
+    effectiveTo || null,
     createdBy,
     currentDate(),
   ];
@@ -111,7 +122,7 @@ const createPricing = async (
     data: "Subscription Plan Price Created Successfully",
     subscriptionPlanPricingUniqueId,
     effectiveFrom,
-    effectiveTo,
+    effectiveTo: effectiveTo || null,
   };
 };
 
