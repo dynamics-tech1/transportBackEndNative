@@ -614,28 +614,28 @@ const subscriptionPlanPricingLists = [
       savedSubscriptionPlanLists?.[0]?.subscriptionPlanUniqueId,
     price: 700,
     durationInDays: 30,
-    effectiveFrom: "2026-01-20 00:00:00",
+    effectiveFrom: currentDate(),
   },
   {
     subscriptionPlanUniqueId:
       savedSubscriptionPlanLists?.[1]?.subscriptionPlanUniqueId,
     price: 700,
     durationInDays: 30,
-    effectiveFrom: "2026-01-20 00:00:00",
+    effectiveFrom: currentDate(),
   },
   {
     subscriptionPlanUniqueId:
       savedSubscriptionPlanLists?.[2]?.subscriptionPlanUniqueId,
     price: 1800,
     durationInDays: 90,
-    effectiveFrom: "2026-01-20 00:00:00",
+    effectiveFrom:  currentDate(),
   },
   {
     subscriptionPlanUniqueId:
       savedSubscriptionPlanLists?.[3]?.subscriptionPlanUniqueId,
     price: 6000,
     durationInDays: 365,
-    effectiveFrom: "2026-01-20 00:00:00",
+    effectiveFrom: currentDate(),
   },
 ];
 const depositSources = [
@@ -653,31 +653,31 @@ const commissionStatusList = [
   {
     statusName: "REQUESTED",
     description: "Commission requested by the system/admin",
-    effectiveFrom: "2024-01-01",
+    effectiveFrom: currentDate(),
     effectiveTo: null,
   },
   {
     statusName: "PENDING",
     description: "Commission calculated but not yet paid",
-    effectiveFrom: "2024-01-01",
+    effectiveFrom: currentDate(),
     effectiveTo: null,
   },
   {
     statusName: "PAID",
     description: "Commission successfully paid",
-    effectiveFrom: "2024-01-01",
+    effectiveFrom: currentDate(),
     effectiveTo: null,
   },
   {
     statusName: "FREE",
     description: "Commission waived or free tier",
-    effectiveFrom: "2024-01-01",
+    effectiveFrom: currentDate(),
     effectiveTo: null,
   },
   {
     statusName: "CANCELED",
     description: "Commission canceled",
-    effectiveFrom: "2024-01-01",
+    effectiveFrom: currentDate(),
     effectiveTo: null,
   },
 ];

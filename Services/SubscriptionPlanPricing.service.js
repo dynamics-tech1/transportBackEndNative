@@ -42,7 +42,7 @@ const createPricing = async (
 
   // 0. Validate Subscription Plan Existence
   const [planExists] = await pool.query(
-    "SELECT subscriptionPlanUniqueId FROM SubscriptionPlan WHERE subscriptionPlanUniqueId = ?",
+    "SELECT subscriptionPlanUniqueId, isFree FROM SubscriptionPlan WHERE subscriptionPlanUniqueId = ?",
     [subscriptionPlanUniqueId],
   );
 
@@ -52,21 +52,47 @@ const createPricing = async (
 
   const planRow = planExists[0];
 
-  // 1. Calculate effectiveTo if not provided and durationInDays given
-  if (!effectiveTo && durationInDays) {
-    const fromDate = new Date(effectiveFrom);
-    effectiveTo = addDays(fromDate, durationInDays);
+  // 1. For free plans: calculate effectiveTo if not provided but durationInDays given
+  //    For paid plans: effectiveTo must remain null (no expiry)
+  if (planRow.isFree) {
+    if (!effectiveTo && durationInDays) {
+      const fromDate = new Date(effectiveFrom);
+      effectiveTo = addDays(fromDate, durationInDays);
+    }
+    // Enforce: free plans MUST have effectiveTo
+    if (!effectiveTo) {
+      throw new AppError(
+        "effectiveTo is required for free subscription plans.",
+        400,
+      );
+    }
+  } else {
+    // Paid plan — always null, ignore any provided effectiveTo or durationInDays
+    effectiveTo = null;
   }
 
-  // 2. Enforce: free plans MUST have effectiveTo
-  if (planRow.isFree && !effectiveTo) {
+  // 3a. Check for exact duplicate (same plan, same price, same start date) to prevent seeder duplication
+  const checkDuplicateSql = `
+    SELECT subscriptionPlanPricingUniqueId 
+    FROM SubscriptionPlanPricing 
+    WHERE subscriptionPlanUniqueId = ? 
+      AND price = ? 
+      AND DATE(effectiveFrom) = DATE(?)
+  `;
+  const [duplicates] = await pool.query(checkDuplicateSql, [
+    subscriptionPlanUniqueId,
+    price,
+    effectiveFrom,
+  ]);
+
+  if (duplicates.length > 0) {
     throw new AppError(
-      "effectiveTo is required for free subscription plans.",
+      "This pricing configuration already exists for this plan.",
       400,
     );
   }
 
-  // 3. Improved active pricing check with NULL-safe overlap detection
+  // 3b. Improved active pricing check with NULL-safe overlap detection
   const existingPricings = await getPricingWithFilters({
     subscriptionPlanUniqueId,
     isActive: true,

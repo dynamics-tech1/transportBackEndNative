@@ -217,17 +217,17 @@ const getVehicles = async (query) => {
       vs.VehicleStatusTypeId
     FROM Vehicle v
     LEFT JOIN VehicleTypes vt ON v.vehicleTypeUniqueId = vt.vehicleTypeUniqueId
-    LEFT JOIN VehicleOwnership vo ON v.vehicleUniqueId = vo.vehicleUniqueId
-    LEFT JOIN VehicleStatus vs ON v.vehicleUniqueId = vs.vehicleUniqueId
+    LEFT JOIN VehicleOwnership vo ON v.vehicleUniqueId = vo.vehicleUniqueId AND vo.ownershipEndDate IS NULL
+    LEFT JOIN VehicleStatus vs ON v.vehicleUniqueId = vs.vehicleUniqueId AND vs.statusEndDate IS NULL
     ${whereClause}
     ORDER BY v.${sortBy} ${sortOrder}
     LIMIT ? OFFSET ?
   `;
 
   const countSql = `
-    SELECT COUNT(*) as total
+    SELECT COUNT(DISTINCT v.vehicleUniqueId) as total
     FROM Vehicle v
-    LEFT JOIN VehicleOwnership vo ON v.vehicleUniqueId = vo.vehicleUniqueId
+    LEFT JOIN VehicleOwnership vo ON v.vehicleUniqueId = vo.vehicleUniqueId AND vo.ownershipEndDate IS NULL
     ${whereClause}
   `;
 
