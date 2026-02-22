@@ -213,13 +213,14 @@ const getVehicles = async (query) => {
       v.*,
       vt.vehicleTypeName,
       vt.vehicleTypeDescription,
-      vo.userUniqueId as ownerUniqueId,
-      vs.VehicleStatusTypeId
+      MAX(vo.userUniqueId) as ownerUniqueId,
+      MAX(vs.VehicleStatusTypeId) as VehicleStatusTypeId
     FROM Vehicle v
     LEFT JOIN VehicleTypes vt ON v.vehicleTypeUniqueId = vt.vehicleTypeUniqueId
     LEFT JOIN VehicleOwnership vo ON v.vehicleUniqueId = vo.vehicleUniqueId AND vo.ownershipEndDate IS NULL
     LEFT JOIN VehicleStatus vs ON v.vehicleUniqueId = vs.vehicleUniqueId AND vs.statusEndDate IS NULL
     ${whereClause}
+    GROUP BY v.vehicleId
     ORDER BY v.${sortBy} ${sortOrder}
     LIMIT ? OFFSET ?
   `;

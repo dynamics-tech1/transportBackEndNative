@@ -60,9 +60,28 @@ const deleteVehicleController = async (req, res, next) => {
 
 const getVehiclesController = async (req, res, next) => {
   try {
+    let ownerUserUniqueId = req?.params?.ownerUserUniqueId;
+    const roleId = req?.user?.roleId;
+    const user = req?.user;
+    if (ownerUserUniqueId === "self" || ownerUserUniqueId == null) {
+      ownerUserUniqueId = user?.userUniqueId;
+    }
+    if (
+      roleId === usersRoles.adminRoleId ||
+      roleId === usersRoles.supperAdminRoleId
+    ) {
+      // Admin or super admin can get vehicles for any user
+    } else if (roleId === usersRoles.driverRoleId) {
+      if (ownerUserUniqueId !== user?.userUniqueId) {
+        return next(
+          new AppError("You can't get vehicles for another driver", 403),
+        );
+      }
+    }
     const response = await getVehicles({
       ...req.query,
-      user: req.user,
+      user: user,
+      ownerUserUniqueId,
     });
     ServerResponder(res, response);
   } catch (error) {
