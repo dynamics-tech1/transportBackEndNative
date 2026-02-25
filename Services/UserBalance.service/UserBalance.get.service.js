@@ -63,7 +63,7 @@ const getAlluserBalances = async () => {
     results.map(enrichUserBalanceRecord),
   );
 
-  return enrichedResults;
+  return { message: "success", data: enrichedResults };
 };
 
 // Get a driver balance record by ID
@@ -75,7 +75,7 @@ const getuserBalanceById = async (userBalanceUniqueId) => {
     throw new AppError("Driver balance not found", 404);
   }
 
-  return result[0];
+  return { message: "success", data: result[0] };
 };
 
 // Get the last driver balance record by userUniqueId
@@ -142,7 +142,7 @@ const getDriverLastBalanceByUserUniqueId = async (userUniqueId) => {
     // If enrichment fails, return base record
   }
 
-  return TransactionData;
+  return { message: "success", data: TransactionData };
 };
 
 const getuserBalanceByDateRange = async ({
@@ -204,7 +204,7 @@ const getuserBalanceByDateRange = async ({
     }),
   );
 
-  return fullData;
+  return { message: "success", data: fullData };
 };
 
 const getUserBalanceByFilterServices = async (query) => {
