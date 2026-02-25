@@ -485,6 +485,7 @@ const getUserSubscriptionsWithFilters = async (filters = {}) => {
   const total = countRes[0]?.total || 0;
 
   return {
+    message: "success",
     data: rows,
     pagination: {
       currentPage: parseInt(page),
@@ -507,7 +508,8 @@ const getUserSubscriptionsCount = async (filters = {}) => {
   });
 
   return {
-    totalCount: result.pagination?.totalItems || 0,
+    message: "success",
+    data: { totalCount: result.pagination?.totalItems || 0 },
     filters,
   };
 };
@@ -603,6 +605,7 @@ const getUnassignedFreePlans = async (filters = {}) => {
   const total = countRes[0]?.total || 0;
 
   return {
+    message: "success",
     data: rows,
     pagination: {
       currentPage: parseInt(page),
