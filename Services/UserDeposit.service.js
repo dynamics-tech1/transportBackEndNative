@@ -408,7 +408,7 @@ const updateUserDepositByUniqueId = async (userDepositUniqueId, data) => {
 
     // If already approved, skip balance addition
     if (savedDepositStatus === "approved") {
-      return depositData;
+      return { message: "success", data: depositData };
     }
 
     const depositAmount = depositData?.depositAmount;
@@ -462,9 +462,10 @@ const updateUserDepositByUniqueId = async (userDepositUniqueId, data) => {
       userDepositUniqueId,
       limit: 1,
     });
-    return Array.isArray(updatedDepositFetch?.data)
+    const updatedData = Array.isArray(updatedDepositFetch?.data)
       ? updatedDepositFetch.data[0]
       : updatedDepositFetch?.data;
+    return { message: "success", data: updatedData };
   } else {
     // Not approving, just do regular update
     const excludedFields = [
@@ -502,9 +503,10 @@ const updateUserDepositByUniqueId = async (userDepositUniqueId, data) => {
       userDepositUniqueId,
       limit: 1,
     });
-    return Array.isArray(updatedDepositFetch?.data)
+    const updatedData = Array.isArray(updatedDepositFetch?.data)
       ? updatedDepositFetch.data[0]
       : updatedDepositFetch?.data;
+    return { message: "success", data: updatedData };
   }
 };
 
@@ -517,7 +519,7 @@ const deleteUserDepositByUniqueId = async (userDepositUniqueId) => {
     throw new AppError("Delete failed or deposit not found", 404);
   }
 
-  return `Deleted: ${userDepositUniqueId}`;
+  return { message: "success", data: `Deleted: ${userDepositUniqueId}` };
 };
 
 /**
