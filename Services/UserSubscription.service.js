@@ -37,6 +37,12 @@ const createUserSubscription = async ({
     isActive: true,
   });
   const activePricingData = activePricing?.data?.[0];
+  console.log(
+    "@activePricingData",
+    activePricingData,
+    "@subscriptionPlanPricingUniqueId",
+    subscriptionPlanPricingUniqueId,
+  );
 
   if (!activePricingData) {
     throw new AppError("You can't create subscription using this plan.", 400);
@@ -80,7 +86,7 @@ const createUserSubscription = async ({
   const result = await executeInTransaction(async (connection) => {
     // 1. Deduct/add balance for subscription
     // Note: prepareAndCreateNewBalance now throws AppError
-    await prepareAndCreateNewBalance({
+   const balanceResult = await prepareAndCreateNewBalance({
       addOrDeduct: activePricingData?.isFree ? "add" : "deduct",
       amount: price,
       driverUniqueId,
@@ -89,6 +95,8 @@ const createUserSubscription = async ({
       isFree,
       userBalanceCreatedBy: driverUniqueId,
     });
+    console.log('@balanceResult', balanceResult);
+    
 
     // 2. Insert subscription record
     const nextDate = addDays(
@@ -130,6 +138,7 @@ const createUserSubscription = async ({
   });
 
   return {
+    message: "success",
     data: [newSubscription?.data?.[0] || result], // Return as array to match GET
     pagination: {
       currentPage: 1,

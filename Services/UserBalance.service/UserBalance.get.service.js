@@ -349,6 +349,10 @@ const getUserBalanceByFilterServices = async (query) => {
   );
 
   return {
+
+    message: "success",
+    data: enrichedData,
+
     pagination: {
       total,
       page: Number(page),
@@ -357,7 +361,6 @@ const getUserBalanceByFilterServices = async (query) => {
       hasNext: page < Math.ceil(total / limit),
       hasPrev: page > 1,
     },
-    data: enrichedData,
   };
 };
 
