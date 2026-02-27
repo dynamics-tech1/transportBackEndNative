@@ -52,7 +52,19 @@ const createUserSubscription = async ({
   const price = activePricingData?.price;
   const effectiveFrom = activePricingData?.effectiveFrom;
   const effectiveTo = activePricingData?.effectiveTo;
-  const durationInDays = getDaysBetweenDates(effectiveFrom, effectiveTo);
+
+  // Use durationInDays from pricing when available; only compute from dates if BOTH are set
+  let durationInDays = activePricingData?.durationInDays;
+  if (durationInDays == null || durationInDays <= 0) {
+    if (effectiveFrom && effectiveTo) {
+      durationInDays = getDaysBetweenDates(effectiveFrom, effectiveTo);
+    } else {
+      throw new AppError(
+        "durationInDays is missing for this pricing configuration.",
+        400,
+      );
+    }
+  }
 
   let savedEndDate = null,
     savedStartDate = null;
@@ -86,7 +98,7 @@ const createUserSubscription = async ({
   const result = await executeInTransaction(async (connection) => {
     // 1. Deduct/add balance for subscription
     // Note: prepareAndCreateNewBalance now throws AppError
-   const balanceResult = await prepareAndCreateNewBalance({
+    const balanceResult = await prepareAndCreateNewBalance({
       addOrDeduct: activePricingData?.isFree ? "add" : "deduct",
       amount: price,
       driverUniqueId,
@@ -95,8 +107,7 @@ const createUserSubscription = async ({
       isFree,
       userBalanceCreatedBy: driverUniqueId,
     });
-    console.log('@balanceResult', balanceResult);
-    
+    console.log("@balanceResult", balanceResult);
 
     // 2. Insert subscription record
     const nextDate = addDays(
@@ -251,7 +262,10 @@ const deleteUserSubscriptionByUniqueId = async (
 
   await updateUserSubscriptionByUniqueId(userSubscriptionUniqueId, deleteData);
 
-  return `Subscription ${userSubscriptionUniqueId} marked as deleted successfully`;
+  return {
+    message: "success",
+    data: `Subscription ${userSubscriptionUniqueId} marked as deleted successfully`,
+  };
 };
 
 // Consolidated service method for filtering
