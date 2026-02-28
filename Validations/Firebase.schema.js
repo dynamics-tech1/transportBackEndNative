@@ -1,15 +1,19 @@
 const Joi = require("joi");
 const { uuidSchema } = require("../Middleware/Validator");
 
+// Frontend sends { FCMToken: token }; also accept { token } for backward compatibility
 exports.upsertFCMToken = Joi.object({
-  token: Joi.string().optional(),
   FCMToken: Joi.string().optional(),
+  token: Joi.string().optional(),
   deviceType: Joi.string().optional(),
   platform: Joi.string().optional(),
   appVersion: Joi.string().optional(),
   locale: Joi.string().optional(),
 })
-  .or("token", "FCMToken")
+  .or("FCMToken", "token")
+  .messages({
+    "object.missing": "Either FCMToken or token is required",
+  })
   .unknown(true);
 
 exports.updateFCMToken = Joi.object({
