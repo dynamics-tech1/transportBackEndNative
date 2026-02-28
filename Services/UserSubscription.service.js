@@ -218,6 +218,7 @@ const updateUserSubscriptionByUniqueId = async (
   });
 
   return {
+    message: "success",
     data: [updatedSubscription?.data?.[0] || { userSubscriptionUniqueId }], // Return as array to match GET
     pagination: {
       currentPage: 1,
