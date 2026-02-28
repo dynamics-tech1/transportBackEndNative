@@ -5,7 +5,16 @@ const logger = require("../Utils/logger");
 const validator = (schema, source = "body") => {
   return (req, res, next) => {
     const data = req[source];
-    logger.debug("@validator data", data);
+    const path = req.path || req.originalUrl || req.url;
+    const method = req.method;
+
+    logger.debug("@validator input", {
+      method,
+      path,
+      source,
+      dataKeys: data && typeof data === "object" ? Object.keys(data) : [],
+    });
+
     // Handle empty body for POST requests
     if (
       source === "body" &&
@@ -21,13 +30,25 @@ const validator = (schema, source = "body") => {
       allowUnknown: true,
       stripUnknown: true,
     });
-    logger.debug("@validator schema.validate error", error);
+
     if (error) {
+      const details = error.details?.map((d) => ({
+        field: d.path?.join(".") || d.context?.key,
+        message: d.message,
+      }));
+      logger.warn("@validator schema.validate failed", {
+        method,
+        path,
+        source,
+        details,
+        message: error.message,
+      });
       return next(
         new AppError(
           {
             message: "Validation failed",
             code: "VALIDATION_ERROR",
+            details,
           },
           400,
         ),

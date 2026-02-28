@@ -453,6 +453,7 @@ const activeJourneyStatuses = [
   journeyStatusMap.journeyStarted,
 ];
 
+// 21 items: 10 passenger (roleId 1), 8 driver (roleId 2), 3 admin (roleId 3)
 const cancellationReasons = [
   {
     cancellationReason: "Driver too late",
