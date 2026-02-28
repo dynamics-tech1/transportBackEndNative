@@ -98,7 +98,7 @@ const createUserSubscription = async ({
   const result = await executeInTransaction(async (connection) => {
     // 1. Deduct/add balance for subscription
     // Note: prepareAndCreateNewBalance now throws AppError
-    const balanceResult = await prepareAndCreateNewBalance({
+   const balanceResult = await prepareAndCreateNewBalance({
       addOrDeduct: activePricingData?.isFree ? "add" : "deduct",
       amount: price,
       driverUniqueId,
@@ -107,7 +107,8 @@ const createUserSubscription = async ({
       isFree,
       userBalanceCreatedBy: driverUniqueId,
     });
-    console.log("@balanceResult", balanceResult);
+    console.log('@balanceResult', balanceResult);
+    
 
     // 2. Insert subscription record
     const nextDate = addDays(
@@ -263,10 +264,7 @@ const deleteUserSubscriptionByUniqueId = async (
 
   await updateUserSubscriptionByUniqueId(userSubscriptionUniqueId, deleteData);
 
-  return {
-    message: "success",
-    data: `Subscription ${userSubscriptionUniqueId} marked as deleted successfully`,
-  };
+  return { message: "success", data:   `Subscription ${userSubscriptionUniqueId} marked as deleted successfully` };
 };
 
 // Consolidated service method for filtering

@@ -454,50 +454,101 @@ const activeJourneyStatuses = [
 ];
 
 const cancellationReasons = [
-  { cancellationReason: "Driver too late", roleId: 1 },
-  { cancellationReason: "Driver did not answered requests", roleId: 2 },
-  { cancellationReason: "Change of plans", roleId: 1 },
-  { cancellationReason: "Driver took too long", roleId: 1 },
-  { cancellationReason: "Found another ride", roleId: 1 },
-  { cancellationReason: "Wrong vehicle description", roleId: 1 },
+  {
+    cancellationReason: "Driver too late",
+    roleId: 1,
+    cancellationReasonsTypeId: 1,
+  },
+  {
+    cancellationReason: "Driver did not answered requests",
+    roleId: 2,
+    cancellationReasonsTypeId: 2,
+  },
+  {
+    cancellationReason: "Change of plans",
+    roleId: 1,
+    cancellationReasonsTypeId: 3,
+  },
+  {
+    cancellationReason: "Driver took too long",
+    roleId: 1,
+    cancellationReasonsTypeId: 4,
+  },
+  {
+    cancellationReason: "Found another ride",
+    roleId: 1,
+    cancellationReasonsTypeId: 5,
+  },
+  {
+    cancellationReason: "Wrong vehicle description",
+    roleId: 1,
+    cancellationReasonsTypeId: 6,
+  },
   {
     cancellationReason: "Driver did not meet my location",
     roleId: 1,
+    cancellationReasonsTypeId: 7,
   },
-  { cancellationReason: "Incorrect route", roleId: 1 },
+  {
+    cancellationReason: "Incorrect route",
+    roleId: 1,
+    cancellationReasonsTypeId: 8,
+  },
   {
     cancellationReason: "Driver's vehicle didn't match description",
     roleId: 1,
+    cancellationReasonsTypeId: 9,
   },
   {
     cancellationReason: "Driver was rude or unprofessional",
     roleId: 1,
+    cancellationReasonsTypeId: 10,
   },
 
-  { cancellationReason: "Passenger didn’t show up", roleId: 2 },
+  {
+    cancellationReason: "Passenger didn’t show up",
+    roleId: 2,
+    cancellationReasonsTypeId: 11,
+  },
   { cancellationReason: "Passenger was unresponsive", roleId: 2 },
-  { cancellationReason: "Safety concerns", roleId: 2 },
+  {
+    cancellationReason: "Safety concerns",
+    roleId: 2,
+    cancellationReasonsTypeId: 12,
+  },
   { cancellationReason: "Incorrect pickup location", roleId: 2 },
   {
     cancellationReason: "Passenger had too many people",
     roleId: 2,
+    cancellationReasonsTypeId: 13,
   },
   {
     cancellationReason: "Passenger was disrespectful",
     roleId: 2,
+    cancellationReasonsTypeId: 14,
   },
   {
     cancellationReason: "Passenger requested an illegal or unsafe route",
     roleId: 2,
+    cancellationReasonsTypeId: 15,
   },
   { cancellationReason: "Vehicle issue", roleId: 2 },
 
   {
     cancellationReason: "App-related technical issue",
     roleId: 3,
+    cancellationReasonsTypeId: 16,
   },
-  { cancellationReason: "Route unavailable", roleId: 3 },
-  { cancellationReason: "Driver no longer available", roleId: 3 },
+  {
+    cancellationReason: "Route unavailable",
+    roleId: 3,
+    cancellationReasonsTypeId: 17,
+  },
+  {
+    cancellationReason: "Driver no longer available",
+    roleId: 3,
+    cancellationReasonsTypeId: 18,
+  },
 ];
 const paymentStatus = [
   {
@@ -628,7 +679,7 @@ const subscriptionPlanPricingLists = [
       savedSubscriptionPlanLists?.[2]?.subscriptionPlanUniqueId,
     price: 1800,
     durationInDays: 90,
-    effectiveFrom:  currentDate(),
+    effectiveFrom: currentDate(),
   },
   {
     subscriptionPlanUniqueId:

@@ -906,7 +906,11 @@ const cancelDriverRequest = async (data) => {
     const userUniqueId = user?.userUniqueId;
     const ownerUserUniqueId = data?.ownerUserUniqueId,
       passengerUserUniqueId = data?.passengerUserUniqueId;
-    const cancellationReasonsTypeId = data?.cancellationReasonsTypeId;
+    const rawReasonId = data?.cancellationReasonsTypeId;
+    const cancellationReasonsTypeId =
+      rawReasonId != null && rawReasonId !== "undefined" && !Number.isNaN(Number(rawReasonId))
+        ? Number(rawReasonId)
+        : 1; // default to 1 if missing/invalid to satisfy FK
 
     // Check if the driver has any active requests
     const getActiveRequest = await checkActiveDriverRequest(ownerUserUniqueId);

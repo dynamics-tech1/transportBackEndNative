@@ -216,8 +216,17 @@ const cancelDriverRequest = async (req, res, next) => {
     req.query.ownerUserUniqueId = ownerUserUniqueId;
     req.query.user = user;
     req.query.roleId = roleId;
+    // Prefer body.cancellationReasonsTypeId (query may be "undefined" string)
+    const rawReasonId = req.body?.cancellationReasonsTypeId ?? req.query?.cancellationReasonsTypeId;
+    const cancellationReasonsTypeId =
+      rawReasonId != null && rawReasonId !== "undefined"
+        ? Number(rawReasonId)
+        : undefined;
     const result = await services.cancelDriverRequest({
       ...req.query,
+      ...(cancellationReasonsTypeId !== undefined && !Number.isNaN(cancellationReasonsTypeId)
+        ? { cancellationReasonsTypeId }
+        : {}),
     });
 
     ServerResponder(res, result);
