@@ -275,7 +275,7 @@ const getUserBalanceByFilterServices = async (query) => {
     SELECT *
     FROM UserBalance
     ${whereSql}
-    ORDER BY transactionTime DESC
+    ORDER BY userBalanceId DESC
     LIMIT ? OFFSET ?
   `;
   const dataParams = [...params, Number(limit), Number(offset)];
@@ -349,7 +349,6 @@ const getUserBalanceByFilterServices = async (query) => {
   );
 
   return {
-
     message: "success",
     data: enrichedData,
 
