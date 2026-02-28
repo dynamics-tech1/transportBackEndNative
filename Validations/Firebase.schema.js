@@ -2,9 +2,15 @@ const Joi = require("joi");
 const { uuidSchema } = require("../Middleware/Validator");
 
 exports.upsertFCMToken = Joi.object({
-  token: Joi.string().required(),
+  token: Joi.string().optional(),
+  FCMToken: Joi.string().optional(),
   deviceType: Joi.string().optional(),
-}).unknown(true);
+  platform: Joi.string().optional(),
+  appVersion: Joi.string().optional(),
+  locale: Joi.string().optional(),
+})
+  .or("token", "FCMToken")
+  .unknown(true);
 
 exports.updateFCMToken = Joi.object({
   token: Joi.string().optional(),

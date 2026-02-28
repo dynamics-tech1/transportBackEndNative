@@ -15,10 +15,10 @@ const firebaseController = {
     try {
       const userUniqueId = req?.user?.userUniqueId || null; // from verifyTokenOfAxios
       const roleId = req?.user?.roleId || null;
-      const { FCMToken, platform, appVersion, locale } = req.body || {};
+      const { token, FCMToken, platform, appVersion, locale } = req.body || {};
       const result = await upsertDeviceToken({
         userUniqueId,
-        token: FCMToken,
+        token: token || FCMToken,
         platform,
         appVersion,
         locale,
