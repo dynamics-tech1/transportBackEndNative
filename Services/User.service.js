@@ -509,13 +509,20 @@ const handleUserRoleStatus = async (
   });
 
   if (userRoleStatus.length === 0) {
+    // One row per UserRole: passenger and driver each have their own userRoleId and status row.
+    // Role-specific initial status: passenger (1) = active (1); driver (2) = inactive pending docs (2); others = active or provided
+    const initialStatusId =
+      roleId === 1
+        ? 1
+        : roleId === 2
+          ? 2
+          : statusId ?? 1;
     const colAndVal = {
       userRoleStatusUniqueId: uuidv4(),
       userRoleStatusCreatedBy: userUniqueId,
       userRoleId,
       userRoleStatusDescription,
-      // if role is 2, user is a driver, then statusId will be 2 for driver because drivers data must be active after approval by admin
-      statusId: roleId === 2 ? 2 : statusId,
+      statusId: initialStatusId,
       userRoleStatusCreatedAt: currentDate(),
     };
 

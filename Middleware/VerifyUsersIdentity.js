@@ -1,6 +1,7 @@
 const { getData, performJoinSelect } = require("../CRUD/Read/ReadData");
 const { pool } = require("./Database.config");
 const AppError = require("../Utils/AppError");
+const { usersRolesList } = require("../Utils/ListOfSeedData");
 
 // Verify if the user is an Admin and is in an active status
 const verifyAdminsIdentity = async (req, res, next) => {
@@ -139,7 +140,7 @@ const verifyPassengersIdentity = async (req, res, next) => {
     }
     req.userRole = userRole;
 
-    // Step 3: Check if the Passenger is in an active status
+    // Step 3: Check if the Passenger is in an active status (join UserRole so we always use passenger role's status)
     const passengerRole = userRole[0];
     const userRoleStatus = await performJoinSelect({
       baseTable: "UserRoleStatusCurrent",
@@ -148,14 +149,20 @@ const verifyPassengersIdentity = async (req, res, next) => {
           table: "Statuses",
           on: "Statuses.statusId = UserRoleStatusCurrent.statusId",
         },
+        {
+          table: "UserRole",
+          on: "UserRole.userRoleId = UserRoleStatusCurrent.userRoleId",
+        },
       ],
       conditions: {
         "UserRoleStatusCurrent.userRoleId": passengerRole.userRoleId,
+        "UserRole.roleId": usersRolesList.passenger.roleId, // ensure we use passenger role's status, not driver's
       },
       orderBy: "userRoleStatusCreatedAt",
       orderDirection: "DESC",
-      limit: 1,
+      limit: 12,
     });
+    console.log("@userRoleStatus", userRoleStatus);
 
     if (userRoleStatus.length === 0) {
       throw new AppError("User passenger role status not found", 401);
@@ -163,7 +170,10 @@ const verifyPassengersIdentity = async (req, res, next) => {
     req.userRoleStatus = userRoleStatus;
     const statusId = userRoleStatus[0]?.statusId;
     if (statusId !== 1) {
-      throw new AppError("Passenger in inactive status", 403);
+      throw new AppError(
+        `Passenger in inactive status (statusId: ${statusId}). Passengers should have statusId 1 (active).`,
+        403,
+      );
     }
 
     next();

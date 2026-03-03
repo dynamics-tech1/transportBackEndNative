@@ -115,7 +115,7 @@ const validateAccountStatusParams = ({
     }
   }
 
-  // Validate that roleId is available (from body or user)
+  // Validate that roleId is available (from body/query or user)
   const hasRoleId = (body && body.roleId) || (user && user.roleId);
   if (!hasRoleId) {
     throw new AppError(
@@ -197,7 +197,7 @@ const accountStatus = async ({
     // ========== STEP 0: RESOLVE USER CONTEXT ==========
     let effectiveUser = user;
     let resolvedUserUniqueId = ownerUserUniqueId;
-    const requestedRoleId = body?.roleId; // Get roleId from query if provided
+    const requestedRoleId = body?.roleId; // From query (controller sets req.query.roleId when self + no query roleId)
 
     // If ownerUserUniqueId is not provided, try to resolve by phone or email
     if (!resolvedUserUniqueId && (phoneNumber || email)) {
@@ -403,6 +403,16 @@ const accountStatus = async ({
     }
 
     // ========== STEP 3: DETERMINE FINAL STATUS BASED ON PRIORITY ==========
+    // Only mandatory docs (isDocumentMandatory === 1) block status; optional docs (0) do not impede active (1)
+    const isMandatory = (doc) => Number(doc?.isDocumentMandatory) === 1;
+    const unAttachedMandatory = unAttachedDocumentTypes.filter(isMandatory);
+    const hasRejectedMandatory =
+      attachedDocumentsByStatus.REJECTED.some(isMandatory);
+    const hasPendingMandatory =
+      attachedDocumentsByStatus.PENDING.some(isMandatory);
+
+    const applyDocumentRules = Number(roleId) === usersRoles.driverRoleId;
+
     let finalStatusId = 1; // Default: Active
     let reason = "All requirements satisfied";
 
@@ -411,27 +421,23 @@ const accountStatus = async ({
       finalStatusId = USER_STATUS.INACTIVE_USER_IS_BANNED_BY_ADMIN;
       reason = "User is banned";
     }
-    // Priority 2: No Vehicle (2)
+    // Priority 2: No Vehicle (2) - driver/vehicle-owner only
     else if (requiresVehicle && !userVehicle) {
       finalStatusId = USER_STATUS.INACTIVE_VEHICLE_NOT_REGISTERED;
       reason = "No vehicle registered for this role";
     }
-    // Priority 3: Document Rejected (4)
-    else if (attachedDocumentsByStatus.REJECTED.length > 0) {
+    // Priority 3–5: Document status (4,3,5) - only when mandatory docs are rejected/missing/pending
+    else if (applyDocumentRules && hasRejectedMandatory) {
       finalStatusId = USER_STATUS.INACTIVE_DOCUMENTS_REJECTED;
       reason = "One or more documents have been rejected";
-    }
-    // Priority 4: Documents Missing (3)
-    else if (unAttachedDocumentTypes.length > 0) {
+    } else if (applyDocumentRules && unAttachedMandatory.length > 0) {
       finalStatusId = USER_STATUS.INACTIVE_REQUIRED_DOCUMENTS_MISSING;
       reason = "Some required documents are not attached";
-    }
-    // Priority 5: Documents Pending (5)
-    else if (attachedDocumentsByStatus.PENDING.length > 0) {
+    } else if (applyDocumentRules && hasPendingMandatory) {
       finalStatusId = USER_STATUS.INACTIVE_DOCUMENTS_PENDING;
       reason = "One or more documents are pending review";
     }
-    // Priority 6: No Subscription (7)
+    // Priority 6: No Subscription (7) - driver only
     else if (
       Number(roleId) === usersRoles.driverRoleId &&
       !subscriptionInfo.hasActiveSubscription
@@ -510,13 +516,13 @@ async function checkAndGrantUserSubscription(driverUniqueId) {
       page: 1,
       limit: 1,
     });
-    console.log('@unassignedFreePlans',unassignedFreePlans);
-    
+    console.log("@unassignedFreePlans", unassignedFreePlans);
+
     // 2. Grant if found (but only one at a time)
     if (unassignedFreePlans?.data?.length > 0) {
       const plan = unassignedFreePlans.data[0];
-      console.log('@plan',plan);
-      
+      console.log("@plan", plan);
+
       await createUserSubscription({
         driverUniqueId,
         subscriptionPlanPricingUniqueId: plan.subscriptionPlanPricingUniqueId,

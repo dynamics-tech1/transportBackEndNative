@@ -220,6 +220,7 @@ const getUserRoleStatusCurrent = async ({ data }) => {
     endDate,
     sortBy = "userRoleStatusCreatedAt",
     sortOrder = "DESC",
+    search,
   } = data;
 
   // Calculate pagination
@@ -230,7 +231,7 @@ const getUserRoleStatusCurrent = async ({ data }) => {
   let queryParams = [];
 
   // SEARCH BLOCK - Search across multiple user and role fields
-  if (data?.search) {
+  if (search) {
     whereConditions.push(`(
     u.fullName LIKE ? OR 
     u.phoneNumber LIKE ? OR 
@@ -241,7 +242,7 @@ const getUserRoleStatusCurrent = async ({ data }) => {
     ursc.userRoleStatusDescription LIKE ?
   )`);
 
-    const searchPattern = `%${data?.search}%`;
+    const searchPattern = `%${search}%`;
     // Add the same pattern for all 7 search conditions
     queryParams.push(
       searchPattern, // u.fullName
