@@ -114,9 +114,11 @@ const startJourney = async (body) => {
 
         // Update journey status to journeyStarted (within transaction)
         // Include journeyUniqueId so updateJourneyStatus can update Journey table too
+        // Set shippingDateByDriver when driver starts journey
         await updateJourneyStatus({
           ...body,
           journeyUniqueId: finalJourneyUniqueId, // Add journeyUniqueId to update Journey table
+          shippingDateByDriver: currentDate(),
           connection, // Pass connection for transaction support
         });
       },
@@ -281,8 +283,10 @@ const completeJourney = async (body) => {
       async (connection) => {
         // Update journey status with connection for transaction support
         // Pass all required IDs to ensure all related tables are updated atomically
+        // Set deliveryDateByDriver when driver completes journey
         await updateJourneyStatus({
           ...body,
+          deliveryDateByDriver: currentDate(),
           connection, // Pass connection for transaction support
         });
 

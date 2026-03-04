@@ -431,6 +431,8 @@ const updateJourneyStatus = async (body) => {
     journeyStatusId,
     previousStatusId,
     shippingCostByDriver,
+    shippingDateByDriver,
+    deliveryDateByDriver,
     connection = null, // Optional: connection for transaction support
   } = body;
 
@@ -559,6 +561,12 @@ const updateJourneyStatus = async (body) => {
       const updateValues = { journeyStatusId };
       if (shippingCostByDriver) {
         updateValues.shippingCostByDriver = shippingCostByDriver;
+      }
+      if (shippingDateByDriver) {
+        updateValues.shippingDateByDriver = shippingDateByDriver;
+      }
+      if (deliveryDateByDriver) {
+        updateValues.deliveryDateByDriver = deliveryDateByDriver;
       }
 
       // Set isNotSelectedSeenByDriver based on journeyStatusId
