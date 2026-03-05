@@ -19,6 +19,7 @@ const {
   journeyStatusMap,
   usersRoles,
   listOfDocumentsTypeAndId,
+  usersRolesList,
 } = require("../../Utils/ListOfSeedData");
 const messageTypes = require("../../Utils/MessageTypes");
 const logger = require("../../Utils/logger");
@@ -515,7 +516,9 @@ const cancelPassengerRequest = async (body) => {
 
     // Verify authorization: user must own the request OR be admin/super admin
     const isOwner = requestOwnerUserUniqueId === userUniqueId;
-    const isAdmin = roleId === 3 || roleId === 6; // 3 = admin, 6 = super admin
+    const isAdmin =
+      roleId === usersRolesList.admin.roleId ||
+      roleId === usersRolesList.supperAdmin.roleId;
 
     if (!isOwner && !isAdmin) {
       throw new AppError(

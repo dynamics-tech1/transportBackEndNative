@@ -9,7 +9,11 @@ const verifyAdminsIdentity = async (req, res, next) => {
     const userUniqueId = req?.user?.userUniqueId;
 
     const sql = `SELECT * FROM UserRole WHERE userUniqueId = ? AND roleId = ? OR roleId = ?`;
-    const [userRole] = await pool.query(sql, [userUniqueId, 3, 6]);
+    const [userRole] = await pool.query(sql, [
+      userUniqueId,
+      usersRolesList.admin.roleId,
+      usersRolesList.supperAdmin.roleId,
+    ]);
     if (!userRole?.length) {
       throw new AppError("User admin role not found", 401);
     }

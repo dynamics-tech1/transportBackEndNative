@@ -1,3 +1,4 @@
+const { USER_STATUS } = require("./ListOfSeedData");
 const findStatusByVehicleAndDocuments = (data) => {
   const {
     vehicleRegistered,
@@ -30,7 +31,10 @@ const findStatusByVehicleAndDocuments = (data) => {
   // Global priority overrides
   // 6) banned: kept for administrative actions - overrides everything
   if (isBanned === true) {
-    return { message: "success", finalStatusId: 6 };
+    return {
+      message: "success",
+      finalStatusId: USER_STATUS.INACTIVE_USER_IS_BANNED_BY_ADMIN,
+    };
   }
 
   // If no required documents are defined, status relies on vehicle only
@@ -40,9 +44,9 @@ const findStatusByVehicleAndDocuments = (data) => {
       // 2) no vehicle overrides when no docs logic exists
       finalStatusId: vehicleRegistered
         ? hasActiveSubscription
-          ? 1 // active
-          : 7 // no subscription
-        : 2, // no vehicle
+          ? USER_STATUS.ACTIVE // active
+          : USER_STATUS.INACTIVE_DRIVER_DOESN_T_HAVE_A_SUBSCRIPTION // no subscription
+        : USER_STATUS.INACTIVE_VEHICLE_NOT_REGISTERED, // no vehicle
     };
   }
 
@@ -50,27 +54,42 @@ const findStatusByVehicleAndDocuments = (data) => {
 
   // 2) no vehicle: regardless of documents
   if (!vehicleRegistered) {
-    return { message: "success", finalStatusId: 2 };
+    return {
+      message: "success",
+      finalStatusId: USER_STATUS.INACTIVE_VEHICLE_NOT_REGISTERED,
+    };
   }
 
   // 7) no subscription: driver doesn't have a subscription
   if (hasActiveSubscription === false) {
-    return { message: "success", finalStatusId: 7 };
+    return {
+      message: "success",
+      finalStatusId: USER_STATUS.INACTIVE_DRIVER_DOESN_T_HAVE_A_SUBSCRIPTION,
+    };
   }
 
   // 4) rejected: any rejected document exists
   if (rej > 0) {
-    return { message: "success", finalStatusId: 4 };
+    return {
+      message: "success",
+      finalStatusId: USER_STATUS.INACTIVE_DOCUMENTS_REJECTED,
+    };
   }
 
   // 3) not attached doc: some required docs are missing
   if (missingRequired) {
-    return { message: "success", finalStatusId: 3 };
+    return {
+      message: "success",
+      finalStatusId: USER_STATUS.INACTIVE_REQUIRED_DOCUMENTS_MISSING,
+    };
   }
 
   // 5) pending: any pending and none rejected
   if (pend > 0) {
-    return { message: "success", finalStatusId: 5 };
+    return {
+      message: "success",
+      finalStatusId: USER_STATUS.INACTIVE_DOCUMENTS_PENDING,
+    };
   }
   // 1) active: vehicle registered AND all required docs accepted
   if (vehicleRegistered && acc >= requiredCount) {

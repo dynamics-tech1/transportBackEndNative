@@ -7,6 +7,8 @@ const ServerResponder = require("../Utils/ServerResponder");
 const messageTypes = require("../Utils/MessageTypes");
 const { pool } = require("../Middleware/Database.config");
 const AppError = require("../Utils/AppError");
+const { usersRolesList } = require("../Utils/ListOfSeedData");
+const { journeyStatusMap } = require("../Utils/ListOfSeedData");
 
 // Helper function to handle service responses
 const handleServiceResponse = async (serviceCall, res, next) => {
@@ -28,7 +30,7 @@ const cancelJourneyBySystem = async (req, res, next) => {
       SELECT PassengerRequest.*, Users.phoneNumber
       FROM PassengerRequest
       JOIN Users ON Users.userUniqueId = PassengerRequest.userUniqueId
-      WHERE PassengerRequest.journeyStatusId = 1
+      WHERE PassengerRequest.journeyStatusId = ${journeyStatusMap.waiting}
         AND PassengerRequest.shipperRequestCreatedAt <= ?
     `;
 
@@ -152,7 +154,9 @@ const getCanceledJourneyCountsByDate = async (req, res, next) => {
 
     // Authorization check: only allow admin (3) or super admin (6) to access all data
     if (ownerUserUniqueId === "all") {
-      const isAdmin = userRoleId === 3 || userRoleId === 6;
+      const isAdmin =
+        userRoleId === usersRolesList.admin.roleId ||
+        userRoleId === usersRolesList.supperAdmin.roleId;
       if (!isAdmin) {
         // Non-admin users can only see their own data
         ownerUserUniqueId = req?.user?.userUniqueId;
