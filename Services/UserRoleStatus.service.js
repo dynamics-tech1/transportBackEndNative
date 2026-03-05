@@ -9,6 +9,7 @@ const { insertData } = require("../CRUD/Create/CreateData");
 const { pool } = require("../Middleware/Database.config");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
+const { usersRoles, USER_STATUS } = require("../Utils/ListOfSeedData");
 // Create UserRoleStatus
 const createUserRoleStatus = async (body) => {
   const { statusId, userRoleId, userRoleStatusDescription, createdByUserId } =
@@ -97,7 +98,10 @@ const updateUserRoleStatus = async (updateDataValues) => {
 // Handle responses when updating user role status
 const handleUpdateResponses = async ({ roleId, statusId, phoneNumber }) => {
   // if user is driver(roleId ===2 ) and not attached docs and vehicle (statusId ==3)
-  if (roleId === 2 && statusId === 3) {
+  if (
+    roleId === usersRoles.driverRoleId &&
+    statusId === USER_STATUS.INACTIVE_REQUIRED_DOCUMENTS_MISSING
+  ) {
     const driver = await getUserRoleStatusCurrent({
       data: { roleId, search: phoneNumber },
     });
@@ -109,14 +113,14 @@ const handleUpdateResponses = async ({ roleId, statusId, phoneNumber }) => {
       },
       phoneNumber,
     });
-  } else if (roleId === 3) {
-    if (statusId === 1) {
+  } else if (roleId === usersRoles.adminRoleId) {
+    if (statusId === USER_STATUS.ACTIVE) {
       await sendSocketIONotificationToDriver({
         message: "success",
         request: "User document approved by admin",
         phoneNumber,
       });
-    } else if (statusId === 4) {
+    } else if (statusId === USER_STATUS.INACTIVE_DOCUMENTS_REJECTED) {
       await sendSocketIONotificationToDriver({
         message: "success",
         request: "User document rejected by admin",

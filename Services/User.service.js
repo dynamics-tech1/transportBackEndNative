@@ -14,7 +14,7 @@ const logger = require("../Utils/logger");
 const {
   driversDocumentVehicleRequirement,
 } = require("./RoleDocumentRequirements.service");
-const { usersRoles } = require("../Utils/ListOfSeedData");
+const { usersRoles, USER_STATUS } = require("../Utils/ListOfSeedData");
 // Removed unused import: createFreeGiftToDriver
 const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 const AppError = require("../Utils/AppError");
@@ -399,7 +399,7 @@ const createUser = async (body, connection = null) => {
 
     const savedEmail = existingUser?.email;
 
-    if (roleId === 2) {
+    if (roleId === usersRoles.driverRoleId) {
       // [Rule 1] Prevent verified email changes
       if (
         savedEmail &&
@@ -512,11 +512,11 @@ const handleUserRoleStatus = async (
     // One row per UserRole: passenger and driver each have their own userRoleId and status row.
     // Role-specific initial status: passenger (1) = active (1); driver (2) = inactive pending docs (2); others = active or provided
     const initialStatusId =
-      roleId === 1
-        ? 1
-        : roleId === 2
-          ? 2
-          : statusId ?? 1;
+      roleId === usersRoles.passengerRoleId
+        ? USER_STATUS.ACTIVE
+        : roleId === usersRoles.driverRoleId
+          ? USER_STATUS.INACTIVE_VEHICLE_NOT_REGISTERED
+          : (statusId ?? USER_STATUS.ACTIVE);
     const colAndVal = {
       userRoleStatusUniqueId: uuidv4(),
       userRoleStatusCreatedBy: userUniqueId,
@@ -548,7 +548,7 @@ const handleUserRoleStatus = async (
       connection, // Pass connection for transaction support (read within transaction)
     });
     // if user is driver send notification to admin to verify its account using driver license etc
-    if (roleId === 2) {
+    if (roleId === usersRoles.driverRoleId) {
       const message = {
         type: "unauthorizedDriver",
         ...newUser[0],
@@ -683,9 +683,9 @@ const verifyUserByOTP = async (req) => {
     data: "OTP verified successfully",
   };
 
-  // Only check documents for drivers (roleId === 2)
-  if (Number(roleId) !== 2) {
-    return resData;
+  // Only check documents for drivers (roleId === usersRoles.driverRoleId)
+  if (Number(roleId) !== usersRoles.driverRoleId) {
+    return resData; // if user is not driver, return success
   }
 
   // if user is driver, check if driver has attached documents
@@ -753,10 +753,10 @@ const getUsersByRoleUniqueId = async (
     INNER JOIN Statuses s ON ursc.statusId = s.statusId
     WHERE r.roleUniqueId = ?
     ${
-  search
-    ? "AND (u.fullName LIKE ? OR u.email LIKE ? OR u.phoneNumber LIKE ?)"
-    : ""
-}
+      search
+        ? "AND (u.fullName LIKE ? OR u.email LIKE ? OR u.phoneNumber LIKE ?)"
+        : ""
+    }
   `;
 
   const executor = connection || pool;
@@ -787,10 +787,10 @@ const getUsersByRoleUniqueId = async (
     INNER JOIN Statuses s ON ursc.statusId = s.statusId
     WHERE r.roleUniqueId = ?
     ${
-  search
-    ? "AND (u.fullName LIKE ? OR u.email LIKE ? OR u.phoneNumber LIKE ?)"
-    : ""
-}
+      search
+        ? "AND (u.fullName LIKE ? OR u.email LIKE ? OR u.phoneNumber LIKE ?)"
+        : ""
+    }
     ORDER BY u.userCreatedAt DESC
     LIMIT ? OFFSET ?
   `;
@@ -799,13 +799,13 @@ const getUsersByRoleUniqueId = async (
     sql,
     search
       ? [
-        roleUniqueId,
-        wildcardQuery,
-        wildcardQuery,
-        wildcardQuery,
-        limit,
-        offset,
-      ]
+          roleUniqueId,
+          wildcardQuery,
+          wildcardQuery,
+          wildcardQuery,
+          limit,
+          offset,
+        ]
       : [roleUniqueId, limit, offset],
   );
 
@@ -1050,10 +1050,10 @@ const getUserByFilterDetailed = async (
         },
         userRoleStatuses: row.userRoleStatusId
           ? {
-            statusId: row.statusId,
-            statusName: row.statusName,
-            userRoleStatusUniqueId: row.userRoleStatusUniqueId,
-          }
+              statusId: row.statusId,
+              statusName: row.statusName,
+              userRoleStatusUniqueId: row.userRoleStatusUniqueId,
+            }
           : null,
       });
 

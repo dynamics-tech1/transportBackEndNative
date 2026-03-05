@@ -3,7 +3,7 @@ const { pool } = require("../Middleware/Database.config");
 const { performJoinSelect } = require("../CRUD/Read/ReadData");
 const AppError = require("../Utils/AppError");
 const { getUserByFilterDetailed } = require("./User.service");
-const { journeyStatusMap } = require("../Utils/ListOfSeedData");
+const { journeyStatusMap, usersRoles } = require("../Utils/ListOfSeedData");
 const { getVehicles } = require("./Vehicle.service");
 const { currentDate } = require("../Utils/CurrentDate");
 
@@ -795,7 +795,7 @@ const getJourneys = async (filters = {}) => {
       journeyStatusId,
       journeyUniqueId,
       journeyDecisionUniqueId,
-      roleId = 2,
+      roleId = usersRoles.driverRoleId,
       ownerUserUniqueId,
       userFilters = {},
       dateFilters = {},

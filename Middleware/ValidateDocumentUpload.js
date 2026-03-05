@@ -3,6 +3,7 @@ const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
 const multer = require("multer");
 const logger = require("../Utils/logger");
+const { usersRolesList } = require("../Utils/ListOfSeedData");
 
 const validateAndUpload = (req, res, next) => {
   // Create multer instance for parsing
@@ -19,7 +20,7 @@ const validateAndUpload = (req, res, next) => {
       // Now validate the parsed data
       const user = req?.user;
       let userUniqueId = req?.params?.userUniqueId;
-      let roleId = 2;
+      let roleId = usersRolesList.driver.roleId;
 
       if (userUniqueId === "self") {
         userUniqueId = user?.userUniqueId;

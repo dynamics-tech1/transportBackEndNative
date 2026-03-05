@@ -164,7 +164,7 @@ exports.getOngoingJourney = async (req, res, next) => {
       ownerUserUniqueId = req?.user?.userUniqueId;
     }
 
-    const roleId = req?.query?.roleId || 2;
+    const roleId = req?.query?.roleId || usersRolesList.driver.roleId;
 
     await handleServiceResponse(
       journeyService.getOngoingJourney({

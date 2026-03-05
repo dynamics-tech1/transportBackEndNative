@@ -15,6 +15,7 @@ require("dotenv").config();
 const { pool } = require("./Middleware/Database.config");
 const { v4: uuidv4 } = require("uuid");
 const bcrypt = require("bcryptjs");
+const { usersRoles, USER_STATUS } = require("./Utils/ListOfSeedData");
 
 // Placeholder image URL for test documents
 const PLACEHOLDER_IMAGE_URL =
@@ -92,9 +93,9 @@ for (let i = 1; i <= 15; i++) {
   });
 }
 
-const driverRoleId = 2;
-const vehicleOwnerRoleId = 4;
-const activeStatusId = 1; // Active status for offline drivers
+const driverRoleId = usersRoles.driverRoleId;
+const vehicleOwnerRoleId = usersRoles.vehicleOwnerRoleId;
+const activeStatusId = USER_STATUS.ACTIVE; // Active status for offline drivers
 
 // Helper function to check if user exists by phone or email
 async function userExists(phoneNumber, email) {

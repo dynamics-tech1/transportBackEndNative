@@ -61,7 +61,7 @@ const verifyDriversIdentity = async (req, res, next) => {
     // Step 2: Verify if the user has a Driver role
     const userRoles = await getData({
       tableName: "UserRole",
-      conditions: { userUniqueId, roleId: 2 }, // 2 indicates the Driver role
+      conditions: { userUniqueId, roleId: usersRolesList.driver.roleId }, // 2 indicates the Driver role
     });
 
     if (!userRoles?.length) {
@@ -112,7 +112,7 @@ const verifyIfOperationIsAllowedByUserDriver = async (req, res, next) => {
     });
 
     // If user has driver role (roleId 2), restrict certain updates
-    if (userRoles?.some((r) => r.roleId === 2)) {
+    if (userRoles?.some((r) => r.roleId === usersRolesList.driver.roleId)) {
       if (fullUrl === "/api/user/updateUser/self") {
         // Driver can update its email or fullname if it was empty
         if (!user?.fullName || !user?.email) {
@@ -136,7 +136,7 @@ const verifyPassengersIdentity = async (req, res, next) => {
     // Step 2: Verify if the user has a Passenger role
     const userRole = await getData({
       tableName: "UserRole",
-      conditions: { userUniqueId, roleId: 1 }, // 1 indicates the Passenger role
+      conditions: { userUniqueId, roleId: usersRolesList.passenger.roleId }, // 1 indicates the Passenger role
     });
 
     if (!userRole?.length) {
@@ -211,7 +211,9 @@ const verifyCancelPassengerRequestAuthorization = async (req, res, next) => {
     }
 
     // Check if user is admin (role 3) or super admin (role 6) from token
-    const isAdmin = roleId === 3 || roleId === 6;
+    const isAdmin =
+      roleId === usersRolesList.admin.roleId ||
+      roleId === usersRolesList.supperAdmin.roleId;
     if (isAdmin) {
       return next();
     }

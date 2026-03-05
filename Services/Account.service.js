@@ -298,6 +298,13 @@ const accountStatus = async ({
     const { userRoleStatusUniqueId, userRoleId, statusId } =
       userRoleStatus.data[0];
 
+    logger.debug("@accountStatus resolved context", {
+      roleId,
+      requestedRoleId: body?.roleId,
+      resolvedUserUniqueId: resolvedUserUniqueId?.slice(0, 8) + "...",
+      storedStatusId: statusId,
+    });
+
     // ========== STEP 2: PARALLELIZE ALL INDEPENDENT CHECKS ==========
     const requiresVehicle = [
       usersRoles.driverRoleId,
@@ -406,10 +413,8 @@ const accountStatus = async ({
     // Only mandatory docs (isDocumentMandatory === 1) block status; optional docs (0) do not impede active (1)
     const isMandatory = (doc) => Number(doc?.isDocumentMandatory) === 1;
     const unAttachedMandatory = unAttachedDocumentTypes.filter(isMandatory);
-    const hasRejectedMandatory =
-      attachedDocumentsByStatus.REJECTED.some(isMandatory);
-    const hasPendingMandatory =
-      attachedDocumentsByStatus.PENDING.some(isMandatory);
+    const hasRejectedMandatory = attachedDocumentsByStatus.REJECTED.some(isMandatory);
+    const hasPendingMandatory = attachedDocumentsByStatus.PENDING.some(isMandatory);
 
     const applyDocumentRules = Number(roleId) === usersRoles.driverRoleId;
 
@@ -430,10 +435,12 @@ const accountStatus = async ({
     else if (applyDocumentRules && hasRejectedMandatory) {
       finalStatusId = USER_STATUS.INACTIVE_DOCUMENTS_REJECTED;
       reason = "One or more documents have been rejected";
-    } else if (applyDocumentRules && unAttachedMandatory.length > 0) {
+    }
+    else if (applyDocumentRules && unAttachedMandatory.length > 0) {
       finalStatusId = USER_STATUS.INACTIVE_REQUIRED_DOCUMENTS_MISSING;
       reason = "Some required documents are not attached";
-    } else if (applyDocumentRules && hasPendingMandatory) {
+    }
+    else if (applyDocumentRules && hasPendingMandatory) {
       finalStatusId = USER_STATUS.INACTIVE_DOCUMENTS_PENDING;
       reason = "One or more documents are pending review";
     }
@@ -445,6 +452,15 @@ const accountStatus = async ({
       finalStatusId = USER_STATUS.INACTIVE_DRIVER_DOESN_T_HAVE_A_SUBSCRIPTION;
       reason = "Driver doesn't have an active subscription";
     }
+
+    logger.debug("@accountStatus final status", {
+      roleId,
+      applyDocumentRules,
+      finalStatusId,
+      reason,
+      unAttachedCount: unAttachedDocumentTypes.length,
+      unAttachedMandatoryCount: unAttachedMandatory.length,
+    });
 
     // ========== STEP 4: UPDATE STATUS IF CHANGED ==========
     if (statusId !== finalStatusId) {
@@ -516,13 +532,13 @@ async function checkAndGrantUserSubscription(driverUniqueId) {
       page: 1,
       limit: 1,
     });
-    console.log("@unassignedFreePlans", unassignedFreePlans);
-
+    console.log('@unassignedFreePlans',unassignedFreePlans);
+    
     // 2. Grant if found (but only one at a time)
     if (unassignedFreePlans?.data?.length > 0) {
       const plan = unassignedFreePlans.data[0];
-      console.log("@plan", plan);
-
+      console.log('@plan',plan);
+      
       await createUserSubscription({
         driverUniqueId,
         subscriptionPlanPricingUniqueId: plan.subscriptionPlanPricingUniqueId,

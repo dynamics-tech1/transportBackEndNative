@@ -5,7 +5,7 @@ const {
   createVehicleStatus,
 } = require("./VehicleStatus.service");
 const { insertData } = require("../CRUD/Create/CreateData");
-const { usersRoles } = require("../Utils/ListOfSeedData");
+const { usersRoles, VEHICLE_STATUS_TYPES } = require("../Utils/ListOfSeedData");
 const AppError = require("../Utils/AppError");
 const { currentDate } = require("../Utils/CurrentDate");
 
@@ -34,11 +34,11 @@ const createVehicleOwnership = async (body) => {
     // create new active status of vehicle
     await createVehicleStatus({
       vehicleUniqueId,
-      VehicleStatusTypeId: 1,
+      VehicleStatusTypeId: VEHICLE_STATUS_TYPES.ACTIVE,
       vehicleStatusCreatedBy: userUniqueId,
       connection,
     });
-  } else if (statusData.VehicleStatusTypeId !== 1) {
+  } else if (statusData.VehicleStatusTypeId !== VEHICLE_STATUS_TYPES.ACTIVE) {
     throw new AppError("Vehicle is not active", 400);
   }
 
@@ -340,14 +340,14 @@ const getVehicleOwnershipsByFilter = async ({
     },
     owner: row.userUniqueId
       ? {
-        userId: row.userId,
-        userUniqueId: row.userUniqueId,
-        fullName: row.fullName,
-        phoneNumber: row.phoneNumber,
-        email: row.email,
-        roleName: row.roleName,
-        userCreatedAt: row.userCreatedAt,
-      }
+          userId: row.userId,
+          userUniqueId: row.userUniqueId,
+          fullName: row.fullName,
+          phoneNumber: row.phoneNumber,
+          email: row.email,
+          roleName: row.roleName,
+          userCreatedAt: row.userCreatedAt,
+        }
       : null,
     vehicle: {
       id: row.vehicleId,

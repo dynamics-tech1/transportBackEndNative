@@ -96,7 +96,9 @@ const findStatusByVehicleAndDocuments = (data) => {
     // Ensure subscription is active, otherwise override to 7
     return {
       message: "success",
-      finalStatusId: hasActiveSubscription ? 1 : 7,
+      finalStatusId: hasActiveSubscription
+        ? USER_STATUS.ACTIVE
+        : USER_STATUS.INACTIVE_DRIVER_DOESN_T_HAVE_A_SUBSCRIPTION,
     };
   }
 

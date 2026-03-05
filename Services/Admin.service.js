@@ -2,6 +2,12 @@ const { pool } = require("../Middleware/Database.config");
 const { accountStatus } = require("./Account.service");
 const {} = require("./VehicleOwnership.service");
 const AppError = require("../Utils/AppError");
+const {
+  usersRoles,
+  USER_STATUS,
+  journeyStatusMap,
+  activeJourneyStatuses,
+} = require("../Utils/ListOfSeedData");
 
 const adminServices = {
   getAllActiveDrivers: async (req) => {
@@ -23,8 +29,8 @@ const adminServices = {
 
     // Base WHERE conditions for active drivers
     let whereClause = `
-    WHERE ursc.statusId = 1 
-    AND ur.roleId = 2
+    WHERE ursc.statusId = ${USER_STATUS.ACTIVE}
+    AND ur.roleId = ${usersRoles.driverRoleId}
     `;
 
     const params = [];
@@ -186,7 +192,7 @@ const adminServices = {
         phone,
         vehicleType,
         licensePlate,
-        status: status || 1, // Default active status
+        status: status || USER_STATUS.ACTIVE, // Default active status
         sortBy: sortField,
         sortOrder: sortDirection,
       },
@@ -207,10 +213,11 @@ const adminServices = {
     const offset = (page - 1) * limit;
 
     // FIXED: Include drivers with NULL journeyStatus OR status NOT IN online statuses
+    const activeStatusList = activeJourneyStatuses.join(", ");
     let whereClause = `
-  WHERE ur.roleId = 2
-  AND ursc.statusId = 1
-  AND (dr.journeyStatusId IS NULL OR dr.journeyStatusId NOT IN (1, 2, 3, 4, 5))
+  WHERE ur.roleId = ${usersRoles.driverRoleId}
+  AND ursc.statusId = ${USER_STATUS.ACTIVE}
+  AND (dr.journeyStatusId IS NULL OR dr.journeyStatusId NOT IN (${activeStatusList}))
   `;
 
     const params = [];
@@ -263,8 +270,8 @@ const adminServices = {
       const countSql = `
     SELECT COUNT(DISTINCT u.userUniqueId) AS total
     FROM Users u
-    INNER JOIN UserRole ur ON u.userUniqueId = ur.userUniqueId AND ur.roleId = 2
-    INNER JOIN UserRoleStatusCurrent ursc ON ur.userRoleId = ursc.userRoleId AND ursc.statusId = 1
+    INNER JOIN UserRole ur ON u.userUniqueId = ur.userUniqueId AND ur.roleId = ${usersRoles.driverRoleId}
+    INNER JOIN UserRoleStatusCurrent ursc ON ur.userRoleId = ursc.userRoleId AND ursc.statusId = ${USER_STATUS.ACTIVE}
     LEFT JOIN (
         SELECT dr1.userUniqueId, dr1.journeyStatusId
         FROM DriverRequest dr1
@@ -309,20 +316,20 @@ const adminServices = {
         r.roleName,
         CASE 
           WHEN dr.journeyStatusId IS NULL THEN 'No recent requests'
-          WHEN dr.journeyStatusId = 6 THEN 'Completed'
-          WHEN dr.journeyStatusId = 7 THEN 'Cancelled by passenger'
-          WHEN dr.journeyStatusId = 8 THEN 'Rejected by passenger'
-          WHEN dr.journeyStatusId = 9 THEN 'Cancelled by driver'
-          WHEN dr.journeyStatusId = 10 THEN 'Cancelled by admin'
-          WHEN dr.journeyStatusId = 11 THEN 'Completed by admin'
-          WHEN dr.journeyStatusId = 12 THEN 'Cancelled by system'
-          WHEN dr.journeyStatusId = 13 THEN 'No answer from driver'
-          WHEN dr.journeyStatusId = 14 THEN 'Not selected in bid'
+          WHEN dr.journeyStatusId = ${journeyStatusMap.journeyCompleted} THEN 'Completed'
+          WHEN dr.journeyStatusId = ${journeyStatusMap.cancelledByPassenger} THEN 'Cancelled by passenger'
+          WHEN dr.journeyStatusId = ${journeyStatusMap.rejectedByPassenger} THEN 'Rejected by passenger'
+          WHEN dr.journeyStatusId = ${journeyStatusMap.cancelledByDriver} THEN 'Cancelled by driver'
+          WHEN dr.journeyStatusId = ${journeyStatusMap.cancelledByAdmin} THEN 'Cancelled by admin'
+          WHEN dr.journeyStatusId = ${journeyStatusMap.completedByAdmin} THEN 'Completed by admin'
+          WHEN dr.journeyStatusId = ${journeyStatusMap.cancelledBySystem} THEN 'Cancelled by system'
+          WHEN dr.journeyStatusId = ${journeyStatusMap.noAnswerFromDriver} THEN 'No answer from driver'
+          WHEN dr.journeyStatusId = ${journeyStatusMap.notSelectedInBid} THEN 'Not selected in bid'
           ELSE 'Unknown status'
         END as journeyStatusName
     FROM Users u
-    INNER JOIN UserRole ur ON u.userUniqueId = ur.userUniqueId AND ur.roleId = 2
-    INNER JOIN UserRoleStatusCurrent ursc ON ur.userRoleId = ursc.userRoleId AND ursc.statusId = 1
+    INNER JOIN UserRole ur ON u.userUniqueId = ur.userUniqueId AND ur.roleId = ${usersRoles.driverRoleId}
+    INNER JOIN UserRoleStatusCurrent ursc ON ur.userRoleId = ursc.userRoleId AND ursc.statusId = ${USER_STATUS.ACTIVE}
     LEFT JOIN (
         SELECT dr1.*
         FROM DriverRequest dr1
@@ -374,10 +381,11 @@ const adminServices = {
     const offset = (page - 1) * limit;
 
     // Base WHERE conditions for online drivers
+    const onlineStatusList = activeJourneyStatuses.join(", ");
     let whereClause = `
-  WHERE ur.roleId = 2
-  AND ursc.statusId = 1
-  AND dr.journeyStatusId IN (1, 2, 3, 4, 5)
+  WHERE ur.roleId = ${usersRoles.driverRoleId}
+  AND ursc.statusId = ${USER_STATUS.ACTIVE}
+  AND dr.journeyStatusId IN (${onlineStatusList})
   `;
 
     const params = [];
@@ -439,7 +447,7 @@ const adminServices = {
       }
     } else {
       // Default to online statuses
-      whereClause += ` AND dr.journeyStatusId IN (1, 2, 3, 4, 5)`;
+      whereClause += ` AND dr.journeyStatusId IN (${activeJourneyStatuses.join(", ")})`;
     }
 
     try {
@@ -447,8 +455,8 @@ const adminServices = {
       const countSql = `
     SELECT COUNT(DISTINCT u.userUniqueId) AS total
     FROM Users u
-    INNER JOIN UserRole ur ON u.userUniqueId = ur.userUniqueId AND ur.roleId = 2
-    INNER JOIN UserRoleStatusCurrent ursc ON ur.userRoleId = ursc.userRoleId AND ursc.statusId = 1
+    INNER JOIN UserRole ur ON u.userUniqueId = ur.userUniqueId AND ur.roleId = ${usersRoles.driverRoleId}
+    INNER JOIN UserRoleStatusCurrent ursc ON ur.userRoleId = ursc.userRoleId AND ursc.statusId = ${USER_STATUS.ACTIVE}
     INNER JOIN (
         SELECT dr1.userUniqueId, dr1.journeyStatusId
         FROM DriverRequest dr1
@@ -495,16 +503,16 @@ const adminServices = {
         vt.vehicleTypeName,
         r.roleName,
         CASE 
-          WHEN dr.journeyStatusId = 1 THEN 'Waiting'
-          WHEN dr.journeyStatusId = 2 THEN 'Requested'
-          WHEN dr.journeyStatusId = 3 THEN 'Accepted by driver'
-          WHEN dr.journeyStatusId = 4 THEN 'Accepted by passenger'
-          WHEN dr.journeyStatusId = 5 THEN 'Journey started'
+          WHEN dr.journeyStatusId = ${journeyStatusMap.waiting} THEN 'Waiting'
+          WHEN dr.journeyStatusId = ${journeyStatusMap.requested} THEN 'Requested'
+          WHEN dr.journeyStatusId = ${journeyStatusMap.acceptedByDriver} THEN 'Accepted by driver'
+          WHEN dr.journeyStatusId = ${journeyStatusMap.acceptedByPassenger} THEN 'Accepted by passenger'
+          WHEN dr.journeyStatusId = ${journeyStatusMap.journeyStarted} THEN 'Journey started'
           ELSE 'Unknown status'
         END as journeyStatusName
     FROM Users u
-    INNER JOIN UserRole ur ON u.userUniqueId = ur.userUniqueId AND ur.roleId = 2
-    INNER JOIN UserRoleStatusCurrent ursc ON ur.userRoleId = ursc.userRoleId AND ursc.statusId = 1
+    INNER JOIN UserRole ur ON u.userUniqueId = ur.userUniqueId AND ur.roleId = ${usersRoles.driverRoleId}
+    INNER JOIN UserRoleStatusCurrent ursc ON ur.userRoleId = ursc.userRoleId AND ursc.statusId = ${USER_STATUS.ACTIVE}
     INNER JOIN (
         SELECT dr1.*
         FROM DriverRequest dr1
@@ -557,10 +565,10 @@ const adminServices = {
     } = query;
     const offset = (page - 1) * limit;
 
-    // Base WHERE conditions for unauthorized drivers (excluding status 1 and 6, role 2)
+    // Base WHERE conditions for unauthorized drivers (excluding active and banned, role driver)
     let whereClause = `
-    WHERE UserRoleStatusCurrent.statusId NOT IN (1, 6) 
-    AND Roles.roleId = 2
+    WHERE UserRoleStatusCurrent.statusId NOT IN (${USER_STATUS.ACTIVE}, ${USER_STATUS.INACTIVE_USER_IS_BANNED_BY_ADMIN})
+    AND Roles.roleId = ${usersRoles.driverRoleId}
     AND Users.isDeleted = FALSE
     `;
 
@@ -759,7 +767,7 @@ const adminServices = {
         name,
         email,
         phone,
-        status: status || "All except 1 and 6", // Show which statuses are included
+        status: status || `All except ${USER_STATUS.ACTIVE} (active) and ${USER_STATUS.INACTIVE_USER_IS_BANNED_BY_ADMIN} (banned)`, // Show which statuses are included
         vehicleType,
         licensePlate,
         sortBy: sortField,

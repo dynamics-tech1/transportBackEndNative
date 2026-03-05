@@ -9,6 +9,7 @@ const { sendSocketIONotificationToAdmin } = require("../Utils/Notifications");
 const ServerResponder = require("../Utils/ServerResponder");
 const { uploadToFTP } = require("../Utils/FTPHandler");
 const AppError = require("../Utils/AppError");
+const { usersRolesList } = require("../Utils/ListOfSeedData");
 
 // Single consolidated filter method for ALL document retrieval
 // Single consolidated filter method for ALL document retrieval
@@ -93,7 +94,7 @@ const getAttachedDocumentsByFilter = async (req, res, next) => {
 const createAttachedDocuments = async (req, res, next) => {
   try {
     let userUniqueId = req?.params?.userUniqueId;
-    let roleId = 2;
+    let roleId = usersRolesList.driver.roleId;
 
     const user = req?.user;
     if (userUniqueId === "self") {

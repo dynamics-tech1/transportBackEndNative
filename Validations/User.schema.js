@@ -1,6 +1,6 @@
 const Joi = require("joi");
-const { usersRoles } = require("../Utils/ListOfSeedData");
- 
+const { usersRoles, USER_STATUS } = require("../Utils/ListOfSeedData");
+
 // Helper schemas
 const phoneNumberSchema = Joi.string()
   .pattern(/^\+?[0-9\s-]{10,20}$/)
@@ -18,8 +18,11 @@ const OTPSchema = Joi.alternatives()
 exports.createUser = Joi.object({
   phoneNumber: phoneNumberSchema.required(),
   // register only 1 shipper/passengerDocumentRequirement and 2 driver
-  roleId: Joi.number().integer().valid(usersRoles.passengerRoleId, usersRoles.driverRoleId).required(),
-  statusId: Joi.number().integer().default(1), // Default to 1 (active status) if not provided
+  roleId: Joi.number()
+    .integer()
+    .valid(usersRoles.passengerRoleId, usersRoles.driverRoleId)
+    .required(),
+  statusId: Joi.number().integer().default(USER_STATUS.ACTIVE), // Default to 1 (active status) if not provided
   fullName: Joi.string().optional(),
   email: emailSchema,
   userRoleStatusDescription: Joi.string().optional(),
@@ -31,19 +34,47 @@ exports.createUserByAdmin = Joi.object({
   fullName: Joi.string().required(),
   email: emailSchema,
   phoneNumber: phoneNumberSchema.required(),
-  roleId: Joi.number().integer().valid(usersRoles.passengerRoleId, usersRoles.driverRoleId, usersRoles.vehicleOwnerRoleId, usersRoles.adminRoleId).required(),
+  roleId: Joi.number()
+    .integer()
+    .valid(
+      usersRoles.passengerRoleId,
+      usersRoles.driverRoleId,
+      usersRoles.vehicleOwnerRoleId,
+      usersRoles.adminRoleId,
+    )
+    .required(),
   // ... other fields
 }).unknown(true);
 
 exports.loginUser = Joi.object({
   phoneNumber: phoneNumberSchema.required(),
-  roleId: Joi.number().integer().valid(usersRoles.passengerRoleId, usersRoles.driverRoleId, usersRoles.adminRoleId, usersRoles.supperAdminRoleId, usersRoles.vehicleOwnerRoleId, usersRoles.systemRoleId).required(),
+  roleId: Joi.number()
+    .integer()
+    .valid(
+      usersRoles.passengerRoleId,
+      usersRoles.driverRoleId,
+      usersRoles.adminRoleId,
+      usersRoles.supperAdminRoleId,
+      usersRoles.vehicleOwnerRoleId,
+      usersRoles.systemRoleId,
+    )
+    .required(),
 });
 
 exports.verifyUserByOTP = Joi.object({
   phoneNumber: phoneNumberSchema.required(),
   OTP: OTPSchema,
-  roleId: Joi.number().integer().valid(usersRoles.passengerRoleId, usersRoles.driverRoleId, usersRoles.adminRoleId, usersRoles.supperAdminRoleId, usersRoles.vehicleOwnerRoleId, usersRoles.systemRoleId).optional(),
+  roleId: Joi.number()
+    .integer()
+    .valid(
+      usersRoles.passengerRoleId,
+      usersRoles.driverRoleId,
+      usersRoles.adminRoleId,
+      usersRoles.supperAdminRoleId,
+      usersRoles.vehicleOwnerRoleId,
+      usersRoles.systemRoleId,
+    )
+    .optional(),
 }).unknown(true); // might have firebase tokens etc
 
 exports.updateUser = Joi.object({
@@ -70,7 +101,17 @@ exports.getUserFilter = Joi.object({
   phoneNumber: Joi.string().optional(),
   email: Joi.string().optional(),
   fullName: Joi.string().optional(),
-  roleId: Joi.number().integer().valid(1, 2).optional(),
+  roleId: Joi.number()
+    .integer()
+    .valid(
+      usersRoles.passengerRoleId,
+      usersRoles.driverRoleId,
+      usersRoles.adminRoleId,
+      usersRoles.supperAdminRoleId,
+      usersRoles.vehicleOwnerRoleId,
+      usersRoles.systemRoleId,
+    )
+    .optional(),
   roleUniqueId: Joi.string().optional(),
   statusId: Joi.number().integer().optional(),
   // Date filters

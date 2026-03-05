@@ -812,7 +812,63 @@ const CANCELED_JOURNEY_CONTEXTS = {
   JOURNEY_DECISIONS: "JourneyDecisions",
   JOURNEY: "Journey",
 };
+const listOfVehicleStatusTypes = [
+  {
+    vehicleStatusTypeId: 1,
+    vehicleStatusTypeName: "active",
+    vehicleStatusTypeDescription:
+      "When Vehicle is active and ready to be used by drivers.",
+  },
+  {
+    vehicleStatusTypeId: 2,
+    vehicleStatusTypeName: "inactive",
+    vehicleStatusTypeDescription:
+      "When Vehicle is inactive and not ready to be used by drivers.",
+  },
+  {
+    vehicleStatusTypeId: 3,
+    vehicleStatusTypeName: "deleted",
+    vehicleStatusTypeDescription: "When Vehicle is deleted by the admin.",
+  },
+  {
+    vehicleStatusTypeId: 4,
+    vehicleStatusTypeName: "suspended",
+    vehicleStatusTypeDescription: "When Vehicle is suspended by the admin.",
+  },
+  {
+    vehicleStatusTypeId: 5,
+    vehicleStatusTypeName: "rejected",
+    vehicleStatusTypeDescription: "When Vehicle is rejected by the admin.",
+  },
+  {
+    vehicleStatusTypeId: 6,
+    vehicleStatusTypeName: "reserved by other driver",
+    vehicleStatusTypeDescription: "When other driver has reserved the vehicle",
+  },
+  {
+    vehicleStatusTypeId: 7,
+    vehicleStatusTypeName: "unqualified",
+    vehicleStatusTypeDescription: "When Vehicle is unqualified by the admin.",
+  },
+  {
+    vehicleStatusTypeId: 8,
+    vehicleStatusTypeName: "Other reasons ",
+    vehicleStatusTypeDescription:
+      "When Vehicle has other reasons to be inactive.",
+  },
+];
+const VEHICLE_STATUS_TYPES = {
+  ACTIVE: 1,
+  INACTIVE: 2,
+  DELETED: 3,
+  SUSPENDED: 4,
+  REJECTED: 5,
+  RESERVED_BY_OTHER_DRIVER: 6,
+  UNQUALIFIED: 7,
+  OTHER_REASONS: 8,
+};
 module.exports = {
+  VEHICLE_STATUS_TYPES,
   CANCELED_JOURNEY_CONTEXTS,
   listOfDelinquenciesTypes,
   depositSources,

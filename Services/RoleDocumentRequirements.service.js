@@ -11,6 +11,7 @@ const {
 } = require("../Utils/StatusOfUsersByVehiclesAndDocs");
 const AppError = require("../Utils/AppError");
 const { currentDate } = require("../Utils/CurrentDate");
+const { usersRoles } = require("../Utils/ListOfSeedData");
 // Create a new mapping
 const createMapping = async ({ body }) => {
   const {
@@ -393,7 +394,7 @@ const driversDocumentVehicleRequirement = async (body) => {
   try {
     const ownerUserUniqueId = body.ownerUserUniqueId;
     const user = body?.user;
-    const roleId = 2;
+    const roleId = usersRoles.driverRoleId;
     const phoneNumber = user?.phoneNumber;
     const userRoleStatusDescription = body?.userRoleStatusDescription;
     const { userRoleStatusUniqueId, userRoleId, statusId } = user;
