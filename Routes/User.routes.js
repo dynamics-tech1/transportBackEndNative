@@ -71,9 +71,9 @@ router.put(
 );
 
 router.delete(
-  "/api/user/deleteUser/:userUniqueId",
+  "/api/user/deleteUser",
   verifyTokenOfAxios,
-  validator(userIdParams, "params"),
+  validator(userIdParams, "query"),
   controller.deleteUser,
 );
 
