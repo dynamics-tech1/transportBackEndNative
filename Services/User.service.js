@@ -16,7 +16,11 @@ const logger = require("../Utils/logger");
 const {
   driversDocumentVehicleRequirement,
 } = require("./RoleDocumentRequirements.service");
-const { usersRoles, USER_STATUS } = require("../Utils/ListOfSeedData");
+const {
+  usersRoles,
+  USER_STATUS,
+  statusList,
+} = require("../Utils/ListOfSeedData");
 // Removed unused import: createFreeGiftToDriver
 const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 const AppError = require("../Utils/AppError");
@@ -394,6 +398,13 @@ const createUser = async (body, connection = null) => {
 
   if (savedUser.length >= 1) {
     const existingUser = savedUser[0];
+
+    if (existingUser.isDeleted || existingUser.userDeletedAt) {
+      throw new AppError(
+        "Account has been deleted and can no longer access the service.",
+        403,
+      );
+    }
 
     if (phoneNumber !== existingUser.phoneNumber) {
       throw new AppError("Wrong phone match to current email", 400);
@@ -915,6 +926,29 @@ const deleteUser = async (
 
   if (deleteResults.affectedRows === 0) {
     throw new AppError("User not found or already deleted", 404);
+  }
+
+  // Ensure status 8 (ACCOUNT_DELETED) exists for FK, then set all this user's role statuses to it
+  const statusDeleted = statusList.find(
+    (s) => s.statusId === USER_STATUS.ACCOUNT_DELETED,
+  );
+  if (statusDeleted) {
+    const {
+      statusId: sid,
+      statusUniqueId,
+      statusName,
+      statusDescription,
+    } = statusDeleted;
+    await executor.query(
+      `INSERT INTO Statuses (statusId, statusUniqueId, statusName, statusDescription, statusCreatedBy, statusCreatedAt)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE statusName = VALUES(statusName), statusDescription = VALUES(statusDescription)`,
+      [sid, statusUniqueId, statusName, statusDescription, deletedBy, currentDate()],
+    );
+    await executor.query(
+      `UPDATE UserRoleStatusCurrent SET statusId = ? WHERE userRoleId IN (SELECT userRoleId FROM UserRole WHERE userUniqueId = ?)`,
+      [USER_STATUS.ACCOUNT_DELETED, userUniqueId],
+    );
   }
 
   if (retainFiles === false) {

@@ -93,6 +93,7 @@ const USER_STATUS = {
   INACTIVE_DOCUMENTS_PENDING: 5,
   INACTIVE_USER_IS_BANNED_BY_ADMIN: 6,
   INACTIVE_DRIVER_DOESN_T_HAVE_A_SUBSCRIPTION: 7,
+  ACCOUNT_DELETED: 8,
 };
 const statusList = [
   // 1. Active (vehicle registered + all required documents accepted)
@@ -155,44 +156,54 @@ const statusList = [
       "Driver is banned by the system when they don't have a subscription",
     statusCreatedAt: currentDate(),
   },
-  //account deleted
+  // 8. Account deleted (user requested or admin deleted)
   {
     statusId: 8,
     statusUniqueId: uuidv4(),
-    statusName: "inactive - Account deleted",
-    statusDescription: "Account is deleted by the admin/user it self ",
+    statusName: "inactive - account deleted",
+    statusDescription:
+      "User account has been deleted and can no longer access the service",
     statusCreatedAt: currentDate(),
   },
 ];
 
 const vehicleStatusTypes = [
   {
+    VehicleStatusTypeId: 1,
     VehicleStatusTypeName: "active",
     statusTypeDescription:
       "When   Vehicle are active and ready to be used by drivers.",
   },
   {
+    VehicleStatusTypeId: 2,
     VehicleStatusTypeName: "inactive",
     statusTypeDescription:
       "When   Vehicle are inactive and not ready to be used by drivers.",
   },
   {
+    VehicleStatusTypeId: 3,
     VehicleStatusTypeName: "deleted",
     statusTypeDescription: "When   Vehicle are deleted by the admin.",
   },
   {
+    VehicleStatusTypeId: 4,
     VehicleStatusTypeName: "suspended",
     statusTypeDescription: "When   Vehicle are suspended by the admin.",
   },
   {
+    VehicleStatusTypeId: 5,
     VehicleStatusTypeName: "rejected",
     statusTypeDescription: "When   Vehicle are rejected by the admin.",
   },
   {
+    VehicleStatusTypeId: 6,
     VehicleStatusTypeName: "reserved by other driver",
     statusTypeDescription: "when other driver has reserved the vehicle",
   },
 ];
+
+// Alias for use in Database.service and elsewhere
+const listOfVehicleStatusTypes = vehicleStatusTypes;
 
 const listOfDocuments = [
   {
@@ -463,101 +474,50 @@ const activeJourneyStatuses = [
 
 // 21 items: 10 passenger (roleId 1), 8 driver (roleId 2), 3 admin (roleId 3)
 const cancellationReasons = [
-  {
-    cancellationReason: "Driver too late",
-    roleId: 1,
-    cancellationReasonsTypeId: 1,
-  },
-  {
-    cancellationReason: "Driver did not answered requests",
-    roleId: 2,
-    cancellationReasonsTypeId: 2,
-  },
-  {
-    cancellationReason: "Change of plans",
-    roleId: 1,
-    cancellationReasonsTypeId: 3,
-  },
-  {
-    cancellationReason: "Driver took too long",
-    roleId: 1,
-    cancellationReasonsTypeId: 4,
-  },
-  {
-    cancellationReason: "Found another ride",
-    roleId: 1,
-    cancellationReasonsTypeId: 5,
-  },
-  {
-    cancellationReason: "Wrong vehicle description",
-    roleId: 1,
-    cancellationReasonsTypeId: 6,
-  },
+  { cancellationReason: "Driver too late", roleId: 1 },
+  { cancellationReason: "Driver did not answered requests", roleId: 2 },
+  { cancellationReason: "Change of plans", roleId: 1 },
+  { cancellationReason: "Driver took too long", roleId: 1 },
+  { cancellationReason: "Found another ride", roleId: 1 },
+  { cancellationReason: "Wrong vehicle description", roleId: 1 },
   {
     cancellationReason: "Driver did not meet my location",
     roleId: 1,
-    cancellationReasonsTypeId: 7,
   },
-  {
-    cancellationReason: "Incorrect route",
-    roleId: 1,
-    cancellationReasonsTypeId: 8,
-  },
+  { cancellationReason: "Incorrect route", roleId: 1 },
   {
     cancellationReason: "Driver's vehicle didn't match description",
     roleId: 1,
-    cancellationReasonsTypeId: 9,
   },
   {
     cancellationReason: "Driver was rude or unprofessional",
     roleId: 1,
-    cancellationReasonsTypeId: 10,
   },
 
-  {
-    cancellationReason: "Passenger didn’t show up",
-    roleId: 2,
-    cancellationReasonsTypeId: 11,
-  },
+  { cancellationReason: "Passenger didn’t show up", roleId: 2 },
   { cancellationReason: "Passenger was unresponsive", roleId: 2 },
-  {
-    cancellationReason: "Safety concerns",
-    roleId: 2,
-    cancellationReasonsTypeId: 12,
-  },
+  { cancellationReason: "Safety concerns", roleId: 2 },
   { cancellationReason: "Incorrect pickup location", roleId: 2 },
   {
     cancellationReason: "Passenger had too many people",
     roleId: 2,
-    cancellationReasonsTypeId: 13,
   },
   {
     cancellationReason: "Passenger was disrespectful",
     roleId: 2,
-    cancellationReasonsTypeId: 14,
   },
   {
     cancellationReason: "Passenger requested an illegal or unsafe route",
     roleId: 2,
-    cancellationReasonsTypeId: 15,
   },
   { cancellationReason: "Vehicle issue", roleId: 2 },
 
   {
     cancellationReason: "App-related technical issue",
     roleId: 3,
-    cancellationReasonsTypeId: 16,
   },
-  {
-    cancellationReason: "Route unavailable",
-    roleId: 3,
-    cancellationReasonsTypeId: 17,
-  },
-  {
-    cancellationReason: "Driver no longer available",
-    roleId: 3,
-    cancellationReasonsTypeId: 18,
-  },
+  { cancellationReason: "Route unavailable", roleId: 3 },
+  { cancellationReason: "Driver no longer available", roleId: 3 },
 ];
 const paymentStatus = [
   {
@@ -688,7 +648,7 @@ const subscriptionPlanPricingLists = [
       savedSubscriptionPlanLists?.[2]?.subscriptionPlanUniqueId,
     price: 1800,
     durationInDays: 90,
-    effectiveFrom: currentDate(),
+    effectiveFrom:  currentDate(),
   },
   {
     subscriptionPlanUniqueId:
@@ -820,65 +780,10 @@ const CANCELED_JOURNEY_CONTEXTS = {
   JOURNEY_DECISIONS: "JourneyDecisions",
   JOURNEY: "Journey",
 };
-const listOfVehicleStatusTypes = [
-  {
-    vehicleStatusTypeId: 1,
-    vehicleStatusTypeName: "active",
-    vehicleStatusTypeDescription:
-      "When Vehicle is active and ready to be used by drivers.",
-  },
-  {
-    vehicleStatusTypeId: 2,
-    vehicleStatusTypeName: "inactive",
-    vehicleStatusTypeDescription:
-      "When Vehicle is inactive and not ready to be used by drivers.",
-  },
-  {
-    vehicleStatusTypeId: 3,
-    vehicleStatusTypeName: "deleted",
-    vehicleStatusTypeDescription: "When Vehicle is deleted by the admin.",
-  },
-  {
-    vehicleStatusTypeId: 4,
-    vehicleStatusTypeName: "suspended",
-    vehicleStatusTypeDescription: "When Vehicle is suspended by the admin.",
-  },
-  {
-    vehicleStatusTypeId: 5,
-    vehicleStatusTypeName: "rejected",
-    vehicleStatusTypeDescription: "When Vehicle is rejected by the admin.",
-  },
-  {
-    vehicleStatusTypeId: 6,
-    vehicleStatusTypeName: "reserved by other driver",
-    vehicleStatusTypeDescription: "When other driver has reserved the vehicle",
-  },
-  {
-    vehicleStatusTypeId: 7,
-    vehicleStatusTypeName: "unqualified",
-    vehicleStatusTypeDescription: "When Vehicle is unqualified by the admin.",
-  },
-  {
-    vehicleStatusTypeId: 8,
-    vehicleStatusTypeName: "Other reasons ",
-    vehicleStatusTypeDescription:
-      "When Vehicle has other reasons to be inactive.",
-  },
-];
-const VEHICLE_STATUS_TYPES = {
-  ACTIVE: 1,
-  INACTIVE: 2,
-  DELETED: 3,
-  SUSPENDED: 4,
-  REJECTED: 5,
-  RESERVED_BY_OTHER_DRIVER: 6,
-  UNQUALIFIED: 7,
-  OTHER_REASONS: 8,
-};
 module.exports = {
-  VEHICLE_STATUS_TYPES,
   CANCELED_JOURNEY_CONTEXTS,
   listOfDelinquenciesTypes,
+  listOfVehicleStatusTypes,
   depositSources,
   subscriptionPlanLists,
   financialInstitutionAccount,

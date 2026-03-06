@@ -305,6 +305,23 @@ const accountStatus = async ({
       storedStatusId: statusId,
     });
 
+    // Account deleted: do not recompute status or run checks
+    if (Number(statusId) === USER_STATUS.ACCOUNT_DELETED) {
+      return {
+        message: "success",
+        messageType: "accountStatus",
+        vehicle: null,
+        userData: userRoleStatus.data[0] || null,
+        attachedDocumentsByStatus: null,
+        unAttachedDocumentTypes: [],
+        requiredDocuments: [],
+        subscription: null,
+        status: USER_STATUS.ACCOUNT_DELETED,
+        reason: "Account deleted",
+        banData: null,
+      };
+    }
+
     // ========== STEP 2: PARALLELIZE ALL INDEPENDENT CHECKS ==========
     const requiresVehicle = [
       usersRoles.driverRoleId,
