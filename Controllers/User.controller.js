@@ -8,9 +8,8 @@ const {
 const services = require("../Services/User.service");
 const { uploadToFTP } = require("../Utils/FTPHandler");
 const ServerResponder = require("../Utils/ServerResponder");
-
+const { usersRoles } = require("../Utils/ListOfSeedData");
 const AppError = require("../Utils/AppError");
-const { usersRolesList } = require("../Utils/ListOfSeedData");
 
 const createUser = async (req, res, next) => {
   try {
@@ -55,18 +54,19 @@ const deleteUser = async (req, res, next) => {
       userUniqueId = deletedBy;
     }
 
-    //user must be either 3=admin or 6=supperAdmin or itself
-    if (
-      roleId !== usersRolesList.admin.roleId &&
-      roleId !== usersRolesList.supperAdmin.roleId &&
-      deletedBy !== userUniqueId
-    ) {
+    // User must be admin, super admin, or deleting their own account
+    const isAdminOrSuperAdmin =
+      roleId === usersRoles.adminRoleId ||
+      roleId === usersRoles.supperAdminRoleId;
+    if (!isAdminOrSuperAdmin && deletedBy !== userUniqueId) {
       throw new AppError("you can't delete this user", 403);
     }
 
+    const retainFiles = req.query?.retainFiles !== "false" && req.query?.retainFiles !== false;
     const response = await services.deleteUser({
       userUniqueId,
       deletedBy,
+      retainFiles,
     });
     ServerResponder(res, response);
   } catch (error) {

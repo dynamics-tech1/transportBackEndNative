@@ -155,6 +155,14 @@ const statusList = [
       "Driver is banned by the system when they don't have a subscription",
     statusCreatedAt: currentDate(),
   },
+  //account deleted
+  {
+    statusId: 8,
+    statusUniqueId: uuidv4(),
+    statusName: "inactive - Account deleted",
+    statusDescription: "Account is deleted by the admin/user it self ",
+    statusCreatedAt: currentDate(),
+  },
 ];
 
 const vehicleStatusTypes = [

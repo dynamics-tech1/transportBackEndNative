@@ -26,7 +26,14 @@ const verifyTokenOfAxios = async (req, res, next) => {
       return next(new AppError("User not found in the token", 401));
     }
 
-    req.user = { ...user[0], ...data };
+    const userRow = user[0];
+    if (userRow.isDeleted || userRow.userDeletedAt) {
+      return next(
+        new AppError("Account has been deleted and can no longer access the service", 403),
+      );
+    }
+
+    req.user = { ...userRow, ...data };
     next();
   } catch (error) {
     if (error instanceof AppError) {

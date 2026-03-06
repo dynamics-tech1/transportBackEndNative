@@ -17,7 +17,7 @@ const {
   paymentMethod,
   CommissionRates,
   TariffRateList,
-  vehicleStatusTypes,
+  listOfVehicleStatusTypes,
   financialInstitutionAccount,
   subscriptionPlanLists,
   depositSources,
@@ -124,6 +124,27 @@ const createTable = async () => {
       roleUniqueId,
       roleName,
       roleDescription,
+      effectiveSuperAdminId,
+      currentDate(),
+    ]);
+  }
+
+  // Seed VehicleStatusTypes (e.g. for VehicleStatus FK)
+  for (const row of listOfVehicleStatusTypes) {
+    const {
+      VehicleStatusTypeId,
+      VehicleStatusTypeName,
+      statusTypeDescription,
+    } = row;
+    const seedSql = `
+      INSERT INTO VehicleStatusTypes (VehicleStatusTypeId, VehicleStatusTypeName, VehicleStatusTypeDescription, VehicleStatusTypeCreatedBy, VehicleStatusTypeCreatedAt)
+      VALUES (?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE VehicleStatusTypeName = VALUES(VehicleStatusTypeName), VehicleStatusTypeDescription = VALUES(VehicleStatusTypeDescription);
+    `;
+    await pool.query(seedSql, [
+      VehicleStatusTypeId,
+      VehicleStatusTypeName,
+      statusTypeDescription ?? null,
       effectiveSuperAdminId,
       currentDate(),
     ]);
@@ -346,7 +367,7 @@ const installPreDefinedData = async (req) => {
     subscriptionPlanPricingErrors = [];
 
   await processDataSequentially(
-    vehicleStatusTypes,
+    listOfVehicleStatusTypes,
     (vehicleStatusType) =>
       createVehicleStatusType({
         ...vehicleStatusType,

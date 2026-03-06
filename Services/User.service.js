@@ -7,6 +7,8 @@ const { sendSms } = require("../Utils/smsSender");
 const createJWT = require("../Utils/CreateJWT");
 const { currentDate } = require("../Utils/CurrentDate");
 const { insertData } = require("../CRUD/Create/CreateData");
+const deleteData = require("../CRUD/Delete/DeleteData");
+const { deleteFile } = require("../Utils/FileUtils");
 const { sendSocketIONotificationToAdmin } = require("../Utils/Notifications");
 const bcrypt = require("bcryptjs");
 const verifyPassword = require("../Utils/VerifyPassword");
@@ -27,7 +29,7 @@ const createUserSystem = async () => {
   const phoneNumber = "+251922112480";
   const email = "system@system.com";
   const roleId = usersRoles.systemRoleId;
-  const statusId = 1;
+  const statusId = USER_STATUS.ACTIVE;
   const userRoleStatusDescription =
     "this can manage things by itself based on written programs";
 
@@ -50,7 +52,7 @@ const createUserSystem = async () => {
       phoneNumber: "+251983222221",
       email: "supperAdmin@supperAdmin.com",
       roleId: usersRoles.supperAdminRoleId,
-      statusId: 1,
+      statusId: USER_STATUS.ACTIVE,
       userRoleStatusDescription:
         "Supper Admin can manage drivers passengers and admin using api requests",
       requestedFrom: "Supper Admin",
@@ -358,10 +360,10 @@ const createUser = async (body, connection = null) => {
   const phoneNumber = body?.phoneNumber;
   const email = body?.email;
   const roleId = body?.roleId;
-  const statusId = body?.statusId || 1; // Default to 1 (active status) if not provided
+  const statusId = body?.statusId || USER_STATUS.ACTIVE;
   const userRoleStatusDescription = body?.userRoleStatusDescription;
 
-  if (roleId >= 3) {
+  if (roleId >= usersRoles.adminRoleId) {
     throw new AppError(`you can't create this user`, 403);
   }
 
@@ -510,13 +512,13 @@ const handleUserRoleStatus = async (
 
   if (userRoleStatus.length === 0) {
     // One row per UserRole: passenger and driver each have their own userRoleId and status row.
-    // Role-specific initial status: passenger (1) = active (1); driver (2) = inactive pending docs (2); others = active or provided
+    // Role-specific initial status: passenger = active; driver = inactive (vehicle not registered); others = active or provided
     const initialStatusId =
       roleId === usersRoles.passengerRoleId
         ? USER_STATUS.ACTIVE
         : roleId === usersRoles.driverRoleId
           ? USER_STATUS.INACTIVE_VEHICLE_NOT_REGISTERED
-          : (statusId ?? USER_STATUS.ACTIVE);
+          : statusId ?? USER_STATUS.ACTIVE;
     const colAndVal = {
       userRoleStatusUniqueId: uuidv4(),
       userRoleStatusCreatedBy: userUniqueId,
@@ -644,6 +646,14 @@ const verifyUserByOTP = async (req) => {
     throw new AppError("user not found in verify otp", 404);
   }
 
+  const userRow = verifyUserExistence[0];
+  if (userRow.isDeleted || userRow.userDeletedAt) {
+    throw new AppError(
+      "Account has been deleted and can no longer access the service.",
+      403,
+    );
+  }
+
   const { userUniqueId, fullName, email } = verifyUserExistence?.[0];
   const hashedOTP = verifyUserExistence?.[0].OTP;
 
@@ -683,9 +693,9 @@ const verifyUserByOTP = async (req) => {
     data: "OTP verified successfully",
   };
 
-  // Only check documents for drivers (roleId === usersRoles.driverRoleId)
+  // Only check documents for drivers
   if (Number(roleId) !== usersRoles.driverRoleId) {
-    return resData; // if user is not driver, return success
+    return resData;
   }
 
   // if user is driver, check if driver has attached documents
@@ -753,10 +763,10 @@ const getUsersByRoleUniqueId = async (
     INNER JOIN Statuses s ON ursc.statusId = s.statusId
     WHERE r.roleUniqueId = ?
     ${
-      search
-        ? "AND (u.fullName LIKE ? OR u.email LIKE ? OR u.phoneNumber LIKE ?)"
-        : ""
-    }
+  search
+    ? "AND (u.fullName LIKE ? OR u.email LIKE ? OR u.phoneNumber LIKE ?)"
+    : ""
+}
   `;
 
   const executor = connection || pool;
@@ -787,10 +797,10 @@ const getUsersByRoleUniqueId = async (
     INNER JOIN Statuses s ON ursc.statusId = s.statusId
     WHERE r.roleUniqueId = ?
     ${
-      search
-        ? "AND (u.fullName LIKE ? OR u.email LIKE ? OR u.phoneNumber LIKE ?)"
-        : ""
-    }
+  search
+    ? "AND (u.fullName LIKE ? OR u.email LIKE ? OR u.phoneNumber LIKE ?)"
+    : ""
+}
     ORDER BY u.userCreatedAt DESC
     LIMIT ? OFFSET ?
   `;
@@ -799,13 +809,13 @@ const getUsersByRoleUniqueId = async (
     sql,
     search
       ? [
-          roleUniqueId,
-          wildcardQuery,
-          wildcardQuery,
-          wildcardQuery,
-          limit,
-          offset,
-        ]
+        roleUniqueId,
+        wildcardQuery,
+        wildcardQuery,
+        wildcardQuery,
+        limit,
+        offset,
+      ]
       : [roleUniqueId, limit, offset],
   );
 
@@ -844,6 +854,13 @@ const loginUser = async (phoneNumber, roleId) => {
   const userEntry = userDataResult.data?.[0];
   const userData = userEntry?.user;
 
+  if (userData?.isDeleted || userData?.userDeletedAt) {
+    throw new AppError(
+      "Account has been deleted and can no longer access the service.",
+      403,
+    );
+  }
+
   // Find the matching role entry from rolesAndStatuses
   const roleEntry = userEntry?.rolesAndStatuses?.find(
     (rs) => rs?.userRoles?.roleId === roleId,
@@ -869,21 +886,59 @@ const loginUser = async (phoneNumber, roleId) => {
   return res;
 };
 
-const deleteUser = async ({ userUniqueId, deletedBy }, connection = null) => {
+/**
+ * Soft-delete a user. By default retains their files for compliance/evidence.
+ * Set retainFiles: false only when you do not need to preserve evidence (e.g. no legal hold).
+ * For legal/crime evidence: keep retainFiles true (default) so documents and data remain.
+ *
+ * @param {Object} opts
+ * @param {string} opts.userUniqueId - User to delete
+ * @param {string} opts.deletedBy - userUniqueId of who is performing the deletion
+ * @param {boolean} [opts.retainFiles=true] - If true, attached documents are kept (recommended for evidence). If false, user's attached document files are removed from storage and records deleted.
+ * @param {Object} [connection=null] - Optional DB connection for transactions
+ */
+const deleteUser = async (
+  { userUniqueId, deletedBy, retainFiles = true },
+  connection = null,
+) => {
   if (!userUniqueId) {
     throw new AppError("userUniqueId is required to delete user", 400);
   }
-  const deletedAt = currentDate();
+  const userDeletedAt = currentDate();
   const isDeleted = true;
   const sql =
-    "update Users set deletedAt=?,deletedBy=?,isDeleted=? where userUniqueId=? ";
-  const values = [deletedAt, deletedBy, isDeleted, userUniqueId];
+    "UPDATE Users SET userDeletedAt = ?, userDeletedBy = ?, isDeleted = ? WHERE userUniqueId = ?";
+  const values = [userDeletedAt, deletedBy, isDeleted, userUniqueId];
 
   const executor = connection || pool;
   const [deleteResults] = await executor.query(sql, values);
 
   if (deleteResults.affectedRows === 0) {
     throw new AppError("User not found or already deleted", 404);
+  }
+
+  if (retainFiles === false) {
+    const documents = await getData({
+      tableName: "AttachedDocuments",
+      conditions: { userUniqueId },
+      connection: executor,
+    });
+    for (const doc of documents || []) {
+      if (doc.attachedDocumentName) {
+        try {
+          deleteFile(doc.attachedDocumentName);
+        } catch (err) {
+          logger.warn("deleteUser: failed to delete file", {
+            attachedDocumentUniqueId: doc.attachedDocumentUniqueId,
+            error: err?.message,
+          });
+        }
+      }
+      await deleteData({
+        tableName: "AttachedDocuments",
+        conditions: { attachedDocumentUniqueId: doc.attachedDocumentUniqueId },
+      });
+    }
   }
 
   return {
@@ -957,6 +1012,13 @@ const getUserByFilterDetailed = async (
   if (filters.statusId) {
     whereParts.push(`UserRoleStatusCurrent.statusId = ?`);
     params.push(filters.statusId);
+  }
+
+  // Exclude deleted users unless explicitly requested (e.g. admin listing deleted)
+  const includeDeleted =
+    filters.includeDeleted === true || filters.includeDeleted === "true";
+  if (!includeDeleted) {
+    whereParts.push(`(Users.isDeleted = 0 OR Users.isDeleted IS NULL)`);
   }
 
   const whereClause =
@@ -1050,10 +1112,10 @@ const getUserByFilterDetailed = async (
         },
         userRoleStatuses: row.userRoleStatusId
           ? {
-              statusId: row.statusId,
-              statusName: row.statusName,
-              userRoleStatusUniqueId: row.userRoleStatusUniqueId,
-            }
+            statusId: row.statusId,
+            statusName: row.statusName,
+            userRoleStatusUniqueId: row.userRoleStatusUniqueId,
+          }
           : null,
       });
 
