@@ -17,10 +17,7 @@ const {
   tableParams,
   installDataQuery,
 } = require("../Validations/Database.schema");
-const {
-  runMigrations,
-  getMigrationStatus,
-} = require("../Database/Migrations/migration-runner");
+
 const ServerResponder = require("../Utils/ServerResponder");
 const AppError = require("../Utils/AppError");
 
@@ -79,30 +76,5 @@ router.post(
 );
 
 // Database migration endpoints
-router.post(
-  "/api/admin/migrations/run",
-  verifyTokenOfAxios,
-  async (req, res, next) => {
-    try {
-      const result = await runMigrations();
-      ServerResponder(res, { message: "success", data: result });
-    } catch {
-      next(new AppError("Failed to run migrations", 500));
-    }
-  },
-);
-
-router.get(
-  "/api/admin/migrations/status",
-  verifyTokenOfAxios,
-  async (req, res, next) => {
-    try {
-      const status = await getMigrationStatus();
-      ServerResponder(res, { message: "success", data: status });
-    } catch {
-      next(new AppError("Failed to get migration status", 500));
-    }
-  },
-);
 
 module.exports = router;

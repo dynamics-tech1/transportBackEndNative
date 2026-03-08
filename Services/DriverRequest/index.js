@@ -28,6 +28,7 @@ module.exports = {
   getDriverRequest: requestCRUD.getDriverRequest,
   getDriverJourneyStatus: requestCRUD.getDriverJourneyStatus,
   updateDriverRequest: requestCRUD.updateDriverRequest,
+  updateDriverRequestByDriver: requestCRUD.updateDriverRequestByDriver,
 
   // Request Actions
   takeFromStreet: requestActions.takeFromStreet,

@@ -77,7 +77,7 @@ const createVehicleDriver = async (data) => {
     throw new AppError("Insert failed", 500);
   }
 
-  // Automatically update driver status after vehicle assignment
+  // Automatically update driver status after vehicle assignment (best-effort; vehicle is already assigned)
   try {
     const { accountStatus } = require("./Account.service");
     const { usersRoles } = require("../Utils/ListOfSeedData");
@@ -86,12 +86,23 @@ const createVehicleDriver = async (data) => {
       body: { roleId: usersRoles.driverRoleId },
     });
   } catch (statusError) {
-    logger.error("Failed to update driver status after vehicle assignment", {
-      error: statusError.message,
-      driverUserUniqueId,
-      vehicleUniqueId,
-      assignmentStatus,
-    });
+    const isUserNotFound =
+      statusError?.message?.includes("User not found") ||
+      statusError?.message?.includes("role status not found");
+    if (isUserNotFound) {
+      logger.warn("Driver status not updated after vehicle assignment (user/role status not found)", {
+        driverUserUniqueId,
+        vehicleUniqueId,
+        hint: "Ensure driver has UserRole and UserRoleStatusCurrent for driver role",
+      });
+    } else {
+      logger.error("Failed to update driver status after vehicle assignment", {
+        error: statusError.message,
+        driverUserUniqueId,
+        vehicleUniqueId,
+        assignmentStatus,
+      });
+    }
     // Don't fail the vehicle assignment if status update fails
   }
 

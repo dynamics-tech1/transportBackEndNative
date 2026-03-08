@@ -10,6 +10,7 @@ const { createVehicleDriver } = require("./VehicleDriver.service");
 const { usersRoles } = require("../Utils/ListOfSeedData");
 const { pool } = require("../Middleware/Database.config");
 const AppError = require("../Utils/AppError");
+const logger = require("../Utils/logger");
 
 // create vehicle and create ownership based on status of vehicle.
 const createVehicle = async (data, user, driverUserUniqueId) => {
@@ -89,7 +90,7 @@ const createVehicle = async (data, user, driverUserUniqueId) => {
       },
       connection,
     });
-
+    console.log("@activeAssignments", activeAssignments);
     if (activeAssignments?.length > 0) {
       throw new AppError("Driver already has an active vehicle", 400);
     }
@@ -178,9 +179,10 @@ const getVehicles = async (query) => {
     params.push(vehicleUniqueId);
   }
 
+  // Include vehicles user owns (VehicleOwnership) OR is assigned to as driver (VehicleDriver)
   if (ownerUserUniqueId) {
-    whereConditions.push("vo.userUniqueId = ?");
-    params.push(ownerUserUniqueId);
+    whereConditions.push("(vo.userUniqueId = ? OR vd.driverUserUniqueId = ?)");
+    params.push(ownerUserUniqueId, ownerUserUniqueId);
   }
 
   if (licensePlate) {
@@ -218,6 +220,7 @@ const getVehicles = async (query) => {
     FROM Vehicle v
     LEFT JOIN VehicleTypes vt ON v.vehicleTypeUniqueId = vt.vehicleTypeUniqueId
     LEFT JOIN VehicleOwnership vo ON v.vehicleUniqueId = vo.vehicleUniqueId AND vo.ownershipEndDate IS NULL
+    LEFT JOIN VehicleDriver vd ON v.vehicleUniqueId = vd.vehicleUniqueId AND vd.assignmentStatus = 'active' AND vd.assignmentEndDate IS NULL
     LEFT JOIN VehicleStatus vs ON v.vehicleUniqueId = vs.vehicleUniqueId AND vs.statusEndDate IS NULL
     ${whereClause}
     GROUP BY v.vehicleId
@@ -229,9 +232,10 @@ const getVehicles = async (query) => {
     SELECT COUNT(DISTINCT v.vehicleUniqueId) as total
     FROM Vehicle v
     LEFT JOIN VehicleOwnership vo ON v.vehicleUniqueId = vo.vehicleUniqueId AND vo.ownershipEndDate IS NULL
+    LEFT JOIN VehicleDriver vd ON v.vehicleUniqueId = vd.vehicleUniqueId AND vd.assignmentStatus = 'active' AND vd.assignmentEndDate IS NULL
     ${whereClause}
   `;
-
+  logger.info("@getVehicles");
   const [rows] = await pool.query(sql, [...params, parseInt(limit), offset]);
   const [totalRows] = await pool.query(countSql, params);
 

@@ -204,6 +204,14 @@ const vehicleStatusTypes = [
 
 // Alias for use in Database.service and elsewhere
 const listOfVehicleStatusTypes = vehicleStatusTypes;
+const VEHICLE_STATUS_TYPES = {
+  ACTIVE: 1,
+  INACTIVE: 2,
+  DELETED: 3,
+  SUSPENDED: 4,
+  REJECTED: 5,
+  RESERVED_BY_OTHER_DRIVER: 6,
+};
 
 const listOfDocuments = [
   {
@@ -648,7 +656,7 @@ const subscriptionPlanPricingLists = [
       savedSubscriptionPlanLists?.[2]?.subscriptionPlanUniqueId,
     price: 1800,
     durationInDays: 90,
-    effectiveFrom:  currentDate(),
+    effectiveFrom: currentDate(),
   },
   {
     subscriptionPlanUniqueId:
@@ -808,4 +816,5 @@ module.exports = {
   subscriptionPlanPricingLists,
   commissionStatusList,
   USER_STATUS,
+  VEHICLE_STATUS_TYPES,
 };

@@ -5,6 +5,8 @@ const {
   updateVehicleDriverByUniqueId,
   deleteVehicleDriverByUniqueId,
 } = require("../Services/VehicleDriver.service");
+const { query } = require("express");
+const logger = require("../Utils/logger");
 
 // POST /api/vehicleDriver
 const createVehicleDriverController = async (req, res, next) => {
@@ -25,6 +27,13 @@ const createVehicleDriverController = async (req, res, next) => {
 const getVehicleDriversController = async (req, res, next) => {
   try {
     const filters = req.query || {};
+    const driverUserUniqueId = req?.query?.driverUserUniqueId;
+    if (driverUserUniqueId === "self" || !driverUserUniqueId) {
+      filters.driverUserUniqueId = req?.user?.userUniqueId;
+    } else {
+      filters.driverUserUniqueId = driverUserUniqueId;
+    }
+    logger.info("@getVehicleDriversController filters", filters);
     const result = await getVehicleDrivers(filters);
     ServerResponder(res, result, 200);
   } catch (error) {

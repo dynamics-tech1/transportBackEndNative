@@ -7,14 +7,14 @@ const {
 const ServerResponder = require("../Utils/ServerResponder");
 const { usersRoles } = require("../Utils/ListOfSeedData");
 const AppError = require("../Utils/AppError");
+const logger = require("../Utils/logger");
 
 const createVehicleController = async (req, res, next) => {
   try {
     let driverUserUniqueId = req?.params?.driverUserUniqueId;
-    const roleId = req?.user?.roleId;
     const user = req?.user;
-
-    if (driverUserUniqueId === "self") {
+    const roleId = user?.roleId;
+    if (driverUserUniqueId === "self" || !driverUserUniqueId) {
       driverUserUniqueId = req?.user?.userUniqueId;
     }
 
@@ -30,7 +30,9 @@ const createVehicleController = async (req, res, next) => {
         );
       }
     }
-
+    logger.info(
+      "@createVehicleController driverUserUniqueId " + driverUserUniqueId,
+    );
     const response = await createVehicle(req.body, user, driverUserUniqueId);
     ServerResponder(res, response, 201);
   } catch (error) {
@@ -63,7 +65,7 @@ const getVehiclesController = async (req, res, next) => {
     let ownerUserUniqueId = req?.params?.ownerUserUniqueId;
     const roleId = req?.user?.roleId;
     const user = req?.user;
-    if (ownerUserUniqueId === "self" || ownerUserUniqueId == null) {
+    if (ownerUserUniqueId === "self" || !ownerUserUniqueId) {
       ownerUserUniqueId = user?.userUniqueId;
     }
     if (
