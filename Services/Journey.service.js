@@ -5,7 +5,7 @@ const AppError = require("../Utils/AppError");
 const { getUserByFilterDetailed } = require("./User.service");
 const { journeyStatusMap, usersRoles } = require("../Utils/ListOfSeedData");
 const { getVehicles } = require("./Vehicle.service");
-const { currentDate } = require("../Utils/CurrentDate");
+const { currentDate, toDateOnly } = require("../Utils/CurrentDate");
 
 // Helper function for database queries (uses pool by default, connection if provided)
 const query = async (sql, values = [], connection = null) => {
@@ -223,10 +223,18 @@ const getPassengerRequestByPassengerRequestId = async (passengerRequestId) => {
     );
   }
 };
+// Normalize date to YYYY-MM-DD (handles both "2025-11-22" and "2025-11-22T00:00:00.000Z")
 
 const getCompletedJourneyCountsByDate = async (filters = {}) => {
   try {
-    const { ownerUserUniqueId, toDate, fromDate, userFilters = {} } = filters;
+    const {
+      ownerUserUniqueId,
+      toDate: toDateStr,
+      fromDate: fromDateStr,
+      userFilters = {},
+    } = filters;
+    const fromDateOnly = toDateOnly(fromDateStr);
+    const toDateOnlyVal = toDateOnly(toDateStr);
 
     const { fullName, phone, email, search } = userFilters;
 
@@ -246,9 +254,16 @@ const getCompletedJourneyCountsByDate = async (filters = {}) => {
     }
 
     // Date range filter - use endTime only
-    if (fromDate && toDate) {
-      queryWhereParts.push(`Journey.endTime BETWEEN ? AND ?`);
-      queryParams.push(`${fromDate} 00:00:00`, `${toDate} 23:59:59`);
+    if (fromDateStr && toDateStr) {
+      // queryWhereParts.push(`Journey.endTime BETWEEN ? AND ?`);
+      // queryParams.push(`${fromDate} 00:00:00`, `${toDate} 23:59:59`);
+
+      if (fromDateOnly && toDateOnlyVal) {
+        queryWhereParts.push(
+          `DATE(Journey.endTime) >= DATE(?) AND DATE(Journey.endTime) <= DATE(?)`,
+        );
+        queryParams.push(fromDateOnly, toDateOnlyVal);
+      }
     }
 
     // User-based filters
@@ -329,7 +344,10 @@ const getCompletedJourneyCountsByDate = async (filters = {}) => {
       data: countRows,
       dateCounts,
       totalDates: countRows.length,
-      dateRange: { fromDate, toDate },
+      dateRange: {
+        fromDate: fromDateOnly || fromDateStr,
+        toDate: toDateOnlyVal || toDateStr,
+      },
     };
   } catch (error) {
     throw new AppError(

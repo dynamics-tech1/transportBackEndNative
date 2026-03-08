@@ -23,5 +23,6 @@ const formatDateTime = (date) => {
 
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
-
-module.exports = { currentDate, formatDateTime };
+const toDateOnly = (dateStr) =>
+  dateStr && typeof dateStr === "string" ? dateStr.trim().slice(0, 10) : null;
+module.exports = { currentDate, formatDateTime, toDateOnly };
