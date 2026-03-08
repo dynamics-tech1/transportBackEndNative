@@ -7,7 +7,6 @@ const {
 const ServerResponder = require("../Utils/ServerResponder");
 const { usersRoles } = require("../Utils/ListOfSeedData");
 const AppError = require("../Utils/AppError");
-const logger = require("../Utils/logger");
 
 const createVehicleController = async (req, res, next) => {
   try {
@@ -30,9 +29,7 @@ const createVehicleController = async (req, res, next) => {
         );
       }
     }
-    logger.info(
-      "@createVehicleController driverUserUniqueId " + driverUserUniqueId,
-    );
+
     const response = await createVehicle(req.body, user, driverUserUniqueId);
     ServerResponder(res, response, 201);
   } catch (error) {

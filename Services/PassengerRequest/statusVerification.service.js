@@ -3,7 +3,6 @@ const {
   performJoinSelect,
   getAttachedDocumentsByUserUniqueIdAndDocumentTypeId,
   checkActivePassengerRequest,
-  findNearbyDrivers,
 } = require("../../CRUD/Read/ReadData");
 const { updateData } = require("../../CRUD/Update/Data.update");
 const { insertData } = require("../../CRUD/Create/CreateData");
@@ -127,13 +126,14 @@ async function handleWaitingRequest({
   totalRecords,
   pageSize,
   page,
-  driversData,
+  driversData, // unused; kept for API compatibility with callers
   drivers,
   decisions,
   notifiedDrivers,
   userUniqueId,
   connection,
 }) {
+  void driversData; // avoid no-unused-vars
   // Find available drivers near the passenger's location (READ-ONLY - outside transaction)
   const sql = `
     SELECT

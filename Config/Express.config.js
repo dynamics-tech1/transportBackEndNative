@@ -67,7 +67,7 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
   explorer: true,
   swaggerOptions: {
-    docExpansion: 'none',
+    docExpansion: "none",
     filter: true,
     showRequestDuration: true,
   }

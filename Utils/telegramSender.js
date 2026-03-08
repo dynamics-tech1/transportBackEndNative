@@ -15,7 +15,7 @@ const logger = require("./logger");
 const sendTelegramOtp = async (phoneNumber, otp, options = {}) => {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const overrideChatId =
-    options?.userChatId != null ? String(options.userChatId).trim() : "";
+    options?.userChatId !== null && options?.userChatId !== undefined ? String(options.userChatId).trim() : "";
   const chatId =
     overrideChatId && overrideChatId.length > 0
       ? overrideChatId

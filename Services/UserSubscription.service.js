@@ -8,6 +8,7 @@ const {
 const { getPricingWithFilters } = require("./SubscriptionPlanPricing.service");
 const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 const AppError = require("../Utils/AppError");
+const logger = require("../Utils/logger");
 
 function getDaysBetweenDates(date1, date2) {
   const d1 = new Date(date1);
@@ -37,12 +38,10 @@ const createUserSubscription = async ({
     isActive: true,
   });
   const activePricingData = activePricing?.data?.[0];
-  console.log(
-    "@activePricingData",
+  logger.debug("@activePricingData", {
     activePricingData,
-    "@subscriptionPlanPricingUniqueId",
     subscriptionPlanPricingUniqueId,
-  );
+  });
 
   if (!activePricingData) {
     throw new AppError("You can't create subscription using this plan.", 400);
@@ -55,7 +54,7 @@ const createUserSubscription = async ({
 
   // Use durationInDays from pricing when available; only compute from dates if BOTH are set
   let durationInDays = activePricingData?.durationInDays;
-  if (durationInDays == null || durationInDays <= 0) {
+  if ((durationInDays === null || durationInDays === undefined) || durationInDays <= 0) {
     if (effectiveFrom && effectiveTo) {
       durationInDays = getDaysBetweenDates(effectiveFrom, effectiveTo);
     } else {
@@ -98,7 +97,7 @@ const createUserSubscription = async ({
   const result = await executeInTransaction(async (connection) => {
     // 1. Deduct/add balance for subscription
     // Note: prepareAndCreateNewBalance now throws AppError
-   const balanceResult = await prepareAndCreateNewBalance({
+    const balanceResult = await prepareAndCreateNewBalance({
       addOrDeduct: activePricingData?.isFree ? "add" : "deduct",
       amount: price,
       driverUniqueId,
@@ -107,8 +106,7 @@ const createUserSubscription = async ({
       isFree,
       userBalanceCreatedBy: driverUniqueId,
     });
-    console.log('@balanceResult', balanceResult);
-    
+    logger.debug("@balanceResult", balanceResult);
 
     // 2. Insert subscription record
     const nextDate = addDays(

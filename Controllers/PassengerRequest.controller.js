@@ -6,6 +6,7 @@ const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 const { createUser } = require("../Services/User.service");
 const { usersRoles, USER_STATUS } = require("../Utils/ListOfSeedData");
 const AppError = require("../Utils/AppError");
+const logger = require("../Utils/logger");
 
 const createPassengerRequest = async (req, res, next) => {
   try {
@@ -41,7 +42,7 @@ const createPassengerRequest = async (req, res, next) => {
     }
 
     const roleId = req.user.roleId;
-    console.log("🚀 ~ createPassengerRequest ~ roleId:", roleId);
+    logger.debug("createPassengerRequest roleId", { roleId });
     const userUniqueId = req.user.userUniqueId;
     // return;
     if (roleId === 1) {

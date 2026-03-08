@@ -2,6 +2,7 @@ const { getData, performJoinSelect } = require("../CRUD/Read/ReadData");
 const { pool } = require("./Database.config");
 const AppError = require("../Utils/AppError");
 const { usersRolesList } = require("../Utils/ListOfSeedData");
+const logger = require("../Utils/logger");
 
 // Verify if the user is an Admin and is in an active status
 const verifyAdminsIdentity = async (req, res, next) => {
@@ -166,7 +167,7 @@ const verifyPassengersIdentity = async (req, res, next) => {
       orderDirection: "DESC",
       limit: 12,
     });
-    console.log("@userRoleStatus", userRoleStatus);
+    logger.debug("@userRoleStatus", userRoleStatus);
 
     if (userRoleStatus.length === 0) {
       throw new AppError("User passenger role status not found", 401);

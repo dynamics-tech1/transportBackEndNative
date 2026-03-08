@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars -- rate limiter disabled; helpers kept for future use */
 const AppError = require("../Utils/AppError");
 const { redis } = require("../Config/redis.config");
 

@@ -168,15 +168,14 @@ const updateAttachedDocument = async ({
   attachedDocumentName,
 }) => {
   try {
-    console.log(
-      "@updateAttachedDocument",
+    logger.debug("@updateAttachedDocument", {
       attachedDocumentUniqueId,
       roleId,
       documentExpirationDate,
       attachedDocumentDescription,
       attachedDocumentFileNumber,
       attachedDocumentName,
-    );
+    });
     // Fetch existing document
     const existingDocs = await getData({
       tableName: "AttachedDocuments",

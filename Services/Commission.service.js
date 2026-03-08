@@ -267,7 +267,6 @@ async function createCommissionInConnection(
 }
 
 async function getAllCommissions(filters = {}) {
-  const startTime = currentDate();
   try {
     // Build safe WHERE clause
     const conditions = ["c.commissionDeletedAt IS NULL"];

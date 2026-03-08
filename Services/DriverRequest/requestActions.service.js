@@ -908,7 +908,7 @@ const cancelDriverRequest = async (data) => {
       passengerUserUniqueId = data?.passengerUserUniqueId;
     const rawReasonId = data?.cancellationReasonsTypeId;
     const cancellationReasonsTypeId =
-      rawReasonId != null && rawReasonId !== "undefined" && !Number.isNaN(Number(rawReasonId))
+      rawReasonId !== null && rawReasonId !== "undefined" && !Number.isNaN(Number(rawReasonId))
         ? Number(rawReasonId)
         : 1; // default to 1 if missing/invalid to satisfy FK
 

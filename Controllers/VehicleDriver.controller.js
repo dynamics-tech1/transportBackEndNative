@@ -5,7 +5,6 @@ const {
   updateVehicleDriverByUniqueId,
   deleteVehicleDriverByUniqueId,
 } = require("../Services/VehicleDriver.service");
-const { query } = require("express");
 const logger = require("../Utils/logger");
 
 // POST /api/vehicleDriver

@@ -350,22 +350,22 @@ const accountStatus = async ({
         // 2. Vehicle Check
         requiresVehicle
           ? getVehicleDrivers({
-              driverUserUniqueId: resolvedUserUniqueId,
-              assignmentStatus: "active",
-              limit: 1,
-              page: 1,
-            })
+            driverUserUniqueId: resolvedUserUniqueId,
+            assignmentStatus: "active",
+            limit: 1,
+            page: 1,
+          })
           : Promise.resolve({ data: [] }),
 
         // 3. Document Requirements List
         enableDocumentChecks
           ? getRoleDocumentRequirements({
-              roleId,
-              page: 1,
-              limit: 1000,
-              sortBy: "documentTypeId",
-              sortOrder: "ASC",
-            })
+            roleId,
+            page: 1,
+            limit: 1000,
+            sortBy: "documentTypeId",
+            sortOrder: "ASC",
+          })
           : Promise.resolve({ data: [] }),
 
         // 4. Subscription Check (Drivers Only)
@@ -549,12 +549,12 @@ async function checkAndGrantUserSubscription(driverUniqueId) {
       page: 1,
       limit: 1,
     });
-    console.log('@unassignedFreePlans',unassignedFreePlans);
+    logger.debug("@unassignedFreePlans", unassignedFreePlans);
     
     // 2. Grant if found (but only one at a time)
     if (unassignedFreePlans?.data?.length > 0) {
       const plan = unassignedFreePlans.data[0];
-      console.log('@plan',plan);
+      logger.debug("@plan", plan);
       
       await createUserSubscription({
         driverUniqueId,

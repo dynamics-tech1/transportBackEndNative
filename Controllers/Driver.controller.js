@@ -216,7 +216,7 @@ const cancelDriverRequest = async (req, res, next) => {
     // Prefer body.cancellationReasonsTypeId (query may be "undefined" string)
     const rawReasonId = req.body?.cancellationReasonsTypeId ?? req.query?.cancellationReasonsTypeId;
     const cancellationReasonsTypeId =
-      rawReasonId != null && rawReasonId !== "undefined"
+      rawReasonId !== null && rawReasonId !== "undefined"
         ? Number(rawReasonId)
         : undefined;
 

@@ -18,9 +18,6 @@ const {
   installDataQuery,
 } = require("../Validations/Database.schema");
 
-const ServerResponder = require("../Utils/ServerResponder");
-const AppError = require("../Utils/AppError");
-
 // Route to create all tables (no body required - creates all tables from predefined SQL)
 router.post("/api/admin/createTable", createTableController);
 

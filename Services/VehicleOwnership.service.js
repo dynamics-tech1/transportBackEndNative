@@ -340,14 +340,14 @@ const getVehicleOwnershipsByFilter = async ({
     },
     owner: row.userUniqueId
       ? {
-          userId: row.userId,
-          userUniqueId: row.userUniqueId,
-          fullName: row.fullName,
-          phoneNumber: row.phoneNumber,
-          email: row.email,
-          roleName: row.roleName,
-          userCreatedAt: row.userCreatedAt,
-        }
+        userId: row.userId,
+        userUniqueId: row.userUniqueId,
+        fullName: row.fullName,
+        phoneNumber: row.phoneNumber,
+        email: row.email,
+        roleName: row.roleName,
+        userCreatedAt: row.userCreatedAt,
+      }
       : null,
     vehicle: {
       id: row.vehicleId,

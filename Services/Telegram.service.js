@@ -7,9 +7,13 @@ const AppError = require("../Utils/AppError");
 const logger = require("../Utils/logger");
 
 const normalizePhoneNumberForTelegramLink = (raw) => {
-  if (raw == null) return null;
+  if (raw === null || raw === undefined) {
+    return null;
+  }
   let s = String(raw).trim();
-  if (!s) return null;
+  if (!s) {
+    return null;
+  }
 
   // Remove surrounding quotes and whitespace
   s = s.replace(/^"+|"+$/g, "").trim();
@@ -26,14 +30,16 @@ const normalizePhoneNumberForTelegramLink = (raw) => {
   s = s.replace(/\s+/g, "");
 
   // Basic sanity check (E.164-ish): + + digits, min length 8
-  if (!/^\+\d{8,20}$/.test(s)) return null;
+  if (!/^\+\d{8,20}$/.test(s)) {
+    return null;
+  }
   return s;
 };
 
 const savePendingTelegramLink = async ({ phoneNumber, telegramChatId }) => {
   const normalizedPhone = normalizePhoneNumberForTelegramLink(phoneNumber);
   const chatId =
-    telegramChatId != null ? String(telegramChatId).trim() : null;
+    telegramChatId !== null && telegramChatId !== undefined ? String(telegramChatId).trim() : null;
 
   if (!normalizedPhone) {
     throw new AppError("Invalid phoneNumber", 400);

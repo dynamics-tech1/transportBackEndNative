@@ -9,6 +9,7 @@ const { sendSocketIONotificationToAdmin } = require("../Utils/Notifications");
 const ServerResponder = require("../Utils/ServerResponder");
 const { uploadToFTP } = require("../Utils/FTPHandler");
 const AppError = require("../Utils/AppError");
+const logger = require("../Utils/logger");
 const { usersRolesList } = require("../Utils/ListOfSeedData");
 
 // Single consolidated filter method for ALL document retrieval
@@ -256,11 +257,11 @@ const updateAttachedDocument = async (req, res, next) => {
     const roleId = user?.roleId;
     const files = req?.files || [];
     const file = files?.length > 0 ? files?.[0] : null;
-    console.log("@updateAttachedDocument files", files);
+    logger.debug("@updateAttachedDocument files", { files });
     let documentExpirationDate = null;
     let attachedDocumentDescription = null;
     let attachedDocumentFileNumber = null;
-    console.log("@req.body", req.body);
+    logger.debug("@req.body", req.body);
     // return;
     let fileUrl = null;
 

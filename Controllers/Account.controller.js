@@ -67,7 +67,9 @@ const accountStatus = async (req, res, next) => {
       } else {
         ownerUserUniqueId = userUniqueId;
         // So service gets roleId from body (req.query); use token's role when query didn't send it
-        if (req.query) req.query.roleId = req.query.roleId ?? user?.roleId;
+        if (req.query) {
+          req.query.roleId = req.query.roleId ?? user?.roleId;
+        }
       }
     } else {
       user = null;

@@ -108,8 +108,7 @@ const acceptDriverRequest = async (body) => {
       );
     }
 
-    // Proceed with acceptance
-    const acceptedDriver = [decision]; // Use the validated decision
+    // Proceed with acceptance (decision validated above)
 
     const updatePayloads = [];
     const notificationDataArray = [];
