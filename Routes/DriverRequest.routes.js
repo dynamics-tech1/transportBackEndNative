@@ -14,6 +14,7 @@ const {
   getDriverRequestController,
   getCancellationNotificationsController,
   markNegativeStatusAsSeenController,
+  updateDriverRequestController,
 } = require("../Controllers/Driver.controller");
 const { verifyTokenOfAxios } = require("../Middleware/VerifyToken");
 const {
@@ -32,6 +33,8 @@ const {
   sendUpdatedLocation: sendUpdatedLocationSchema,
   completeJourney: completeJourneySchema,
   startJourney: startJourneySchema,
+  updateDriverRequest: updateDriverRequestSchema,
+  requestIdParams: requestIdParamsSchema,
 } = require("../Validations/DriverRequest.schema");
 
 const router = express.Router();
@@ -1401,6 +1404,14 @@ router.put(
  *   - Maintains referential integrity
  *   - Preserves audit trail
  */
+router.put(
+  "/api/driver/request/:driverRequestUniqueId",
+  verifyTokenOfAxios,
+  verifyDriversIdentity,
+  validator(requestIdParamsSchema, "params"),
+  validator(updateDriverRequestSchema),
+  updateDriverRequestController,
+);
 router.delete(
   "/api/driver/request/:driverRequestUniqueId",
   verifyTokenOfAxios,

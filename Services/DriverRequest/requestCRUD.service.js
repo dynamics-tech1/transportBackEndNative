@@ -306,6 +306,13 @@ const getDriverJourneyStatus = async (userUniqueId) => {
  */
 const updateDriverRequest = async ({ conditions, updateValues }) => {
   try {
+    // Validate conditions: use driverRequestUniqueId only (not driverRequestId)
+    if (conditions.driverRequestId) {
+      throw new AppError("driverRequestId is not allowed", 400);
+    }
+    if (!conditions.driverRequestUniqueId) {
+      throw new AppError("driverRequestUniqueId is required", 400);
+    }
     const result = await updateData({
       tableName: "DriverRequest",
       conditions,

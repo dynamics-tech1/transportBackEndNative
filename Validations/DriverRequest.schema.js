@@ -21,6 +21,15 @@ exports.requestIdParams = Joi.object({
   driverRequestUniqueId: uuidSchema.required(),
 });
 
+// Generic update driver request - body is the update payload
+exports.updateDriverRequest = Joi.object({
+  journeyStatusId: Joi.number().integer().optional(),
+  originPlace: Joi.string().optional(),
+  originLatitude: Joi.number().min(-90).max(90).optional(),
+  originLongitude: Joi.number().min(-180).max(180).optional(),
+  driverRequestUpdatedBy: Joi.string().uuid().optional(),
+}).unknown(true);
+
 exports.cancelRequestQuery = Joi.object({
   //
 }).unknown(true);

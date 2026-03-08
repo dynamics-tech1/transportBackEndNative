@@ -21,7 +21,7 @@ exports.getUserDeposit = async (req, res, next) => {
   try {
     const query = req.query;
 
-    let driverUniqueId = req?.query?.driverUniqueId;
+    let driverUniqueId = req?.query?.userUniqueId;
     if (driverUniqueId === "self") {
       driverUniqueId = req?.user?.userUniqueId;
     }

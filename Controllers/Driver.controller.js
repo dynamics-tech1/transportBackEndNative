@@ -291,6 +291,29 @@ const markNegativeStatusAsSeenController = async (req, res, next) => {
   }
 };
 
+const updateDriverRequestController = async (req, res, next) => {
+  try {
+    const { driverRequestUniqueId } = req.params;
+    const updateValues = req.body || {};
+
+    if (!driverRequestUniqueId) {
+      throw new AppError("driverRequestUniqueId is required", 400);
+    }
+    if (Object.keys(updateValues).length === 0) {
+      throw new AppError("No update fields provided", 400);
+    }
+
+    const result = await services.updateDriverRequest({
+      conditions: { driverRequestUniqueId },
+      updateValues,
+    });
+
+    ServerResponder(res, result, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   sendUpdatedLocationController,
   createAndAcceptNewRequest,
@@ -306,4 +329,5 @@ module.exports = {
   getDriverRequestController,
   getCancellationNotificationsController,
   markNegativeStatusAsSeenController,
+  updateDriverRequestController,
 };

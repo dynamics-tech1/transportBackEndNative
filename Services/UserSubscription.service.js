@@ -37,6 +37,7 @@ const createUserSubscription = async ({
     subscriptionPlanPricingUniqueId,
     isActive: true,
   });
+  console.log("@createUserSubscription activePricing", activePricing);
   const activePricingData = activePricing?.data?.[0];
   logger.debug("@activePricingData", {
     activePricingData,
@@ -44,7 +45,7 @@ const createUserSubscription = async ({
   });
 
   if (!activePricingData) {
-    throw new AppError("You can't create subscription using this plan.", 400);
+    throw new AppError("There is no such kind of plan pricing.", 400);
   }
 
   const isFree = activePricingData?.isFree;
@@ -54,7 +55,11 @@ const createUserSubscription = async ({
 
   // Use durationInDays from pricing when available; only compute from dates if BOTH are set
   let durationInDays = activePricingData?.durationInDays;
-  if ((durationInDays === null || durationInDays === undefined) || durationInDays <= 0) {
+  if (
+    durationInDays === null ||
+    durationInDays === undefined ||
+    durationInDays <= 0
+  ) {
     if (effectiveFrom && effectiveTo) {
       durationInDays = getDaysBetweenDates(effectiveFrom, effectiveTo);
     } else {
@@ -262,7 +267,10 @@ const deleteUserSubscriptionByUniqueId = async (
 
   await updateUserSubscriptionByUniqueId(userSubscriptionUniqueId, deleteData);
 
-  return { message: "success", data:   `Subscription ${userSubscriptionUniqueId} marked as deleted successfully` };
+  return {
+    message: "success",
+    data: `Subscription ${userSubscriptionUniqueId} marked as deleted successfully`,
+  };
 };
 
 // Consolidated service method for filtering
