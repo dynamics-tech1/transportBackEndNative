@@ -5,6 +5,11 @@ const ServerResponder = require("../Utils/ServerResponder");
 // Create
 exports.createPricing = async (req, res, next) => {
   try {
+    const createdBy = req?.user?.userUniqueId;
+    if (!createdBy) {
+      const AppError = require("../Utils/AppError");
+      throw new AppError("User not authenticated", 401);
+    }
     const {
       subscriptionPlanUniqueId,
       price,
@@ -12,14 +17,16 @@ exports.createPricing = async (req, res, next) => {
       effectiveFrom,
       effectiveTo,
     } = req.body;
-
-    const result = await service.createPricing(
+    const user = req?.user;
+    const subscriptionPlanUniqueIdOrObj = {
       subscriptionPlanUniqueId,
       price,
       durationInDays,
       effectiveFrom,
       effectiveTo,
-    );
+      user,
+    };
+    const result = await service.createPricing(subscriptionPlanUniqueIdOrObj);
     ServerResponder(res, result);
   } catch (error) {
     next(error);

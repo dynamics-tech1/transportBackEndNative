@@ -17,6 +17,7 @@ const createPricing = async (
   durationInDays,
   effectiveFrom,
   effectiveTo = null,
+  createdByFromController = null,
 ) => {
   let subscriptionPlanUniqueId;
   let user;
@@ -122,7 +123,13 @@ const createPricing = async (
   }
 
   const subscriptionPlanPricingUniqueId = uuidv4();
-  const createdBy = user?.userUniqueId || subscriptionPlanPricingUniqueId;
+  const createdBy = createdByFromController || user?.userUniqueId;
+  if (!createdBy || createdBy === subscriptionPlanPricingUniqueId) {
+    throw new AppError(
+      "subscriptionPlanPricingCreatedBy must be a valid user UUID (authenticated user).",
+      400,
+    );
+  }
 
   // 4. SQL - added audit columns
   const sql = `
@@ -331,51 +338,51 @@ const updatePricingByUniqueId = async (
     if (updateData[field] !== undefined && updateData[field] !== null) {
       // Field-specific validation
       switch (field) {
-      case "price":
-        const price = parseFloat(updateData[field]);
-        if (isNaN(price)) {
-          validationErrors.push("price must be a valid number");
-        } else if (price < 0) {
-          validationErrors.push("price cannot be negative");
-        } else {
-          setClauses.push("price = ?");
-          values.push(price.toFixed(2));
-        }
-        break;
+        case "price":
+          const price = parseFloat(updateData[field]);
+          if (isNaN(price)) {
+            validationErrors.push("price must be a valid number");
+          } else if (price < 0) {
+            validationErrors.push("price cannot be negative");
+          } else {
+            setClauses.push("price = ?");
+            values.push(price.toFixed(2));
+          }
+          break;
 
-      case "durationInDays":
-        const duration = parseInt(updateData[field]);
-        if (isNaN(duration)) {
-          validationErrors.push("durationInDays must be a valid integer");
-        } else if (duration <= 0) {
-          validationErrors.push("durationInDays must be greater than 0");
-        } else {
-          setClauses.push("durationInDays = ?");
-          values.push(duration);
-        }
-        break;
+        case "durationInDays":
+          const duration = parseInt(updateData[field]);
+          if (isNaN(duration)) {
+            validationErrors.push("durationInDays must be a valid integer");
+          } else if (duration <= 0) {
+            validationErrors.push("durationInDays must be greater than 0");
+          } else {
+            setClauses.push("durationInDays = ?");
+            values.push(duration);
+          }
+          break;
 
-      case "effectiveFrom":
-      case "effectiveTo":
-        const dateValue = validateAndFormatDate(updateData[field]);
-        if (dateValue === false) {
-          validationErrors.push(
-            `${field} must be a valid date in YYYY-MM-DD format or ISO string`,
-          );
-        } else if (dateValue !== null) {
+        case "effectiveFrom":
+        case "effectiveTo":
+          const dateValue = validateAndFormatDate(updateData[field]);
+          if (dateValue === false) {
+            validationErrors.push(
+              `${field} must be a valid date in YYYY-MM-DD format or ISO string`,
+            );
+          } else if (dateValue !== null) {
+            setClauses.push(`${field} = ?`);
+            values.push(dateValue);
+          }
+          break;
+
+        case "subscriptionPlanUniqueId":
           setClauses.push(`${field} = ?`);
-          values.push(dateValue);
-        }
-        break;
+          values.push(updateData[field]);
+          break;
 
-      case "subscriptionPlanUniqueId":
-        setClauses.push(`${field} = ?`);
-        values.push(updateData[field]);
-        break;
-
-      default:
-        setClauses.push(`${field} = ?`);
-        values.push(updateData[field]);
+        default:
+          setClauses.push(`${field} = ?`);
+          values.push(updateData[field]);
       }
     }
   });
@@ -429,7 +436,9 @@ const updatePricingByUniqueId = async (
       affectedRows: result.affectedRows,
     };
   } catch (error) {
-    if (error instanceof AppError) {throw error;}
+    if (error instanceof AppError) {
+      throw error;
+    }
 
     const errorMap = {
       ER_TRUNCATED_WRONG_VALUE: "Invalid date format. Use YYYY-MM-DD format.",
