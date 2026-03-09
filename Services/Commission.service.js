@@ -52,6 +52,7 @@ function validateCommissionData(data) {
   if (data.commissionAmount > 999999.99) {
     throw new AppError("Commission amount exceeds maximum limit", 400);
   }
+  return true;
 }
 
 async function createCommission({
@@ -99,11 +100,28 @@ async function createCommissionInConnection(
     commissionRateValue,
   },
 ) {
+  //validate inputs
+
+  if (!journeyDecisionUniqueId) {
+    throw new AppError("Journey decision unique id is required", 400);
+  }
+  if (!paymentAmount) {
+    throw new AppError("Payment amount is required", 400);
+  }
+  if (!commissionCreatedBy) {
+    throw new AppError("Commission created by is required", 400);
+  }
+  if (!commissionRateUniqueId) {
+    throw new AppError("Commission rate unique id is required", 400);
+  }
+  if (!commissionRateValue) {
+    throw new AppError("Commission rate value is required", 400);
+  }
   // Rate data already fetched once in createCommission and passed in
 
   // Calculate commission amount
   const commissionAmount = paymentAmount * commissionRateValue;
-
+  logger.info("createCommission commissionAmount" + commissionAmount);
   // Validate calculated commission amount
   validateCommissionData({ commissionAmount });
 
