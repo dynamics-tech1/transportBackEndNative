@@ -231,6 +231,21 @@ const completeJourney = async (body) => {
     } = body;
 
     // 1. Validate all UUIDs in one optimized query
+    if (!journeyDecisionUniqueId) {
+      throw new AppError("Journey decision unique id is required", 400);
+    }
+    if (!passengerRequestUniqueId) {
+      throw new AppError("Passenger request unique id is required", 400);
+    }
+    if (!driverRequestUniqueId) {
+      throw new AppError("Driver request unique id is required", 400);
+    }
+    if (!journeyUniqueId) {
+      throw new AppError("Journey unique id is required", 400);
+    }
+    if (!userUniqueId) {
+      throw new AppError("User unique id is required", 400);
+    }
     // Use explicit column selection to avoid userUniqueId collision between DriverRequest and PassengerRequest
     const validateQuery = `
       SELECT JourneyDecisions.*, DriverRequest.driverRequestUniqueId,

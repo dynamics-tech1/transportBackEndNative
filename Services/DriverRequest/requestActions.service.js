@@ -570,13 +570,28 @@ const acceptPassengerRequest = async (body) => {
       journeyDecisionUniqueId,
       driverRequestUniqueId,
       userUniqueId,
+      shippingCostByDriver,
     } = body;
 
     // Validate that the userUniqueId from token is provided
     if (!userUniqueId) {
       throw new AppError("User authentication required", 401);
     }
-
+    if (!shippingCostByDriver) {
+      throw new AppError("Shipping cost by driver is required", 400);
+    }
+    if (!journeyDecisionUniqueId) {
+      throw new AppError("Journey decision unique id is required", 400);
+    }
+    if (!driverRequestUniqueId) {
+      throw new AppError("Driver request unique id is required", 400);
+    }
+    if (!passengerRequestUniqueId) {
+      throw new AppError("Passenger request unique id is required", 400);
+    }
+    if (shippingCostByDriver <= 0) {
+      throw new AppError("Shipping cost by driver must be greater than 0", 400);
+    }
     // check if the driver request is already exists
     // Include Users join to get userUniqueId for validation
     const existingRequest = await performJoinSelect({
@@ -908,7 +923,9 @@ const cancelDriverRequest = async (data) => {
       passengerUserUniqueId = data?.passengerUserUniqueId;
     const rawReasonId = data?.cancellationReasonsTypeId;
     const cancellationReasonsTypeId =
-      rawReasonId !== null && rawReasonId !== "undefined" && !Number.isNaN(Number(rawReasonId))
+      rawReasonId !== null &&
+      rawReasonId !== "undefined" &&
+      !Number.isNaN(Number(rawReasonId))
         ? Number(rawReasonId)
         : 1; // default to 1 if missing/invalid to satisfy FK
 
