@@ -2,6 +2,8 @@ const { v4: uuidv4 } = require("uuid");
 const { pool } = require("../../Middleware/Database.config");
 const { getData } = require("../../CRUD/Read/ReadData");
 const { insertData } = require("../../CRUD/Create/CreateData");
+const logger = require("../../Utils/logger");
+
 // Removed unused import: sendSocketIONotificationToPassenger
 const { sendFCMNotificationToUser } = require("../Firebase.service");
 const { createJourneyRoutePoint } = require("../JourneyRoutePoints.service");
@@ -266,7 +268,7 @@ const completeJourney = async (body) => {
     }
 
     const combinedData = journeyDecisionDriverData?.[0];
-
+    logger.info("completeJourney combinedData", combinedData);
     // Validate driver identity (userUniqueId from token must match driver in database)
     // Skip validation if user is admin or super admin (they can complete journeys on behalf of drivers)
     const isAdmin =
@@ -412,7 +414,6 @@ const completeJourney = async (body) => {
 
     return response;
   } catch (error) {
-    const logger = require("../../Utils/logger");
     logger.error("Unable to complete journey", {
       error: error.message,
       stack: error.stack,
