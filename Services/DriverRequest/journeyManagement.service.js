@@ -301,12 +301,15 @@ const completeJourney = async (body) => {
               400,
             );
           }
-          await createCommission({
+          const commissionResult = await createCommission({
             journeyDecisionUniqueId: body?.journeyDecisionUniqueId,
             paymentAmount,
             commissionCreatedBy: userUniqueId, // Driver who completed the journey
             connection, // Pass connection for transaction support
           });
+          if (commissionResult.message === "error") {
+            throw new AppError(commissionResult.message, 400);
+          }
         }
 
         // Record completion location in JourneyRoutePoints

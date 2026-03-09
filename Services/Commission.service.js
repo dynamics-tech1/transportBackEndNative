@@ -7,53 +7,10 @@ const { journeyStatusMap } = require("../Utils/ListOfSeedData");
 const {
   prepareAndCreateNewBalance,
 } = require("./UserBalance.service/UserBalance.post.service");
-
-// Cached commission status ID (lazy loaded)
-let cachedCommissionStatusId = null;
-
-// Cached commission rate data (lazy loaded)
-let cachedCommissionRateData = null;
-
-// Get cached commission status ID, query on first access only
-const getCommissionStatusId = async () => {
-  if (cachedCommissionStatusId) {
-    return cachedCommissionStatusId;
-  }
-
-  const [commissionStatusData] = await pool.query(
-    `SELECT commissionStatusUniqueId FROM CommissionStatus WHERE statusName = 'PAID'`,
-    [],
-  );
-
-  if (commissionStatusData.length === 0) {
-    throw new AppError("Commission status 'PAID' not found", 404);
-  }
-
-  cachedCommissionStatusId = commissionStatusData?.[0].commissionStatusUniqueId;
-  return cachedCommissionStatusId;
-};
-
-// Get cached commission rate data, query on first access only
-const getCommissionRateData = async () => {
-  if (cachedCommissionRateData) {
-    return cachedCommissionRateData;
-  }
-
-  const [commissionRateData] = await pool.query(
-    `SELECT commissionRateUniqueId, commissionRate AS commissionRateValue FROM CommissionRates WHERE commissionRateDeletedAt IS NULL LIMIT 1`,
-    [],
-  );
-
-  if (commissionRateData.length === 0) {
-    throw new AppError("Commission rate not found", 404);
-  }
-
-  cachedCommissionRateData = {
-    commissionRateUniqueId: commissionRateData?.[0].commissionRateUniqueId,
-    commissionRateValue: commissionRateData?.[0].commissionRateValue,
-  };
-  return cachedCommissionRateData;
-};
+const {
+  getCommissionRateData,
+  getCommissionStatusPaidId,
+} = require("./FixedData.service");
 
 const allowedSortFields = {
   commissionId: "c.commissionId",
@@ -105,12 +62,18 @@ async function createCommission({
 }) {
   validateCommissionData({ commissionAmount: paymentAmount }); // Basic validation on payment amount
 
+  // Fetch commission rate once (cached) and reuse in createCommissionInConnection
+  const { commissionRateUniqueId, commissionRateValue } =
+    await getCommissionRateData();
+
   // If connection provided, use it directly; otherwise create transaction
   if (connection) {
     return await createCommissionInConnection(connection, {
       journeyDecisionUniqueId,
       paymentAmount,
       commissionCreatedBy,
+      commissionRateUniqueId,
+      commissionRateValue,
     });
   } else {
     return executeInTransaction(async (conn) => {
@@ -118,6 +81,8 @@ async function createCommission({
         journeyDecisionUniqueId,
         paymentAmount,
         commissionCreatedBy,
+        commissionRateUniqueId,
+        commissionRateValue,
       });
     });
   }
@@ -126,11 +91,15 @@ async function createCommission({
 // Helper function to create commission using provided connection
 async function createCommissionInConnection(
   connection,
-  { journeyDecisionUniqueId, paymentAmount, commissionCreatedBy },
+  {
+    journeyDecisionUniqueId,
+    paymentAmount,
+    commissionCreatedBy,
+    commissionRateUniqueId,
+    commissionRateValue,
+  },
 ) {
-  // Get commission rate data using cached function
-  const { commissionRateUniqueId, commissionRateValue } =
-    await getCommissionRateData();
+  // Rate data already fetched once in createCommission and passed in
 
   // Calculate commission amount
   const commissionAmount = paymentAmount * commissionRateValue;
@@ -138,8 +107,8 @@ async function createCommissionInConnection(
   // Validate calculated commission amount
   validateCommissionData({ commissionAmount });
 
-  // Get commission status using cached function
-  const commissionStatusUniqueId = await getCommissionStatusId();
+  // Get commission status (cached in FixedData.service)
+  const commissionStatusUniqueId = await getCommissionStatusPaidId();
 
   // 1. Verify journey decision exists
   const [journeyData] = await connection.query(

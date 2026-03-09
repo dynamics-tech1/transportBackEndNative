@@ -421,9 +421,7 @@ const searchCompletedJourneyByUserData = async (
     ];
     const result = await query(dataSql, dataValues);
 
-    const countSql = `
-      SELECT COUNT(*) as total
-      FROM Journey
+    const countSql = ` SELECT COUNT(*) as total  FROM Journey
       JOIN JourneyDecisions ON JourneyDecisions.journeyDecisionUniqueId = Journey.journeyDecisionUniqueId
       JOIN PassengerRequest ON PassengerRequest.passengerRequestId = JourneyDecisions.passengerRequestId
       JOIN DriverRequest ON DriverRequest.driverRequestId = JourneyDecisions.driverRequestId
