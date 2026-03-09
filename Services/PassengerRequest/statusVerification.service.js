@@ -218,7 +218,8 @@ async function handleWaitingRequest({
       driverRequestId: driver.driverRequestId,
       journeyStatusId: journeyStatusMap.requested,
       decisionTime: currentDate(),
-      decisionBy: "system",
+      //decisionBy is used to track dose passengers request get driver or driver request get passenger request
+      decisionBy: "passenger",
       journeyDecisionCreatedBy: userUniqueId,
       journeyDecisionCreatedAt: currentDate(),
     };

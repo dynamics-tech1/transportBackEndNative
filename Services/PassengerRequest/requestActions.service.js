@@ -103,7 +103,7 @@ const acceptDriverRequest = async (body) => {
       )
     ) {
       throw new AppError(
-        `Driver is not connected to shipper in this decision. Current status: ${decision.journeyStatusId}`,
+        `Driver is not connected to shipper in this decision. `,
         400,
       );
     }
