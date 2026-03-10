@@ -529,7 +529,7 @@ const handleUserRoleStatus = async (
         ? USER_STATUS.ACTIVE
         : roleId === usersRoles.driverRoleId
           ? USER_STATUS.INACTIVE_VEHICLE_NOT_REGISTERED
-          : statusId ?? USER_STATUS.ACTIVE;
+          : (statusId ?? USER_STATUS.ACTIVE);
     const colAndVal = {
       userRoleStatusUniqueId: uuidv4(),
       userRoleStatusCreatedBy: userUniqueId,
@@ -774,10 +774,10 @@ const getUsersByRoleUniqueId = async (
     INNER JOIN Statuses s ON ursc.statusId = s.statusId
     WHERE r.roleUniqueId = ?
     ${
-  search
-    ? "AND (u.fullName LIKE ? OR u.email LIKE ? OR u.phoneNumber LIKE ?)"
-    : ""
-}
+      search
+        ? "AND (u.fullName LIKE ? OR u.email LIKE ? OR u.phoneNumber LIKE ?)"
+        : ""
+    }
   `;
 
   const executor = connection || pool;
@@ -808,10 +808,10 @@ const getUsersByRoleUniqueId = async (
     INNER JOIN Statuses s ON ursc.statusId = s.statusId
     WHERE r.roleUniqueId = ?
     ${
-  search
-    ? "AND (u.fullName LIKE ? OR u.email LIKE ? OR u.phoneNumber LIKE ?)"
-    : ""
-}
+      search
+        ? "AND (u.fullName LIKE ? OR u.email LIKE ? OR u.phoneNumber LIKE ?)"
+        : ""
+    }
     ORDER BY u.userCreatedAt DESC
     LIMIT ? OFFSET ?
   `;
@@ -820,13 +820,13 @@ const getUsersByRoleUniqueId = async (
     sql,
     search
       ? [
-        roleUniqueId,
-        wildcardQuery,
-        wildcardQuery,
-        wildcardQuery,
-        limit,
-        offset,
-      ]
+          roleUniqueId,
+          wildcardQuery,
+          wildcardQuery,
+          wildcardQuery,
+          limit,
+          offset,
+        ]
       : [roleUniqueId, limit, offset],
   );
 
@@ -943,7 +943,14 @@ const deleteUser = async (
       `INSERT INTO Statuses (statusId, statusUniqueId, statusName, statusDescription, statusCreatedBy, statusCreatedAt)
        VALUES (?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE statusName = VALUES(statusName), statusDescription = VALUES(statusDescription)`,
-      [sid, statusUniqueId, statusName, statusDescription, deletedBy, currentDate()],
+      [
+        sid,
+        statusUniqueId,
+        statusName,
+        statusDescription,
+        deletedBy,
+        currentDate(),
+      ],
     );
     await executor.query(
       `UPDATE UserRoleStatusCurrent SET statusId = ? WHERE userRoleId IN (SELECT userRoleId FROM UserRole WHERE userUniqueId = ?)`,
@@ -1086,7 +1093,7 @@ const getUserByFilterDetailed = async (
   ORDER BY Users.userCreatedAt DESC
   LIMIT ? OFFSET ?
 `;
-  // Updated count SQL
+  //  count SQL
   const countSql = `
     SELECT COUNT(DISTINCT Users.userUniqueId) AS totalCount
     FROM Users
@@ -1146,10 +1153,10 @@ const getUserByFilterDetailed = async (
         },
         userRoleStatuses: row.userRoleStatusId
           ? {
-            statusId: row.statusId,
-            statusName: row.statusName,
-            userRoleStatusUniqueId: row.userRoleStatusUniqueId,
-          }
+              statusId: row.statusId,
+              statusName: row.statusName,
+              userRoleStatusUniqueId: row.userRoleStatusUniqueId,
+            }
           : null,
       });
 

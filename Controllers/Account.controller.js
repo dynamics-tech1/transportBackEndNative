@@ -53,13 +53,16 @@ const accountStatus = async (req, res, next) => {
     // Extract validated parameters from middleware-updated req.query
     let user = req?.user;
     const userUniqueId = user?.userUniqueId;
-    let ownerUserUniqueId = req?.query?.ownerUserUniqueId;
-    const phoneNumber = req?.query?.phoneNumber;
-    const email = req?.query?.email;
-    let enableDocumentChecks = req?.query?.enableDocumentChecks;
+    //extract data from req?.query
+    const query = req?.query;
+    let ownerUserUniqueId = query?.ownerUserUniqueId;
+    const phoneNumber = query?.phoneNumber;
+    const email = query?.email;
+    let enableDocumentChecks = query?.enableDocumentChecks;
 
     // Priority: ownerUserUniqueId > phoneNumber > email > self
     if (!ownerUserUniqueId || ownerUserUniqueId === "self") {
+      // if phone number or email is provided, then set ownerUserUniqueId to null and user to null
       if (phoneNumber || email) {
         // Will be resolved in service by phone/email
         ownerUserUniqueId = null;
@@ -67,8 +70,8 @@ const accountStatus = async (req, res, next) => {
       } else {
         ownerUserUniqueId = userUniqueId;
         // So service gets roleId from body (req.query); use token's role when query didn't send it
-        if (req.query) {
-          req.query.roleId = req.query.roleId ?? user?.roleId;
+        if (query) {
+          query.roleId = query.roleId ?? user?.roleId;
         }
       }
     } else {
@@ -81,7 +84,7 @@ const accountStatus = async (req, res, next) => {
         phoneNumber,
         email,
         user,
-        body: req?.query || {},
+        body: query || {},
         enableDocumentChecks,
         connection, // Pass connection for transaction support
       });

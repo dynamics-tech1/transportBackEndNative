@@ -219,25 +219,40 @@ const accountStatus = async ({
         userResult?.message === "success" &&
         userResult?.data?.[0]?.user?.userUniqueId
       ) {
-        resolvedUserUniqueId = userResult.data[0].user.userUniqueId;
-        // Now get full user role status for the resolved user with roleId filter if provided
-        const userDataParams = { userUniqueId: resolvedUserUniqueId };
-        if (requestedRoleId) {
-          userDataParams.roleId = requestedRoleId;
+        const firstEntry = userResult.data[0];
+        const u = firstEntry.user;
+        resolvedUserUniqueId = u.userUniqueId;
+        const rolesAndStatuses = firstEntry.rolesAndStatuses || [];
+        const roleEntry = requestedRoleId
+          ? rolesAndStatuses.find(
+              (rs) => rs?.userRoles?.roleId === requestedRoleId,
+            )
+          : rolesAndStatuses[0];
+
+        if (!roleEntry) {
+          if (requestedRoleId) {
+            throw new AppError(
+              `User found but does not have role ID ${requestedRoleId}`,
+              404,
+            );
+          }
+          throw new AppError("User found but has no role assignment", 404);
         }
 
-        const userData = await getUserRoleStatusCurrent({
-          data: userDataParams,
-        });
-        effectiveUser = userData?.data?.[0];
-
-        // If roleId was requested but user doesn't have that role, return error
-        if (requestedRoleId && !effectiveUser) {
-          throw new AppError(
-            `User found but does not have role ID ${requestedRoleId}`,
-            404,
-          );
-        }
+        const rs = roleEntry.userRoleStatuses || {};
+        effectiveUser = {
+          userUniqueId: u.userUniqueId,
+          fullName: u.fullName,
+          phoneNumber: u.phoneNumber,
+          email: u.email,
+          roleId: roleEntry.userRoles.roleId,
+          userRoleId: roleEntry.userRoles.userRoleId,
+          userRoleUniqueId: roleEntry.userRoles.userRoleUniqueId,
+          roleName: roleEntry.userRoles.roleName,
+          statusId: rs.statusId,
+          userRoleStatusUniqueId: rs.userRoleStatusUniqueId,
+          statusName: rs.statusName,
+        };
       } else {
         // User not found by phone/email
         throw new AppError(
@@ -350,22 +365,22 @@ const accountStatus = async ({
         // 2. Vehicle Check
         requiresVehicle
           ? getVehicleDrivers({
-            driverUserUniqueId: resolvedUserUniqueId,
-            assignmentStatus: "active",
-            limit: 1,
-            page: 1,
-          })
+              driverUserUniqueId: resolvedUserUniqueId,
+              assignmentStatus: "active",
+              limit: 1,
+              page: 1,
+            })
           : Promise.resolve({ data: [] }),
 
         // 3. Document Requirements List
         enableDocumentChecks
           ? getRoleDocumentRequirements({
-            roleId,
-            page: 1,
-            limit: 1000,
-            sortBy: "documentTypeId",
-            sortOrder: "ASC",
-          })
+              roleId,
+              page: 1,
+              limit: 1000,
+              sortBy: "documentTypeId",
+              sortOrder: "ASC",
+            })
           : Promise.resolve({ data: [] }),
 
         // 4. Subscription Check (Drivers Only)
@@ -373,6 +388,8 @@ const accountStatus = async ({
           ? checkAndGrantUserSubscription(resolvedUserUniqueId)
           : Promise.resolve(null),
       ]);
+
+    // if user is allowed to use commission  but not subscription validate by commission not by subscription
 
     // --- Process Ban Check Result ---
     if (banCheck.status === "fulfilled" && banCheck.value?.data) {
@@ -430,8 +447,10 @@ const accountStatus = async ({
     // Only mandatory docs (isDocumentMandatory === 1) block status; optional docs (0) do not impede active (1)
     const isMandatory = (doc) => Number(doc?.isDocumentMandatory) === 1;
     const unAttachedMandatory = unAttachedDocumentTypes.filter(isMandatory);
-    const hasRejectedMandatory = attachedDocumentsByStatus.REJECTED.some(isMandatory);
-    const hasPendingMandatory = attachedDocumentsByStatus.PENDING.some(isMandatory);
+    const hasRejectedMandatory =
+      attachedDocumentsByStatus.REJECTED.some(isMandatory);
+    const hasPendingMandatory =
+      attachedDocumentsByStatus.PENDING.some(isMandatory);
 
     const applyDocumentRules = Number(roleId) === usersRoles.driverRoleId;
 
@@ -452,12 +471,10 @@ const accountStatus = async ({
     else if (applyDocumentRules && hasRejectedMandatory) {
       finalStatusId = USER_STATUS.INACTIVE_DOCUMENTS_REJECTED;
       reason = "One or more documents have been rejected";
-    }
-    else if (applyDocumentRules && unAttachedMandatory.length > 0) {
+    } else if (applyDocumentRules && unAttachedMandatory.length > 0) {
       finalStatusId = USER_STATUS.INACTIVE_REQUIRED_DOCUMENTS_MISSING;
       reason = "Some required documents are not attached";
-    }
-    else if (applyDocumentRules && hasPendingMandatory) {
+    } else if (applyDocumentRules && hasPendingMandatory) {
       finalStatusId = USER_STATUS.INACTIVE_DOCUMENTS_PENDING;
       reason = "One or more documents are pending review";
     }
@@ -550,12 +567,12 @@ async function checkAndGrantUserSubscription(driverUniqueId) {
       limit: 1,
     });
     logger.debug("@unassignedFreePlans", unassignedFreePlans);
-    
+
     // 2. Grant if found (but only one at a time)
     if (unassignedFreePlans?.data?.length > 0) {
       const plan = unassignedFreePlans.data[0];
       logger.debug("@plan", plan);
-      
+
       await createUserSubscription({
         driverUniqueId,
         subscriptionPlanPricingUniqueId: plan.subscriptionPlanPricingUniqueId,
