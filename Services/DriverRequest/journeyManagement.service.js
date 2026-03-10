@@ -18,6 +18,12 @@ const { fetchJourneyNotificationData } = require("./helpers");
 const { currentDate } = require("../../Utils/CurrentDate");
 const AppError = require("../../Utils/AppError");
 const { createCommission } = require("../Commission.service");
+const {
+  getUserBalanceByFilterServices,
+} = require("../UserBalance.service/UserBalance.get.service");
+const {
+  getUserSubscriptionsWithFilters,
+} = require("../UserSubscription.service");
 
 const startJourney = async (body) => {
   try {
@@ -220,7 +226,7 @@ const startJourney = async (body) => {
     );
   }
 };
-const completeJourney = async (body) => {
+const completeJourney = async (body, connection = null) => {
   try {
     const {
       journeyDecisionUniqueId,
@@ -267,12 +273,15 @@ const completeJourney = async (body) => {
       LIMIT 1
     `;
 
-    const [journeyDecisionDriverData] = await pool.query(validateQuery, [
-      journeyDecisionUniqueId,
-      passengerRequestUniqueId,
-      driverRequestUniqueId,
-      journeyUniqueId,
-    ]);
+    const [journeyDecisionDriverData] = await (connection || pool).query(
+      validateQuery,
+      [
+        journeyDecisionUniqueId,
+        passengerRequestUniqueId,
+        driverRequestUniqueId,
+        journeyUniqueId,
+      ],
+    );
 
     // If no data returned, one or more UUIDs don't match or don't exist
     if (!journeyDecisionDriverData?.length) {
@@ -293,6 +302,16 @@ const completeJourney = async (body) => {
       throw new AppError("Driver user does not match journey decision", 403);
     }
 
+    //check if driver has subscription to do by subscription
+    const subscriptionInfo = await getUserSubscriptionsWithFilters(
+      {
+        driverUniqueId: userUniqueId,
+        page: 1,
+        limit: 1,
+      },
+      connection,
+    );
+    logger.info("@completeJourney subscriptionInfo", subscriptionInfo);
     // 2. Wrap journey status update in transaction to ensure atomicity
     // updateJourneyStatus will update multiple tables: Journey, PassengerRequest, JourneyDecisions, DriverRequest
     // All updates must succeed or all must fail to maintain data consistency

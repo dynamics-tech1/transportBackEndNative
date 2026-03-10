@@ -16,6 +16,9 @@ const {
   getSubscriptionData,
 } = require("./UserSubscription.service");
 const AppError = require("../Utils/AppError");
+const {
+  getUserBalanceByFilterServices,
+} = require("./UserBalance.service/UserBalance.get.service");
 
 /**
  * @fileoverview Account Service
@@ -192,6 +195,7 @@ const accountStatus = async ({
   let attachedDocumentsByStatus = { PENDING: [], ACCEPTED: [], REJECTED: [] };
   let unAttachedDocumentTypes = [];
   let requiredDocuments = [];
+  let userBalance = [];
 
   try {
     // ========== STEP 0: RESOLVE USER CONTEXT ==========
@@ -343,54 +347,71 @@ const accountStatus = async ({
       usersRoles.vehicleOwnerRoleId,
     ].includes(Number(roleId));
 
-    const [banCheck, vehicleCheck, requiredDocsResult, subscriptionCheck] =
-      await Promise.allSettled([
-        // 1. Ban Check
-        (async () => {
-          try {
-            const bannedUsersService = require("./BannedUsers.service");
-            return await bannedUsersService.getBannedUsers({
-              search: effectivePhoneNumber,
-              roleId,
-            });
-          } catch (e) {
-            logger.error("Error checking banned users", {
-              error: e.message,
-              stack: e.stack,
-            });
-            return null;
-          }
-        })(),
+    const [
+      banCheck,
+      vehicleCheck,
+      requiredDocsResult,
+      subscriptionCheck,
+      userBalanceCheck,
+    ] = await Promise.allSettled([
+      // 1. Ban Check
+      (async () => {
+        try {
+          const bannedUsersService = require("./BannedUsers.service");
+          return await bannedUsersService.getBannedUsers({
+            search: effectivePhoneNumber,
+            roleId,
+          });
+        } catch (e) {
+          logger.error("Error checking banned users", {
+            error: e.message,
+            stack: e.stack,
+          });
+          return null;
+        }
+      })(),
 
-        // 2. Vehicle Check
-        requiresVehicle
-          ? getVehicleDrivers({
-              driverUserUniqueId: resolvedUserUniqueId,
-              assignmentStatus: "active",
-              limit: 1,
-              page: 1,
-            })
-          : Promise.resolve({ data: [] }),
+      // 2. Vehicle Check
+      requiresVehicle
+        ? getVehicleDrivers({
+            driverUserUniqueId: resolvedUserUniqueId,
+            assignmentStatus: "active",
+            limit: 1,
+            page: 1,
+          })
+        : Promise.resolve({ data: [] }),
 
-        // 3. Document Requirements List
-        enableDocumentChecks
-          ? getRoleDocumentRequirements({
-              roleId,
-              page: 1,
-              limit: 1000,
-              sortBy: "documentTypeId",
-              sortOrder: "ASC",
-            })
-          : Promise.resolve({ data: [] }),
+      // 3. Document Requirements List
+      enableDocumentChecks
+        ? getRoleDocumentRequirements({
+            roleId,
+            page: 1,
+            limit: 1000,
+            sortBy: "documentTypeId",
+            sortOrder: "ASC",
+          })
+        : Promise.resolve({ data: [] }),
 
-        // 4. Subscription Check (Drivers Only)
-        Number(roleId) === usersRoles.driverRoleId
-          ? checkAndGrantUserSubscription(resolvedUserUniqueId)
-          : Promise.resolve(null),
-      ]);
+      // 4. Subscription Check (Drivers Only)
+      Number(roleId) === usersRoles.driverRoleId
+        ? checkAndGrantUserSubscription(resolvedUserUniqueId)
+        : Promise.resolve(null),
 
-    // if user is allowed to use commission  but not subscription validate by commission not by subscription
-
+      // 5. User Balance Check (Drivers Only)
+      Number(roleId) === usersRoles.driverRoleId
+        ? getUserBalanceByFilterServices(
+            { userUniqueId: resolvedUserUniqueId, page: 1, limit: 1 },
+            connection,
+          )
+        : Promise.resolve(null),
+    ]);
+    //--- Process User Balance Check Result ---
+    if (
+      userBalanceCheck.status === "fulfilled" &&
+      userBalanceCheck.value?.data?.[0]
+    ) {
+      userBalance = userBalanceCheck.value.data[0];
+    }
     // --- Process Ban Check Result ---
     if (banCheck.status === "fulfilled" && banCheck.value?.data) {
       banData = banCheck.value.data;
@@ -440,6 +461,9 @@ const accountStatus = async ({
 
     // --- Process Subscription Check Result ---
     if (subscriptionCheck.status === "fulfilled" && subscriptionCheck.value) {
+      logger.info("@subscriptionInfo", subscriptionCheck.value);
+      logger.debug("@userBalanceCheck", userBalanceCheck);
+
       subscriptionInfo = subscriptionCheck.value;
     }
 
@@ -478,13 +502,18 @@ const accountStatus = async ({
       finalStatusId = USER_STATUS.INACTIVE_DOCUMENTS_PENDING;
       reason = "One or more documents are pending review";
     }
-    // Priority 6: No Subscription (7) - driver only
+    // Priority 6: No Subscription (7) - driver only,
+    // if driver doesn't have active subscription, check if driver has balance to do by commission charges, if not set status to inactive driver doesn't have an active subscription or balance to do by commission charges
     else if (
       Number(roleId) === usersRoles.driverRoleId &&
       !subscriptionInfo.hasActiveSubscription
     ) {
-      finalStatusId = USER_STATUS.INACTIVE_DRIVER_DOESN_T_HAVE_A_SUBSCRIPTION;
-      reason = "Driver doesn't have an active subscription";
+      //check if driver dosen't have balance to do by commission charges , set status to inactive driver doesn't have an active subscription or balance to do by commission charges
+      if (userBalance?.balance <= 0) {
+        finalStatusId = USER_STATUS.INACTIVE_DRIVER_DOESN_T_HAVE_A_SUBSCRIPTION;
+        reason =
+          "Driver doesn't have an active subscription or balance to do by commission charges";
+      }
     }
 
     logger.debug("@accountStatus final status", {
@@ -522,6 +551,8 @@ const accountStatus = async ({
     });
     return {
       message: "success",
+
+      userBalance,
       messageType: "accountStatus",
       vehicle: userVehicle,
       userData: latestUserData?.data?.[0] || null,
@@ -566,12 +597,10 @@ async function checkAndGrantUserSubscription(driverUniqueId) {
       page: 1,
       limit: 1,
     });
-    logger.debug("@unassignedFreePlans", unassignedFreePlans);
 
     // 2. Grant if found (but only one at a time)
     if (unassignedFreePlans?.data?.length > 0) {
       const plan = unassignedFreePlans.data[0];
-      logger.debug("@plan", plan);
 
       await createUserSubscription({
         driverUniqueId,

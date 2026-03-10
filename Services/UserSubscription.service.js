@@ -274,7 +274,7 @@ const deleteUserSubscriptionByUniqueId = async (
 };
 
 // Consolidated service method for filtering
-const getUserSubscriptionsWithFilters = async (filters = {}) => {
+const getUserSubscriptionsWithFilters = async (filters = {}, connection) => {
   const {
     page = 1,
     limit = 10,
@@ -495,12 +495,12 @@ const getUserSubscriptionsWithFilters = async (filters = {}) => {
     ${whereClause}
   `;
 
-  const [rows] = await pool.query(sql, [
+  const [rows] = await (connection || pool).query(sql, [
     ...queryParams,
     parseInt(limit),
     offset,
   ]);
-  const [countRes] = await pool.query(countSql, queryParams);
+  const [countRes] = await (connection || pool).query(countSql, queryParams);
   const total = countRes[0]?.total || 0;
 
   return {
@@ -519,12 +519,15 @@ const getUserSubscriptionsWithFilters = async (filters = {}) => {
 };
 
 // Get count only (separate method for count requests)
-const getUserSubscriptionsCount = async (filters = {}) => {
-  const result = await getUserSubscriptionsWithFilters({
-    ...filters,
-    page: 1,
-    limit: 1,
-  });
+const getUserSubscriptionsCount = async (filters = {}, connection) => {
+  const result = await getUserSubscriptionsWithFilters(
+    {
+      ...filters,
+      page: 1,
+      limit: 1,
+    },
+    connection,
+  );
 
   return {
     message: "success",
@@ -534,7 +537,7 @@ const getUserSubscriptionsCount = async (filters = {}) => {
 };
 
 //get unassigned free plan before grant
-const getUnassignedFreePlans = async (filters = {}) => {
+const getUnassignedFreePlans = async (filters = {}, connection) => {
   const {
     page = 1,
     limit = 10,
@@ -614,13 +617,13 @@ const getUnassignedFreePlans = async (filters = {}) => {
     ${whereClause}
   `;
 
-  const [rows] = await pool.query(sql, [
+  const [rows] = await (connection || pool).query(sql, [
     driverUniqueId,
     ...params,
     safeLimit,
     offset,
   ]);
-  const [countRes] = await pool.query(countSql, params);
+  const [countRes] = await (connection || pool).query(countSql, params);
   const total = countRes[0]?.total || 0;
 
   return {
@@ -638,13 +641,13 @@ const getUnassignedFreePlans = async (filters = {}) => {
   };
 };
 
-const getSubscriptionData = async (filters = {}) => {
+const getSubscriptionData = async (filters = {}, connection) => {
   const { dataType = "userSubscriptions" } = filters;
 
   if (dataType === "freePlans") {
-    return await getUnassignedFreePlans(filters);
+    return await getUnassignedFreePlans(filters, connection);
   } else {
-    return await getUserSubscriptionsWithFilters(filters);
+    return await getUserSubscriptionsWithFilters(filters, connection);
   }
 };
 

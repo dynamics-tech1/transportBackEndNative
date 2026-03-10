@@ -207,7 +207,7 @@ const getuserBalanceByDateRange = async ({
   return { message: "success", data: fullData };
 };
 
-const getUserBalanceByFilterServices = async (query) => {
+const getUserBalanceByFilterServices = async (query, connection) => {
   const {
     userBalanceUniqueId,
     userUniqueId,
@@ -287,7 +287,7 @@ const getUserBalanceByFilterServices = async (query) => {
     ${whereSql}
   `;
 
-  const [dataRows] = await pool.query(dataSql, dataParams);
+  const [dataRows] = await (connection || pool).query(dataSql, dataParams);
   const [countRows] = await pool.query(countSql, params);
 
   const total = countRows[0]?.total || 0;
