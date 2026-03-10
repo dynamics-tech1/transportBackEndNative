@@ -292,7 +292,6 @@ const completeJourney = async (body, connection = null) => {
     }
 
     const combinedData = journeyDecisionDriverData?.[0];
-    logger.info("completeJourney combinedData", combinedData);
     // Validate driver identity (userUniqueId from token must match driver in database)
     // Skip validation if user is admin or super admin (they can complete journeys on behalf of drivers)
     const isAdmin =
@@ -313,8 +312,8 @@ const completeJourney = async (body, connection = null) => {
       connection,
     );
     const subscriptionData = subscriptionInfo?.data?.[0] || null;
-
-    logger.info("@completeJourney subscriptionData", subscriptionData);
+    console.log("@completeJourney subscriptionInfo", subscriptionInfo);
+    logger.debug("@completeJourney subscriptionData", subscriptionData);
     // 2. Wrap journey status update in transaction to ensure atomicity
     // updateJourneyStatus will update multiple tables: Journey, PassengerRequest, JourneyDecisions, DriverRequest
     // All updates must succeed or all must fail to maintain data consistency
@@ -346,6 +345,7 @@ const completeJourney = async (body, connection = null) => {
             commissionCreatedBy: userUniqueId, // Driver who completed the journey
             connection, // Pass connection for transaction support
           });
+          console.log("@completeJourney commissionResult", commissionResult);
           if (commissionResult.message === "error") {
             throw new AppError(commissionResult.message, 400);
           }

@@ -75,6 +75,9 @@ const createCommissionRate = async ({
 
 // Retrieve all commission rates with pagination and filtering
 const getAllCommissionRates = async (filters = {}) => {
+  if (filters.commissionUniqueId) {
+    return await getCommissionsByCommissionUniqueId(filters.commissionUniqueId);
+  }
   const page = Number(filters.page) || 1;
   const limit = Math.min(Number(filters.limit) || 10, 100);
   const offset = (page - 1) * limit;

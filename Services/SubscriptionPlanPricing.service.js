@@ -323,6 +323,7 @@ const updatePricingByUniqueId = async (
     "effectiveFrom",
     "effectiveTo",
     "subscriptionPlanUniqueId",
+    "isFree",
   ];
 
   // Add updatedBy if provided
@@ -380,6 +381,15 @@ const updatePricingByUniqueId = async (
           values.push(updateData[field]);
           break;
 
+        case "isFree":
+          const isFree =
+            updateData[field] === true ||
+            updateData[field] === 1 ||
+            String(updateData[field]).toLowerCase() === "true";
+          setClauses.push("isFree = ?");
+          values.push(isFree ? 1 : 0);
+          break;
+
         default:
           setClauses.push(`${field} = ?`);
           values.push(updateData[field]);
@@ -398,7 +408,7 @@ const updatePricingByUniqueId = async (
   // Ensure at least one field to update
   if (setClauses.length === 0) {
     throw new AppError(
-      "No valid fields to update. Provide at least one of: price, durationInDays, effectiveFrom, effectiveTo, subscriptionPlanUniqueId",
+      "No valid fields to update. Provide at least one of: price, durationInDays, effectiveFrom, effectiveTo, subscriptionPlanUniqueId, isFree",
       400,
     );
   }

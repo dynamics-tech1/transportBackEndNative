@@ -506,22 +506,16 @@ const accountStatus = async ({
       const hasActiveSubscription = Boolean(
         subscriptionInfo?.hasActiveSubscription,
       );
-      const canPayByCommission = Number(userBalance?.balance ?? 0) > 0;
+      //get current net balance of the user from userBalance
+      const netBalanceOfUser = Number(userBalance?.Balance?.netBalance ?? 0);
+      const canPayByCommission = netBalanceOfUser > 0;
+
       if (!hasActiveSubscription && !canPayByCommission) {
         finalStatusId = USER_STATUS.INACTIVE_DRIVER_DOESN_T_HAVE_A_SUBSCRIPTION;
         reason =
           "Driver doesn't have an active subscription or balance to do by commission charges";
       }
     }
-
-    logger.debug("@accountStatus final status", {
-      roleId,
-      applyDocumentRules,
-      finalStatusId,
-      reason,
-      unAttachedCount: unAttachedDocumentTypes.length,
-      unAttachedMandatoryCount: unAttachedMandatory.length,
-    });
 
     // ========== STEP 4: UPDATE STATUS IF CHANGED ==========
     if (statusId !== finalStatusId) {

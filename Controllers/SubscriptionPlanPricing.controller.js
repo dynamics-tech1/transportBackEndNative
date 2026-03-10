@@ -110,12 +110,14 @@ exports.updatePricingByUniqueId = async (req, res, next) => {
       effectiveFrom,
       effectiveTo,
       subscriptionPlanUniqueId,
+      isFree,
     } = req.body;
     const updatedBy = req.user?.userUniqueId;
 
     const result = await service.updatePricingByUniqueId(
       subscriptionPlanPricingUniqueId,
       {
+        isFree,
         price,
         durationInDays,
         effectiveFrom,

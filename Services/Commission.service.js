@@ -15,7 +15,7 @@ const {
 const allowedSortFields = {
   commissionId: "c.commissionId",
   commissionAmount: "c.commissionAmount",
-  paymentTime: "jp.paymentTime",
+  paymentTime: "jd.deliveryDateByDriver",
   driverName: "u.fullName",
   passengerName: "u_pass.fullName",
   commissionStatus: "cs.statusName",
@@ -309,7 +309,7 @@ async function getAllCommissions(filters = {}) {
     };
 
     // Apply filters
-    addCondition("jp.paymentUniqueId", filters.paymentUniqueId);
+    addCondition("c.commissionUniqueId", filters.commissionUniqueId);
     addCondition("c.commissionRateUniqueId", filters.commissionRateUniqueId);
     addCondition("u.userUniqueId", filters.driverUniqueId);
     addCondition("u_pass.userUniqueId", filters.passengerUniqueId);
@@ -330,7 +330,11 @@ async function getAllCommissions(filters = {}) {
       filters.commissionAmountMin,
       filters.commissionAmountMax,
     );
-    addDateRangeCondition("jp.paymentTime", filters.startDate, filters.endDate);
+    addDateRangeCondition(
+      "jd.deliveryDateByDriver",
+      filters.startDate,
+      filters.endDate,
+    );
 
     const whereClause =
       conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
@@ -351,8 +355,8 @@ async function getAllCommissions(filters = {}) {
       SELECT SQL_CALC_FOUND_ROWS
         c.*,
         cs.statusName as commissionStatus,
-        jp.paymentTime,
-        jp.paymentAmount,
+        jd.deliveryDateByDriver as paymentTime,
+        jd.shippingCostByDriver as paymentAmount,
         u.fullName as driverName,
         u.phoneNumber as driverPhone,
         u.email as driverEmail,
@@ -361,11 +365,10 @@ async function getAllCommissions(filters = {}) {
         u_pass.phoneNumber as passengerPhone,
         u_pass.email as passengerEmail,
         u_pass.userUniqueId as passengerUniqueId,
-        cr.commissionRateValue,
-        cr.commissionRateName
+        cr.commissionRate as commissionRateValue,
+        NULL as commissionRateName
       FROM Commission c
       JOIN CommissionStatus cs ON c.commissionStatusUniqueId = cs.commissionStatusUniqueId
-      JOIN JourneyPayments jp ON c.journeyDecisionUniqueId = jp.journeyDecisionUniqueId
       JOIN JourneyDecisions jd ON c.journeyDecisionUniqueId = jd.journeyDecisionUniqueId
       JOIN DriverRequest dr ON jd.driverRequestId = dr.driverRequestId
       JOIN Users u ON dr.userUniqueId = u.userUniqueId
@@ -393,7 +396,7 @@ async function getAllCommissions(filters = {}) {
     const totalPages = Math.ceil(totalCount / limit);
 
     return {
-      message: "Commissions retrieved successfully",
+      message: "success",
       data: rows,
       pagination: {
         currentPage: page,
