@@ -461,9 +461,6 @@ const accountStatus = async ({
 
     // --- Process Subscription Check Result ---
     if (subscriptionCheck.status === "fulfilled" && subscriptionCheck.value) {
-      logger.info("@subscriptionInfo", subscriptionCheck.value);
-      logger.debug("@userBalanceCheck", userBalanceCheck);
-
       subscriptionInfo = subscriptionCheck.value;
     }
 
@@ -502,14 +499,15 @@ const accountStatus = async ({
       finalStatusId = USER_STATUS.INACTIVE_DOCUMENTS_PENDING;
       reason = "One or more documents are pending review";
     }
-    // Priority 6: No Subscription (7) - driver only,
-    // if driver doesn't have active subscription, check if driver has balance to do by commission charges, if not set status to inactive driver doesn't have an active subscription or balance to do by commission charges
-    else if (
-      Number(roleId) === usersRoles.driverRoleId &&
-      !subscriptionInfo.hasActiveSubscription
-    ) {
-      //check if driver dosen't have balance to do by commission charges , set status to inactive driver doesn't have an active subscription or balance to do by commission charges
-      if (userBalance?.balance <= 0) {
+    // Priority 6: No Subscription (7) - driver only.
+    // Driver can work by 2 optional ways: (1) active subscription OR (2) balance to pay by commission.
+    // If both fail → set INACTIVE_DRIVER_DOESN_T_HAVE_A_SUBSCRIPTION.
+    else if (Number(roleId) === usersRoles.driverRoleId) {
+      const hasActiveSubscription = Boolean(
+        subscriptionInfo?.hasActiveSubscription,
+      );
+      const canPayByCommission = Number(userBalance?.balance ?? 0) > 0;
+      if (!hasActiveSubscription && !canPayByCommission) {
         finalStatusId = USER_STATUS.INACTIVE_DRIVER_DOESN_T_HAVE_A_SUBSCRIPTION;
         reason =
           "Driver doesn't have an active subscription or balance to do by commission charges";

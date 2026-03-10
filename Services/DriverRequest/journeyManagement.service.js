@@ -308,10 +308,13 @@ const completeJourney = async (body, connection = null) => {
         driverUniqueId: userUniqueId,
         page: 1,
         limit: 1,
+        isActive: true,
       },
       connection,
     );
-    logger.info("@completeJourney subscriptionInfo", subscriptionInfo);
+    const subscriptionData = subscriptionInfo?.data?.[0] || null;
+
+    logger.info("@completeJourney subscriptionData", subscriptionData);
     // 2. Wrap journey status update in transaction to ensure atomicity
     // updateJourneyStatus will update multiple tables: Journey, PassengerRequest, JourneyDecisions, DriverRequest
     // All updates must succeed or all must fail to maintain data consistency
@@ -329,8 +332,8 @@ const completeJourney = async (body, connection = null) => {
         // Create commission record (rate and status handled internally by service)
         const paymentAmount = combinedData?.shippingCostByDriver;
 
-        // set DRIVERS_PAYMENT_SYSTEM=COMMISSION in env to register commissions
-        if (process.env.DRIVERS_PAYMENT_SYSTEM === "COMMISSION") {
+        // if there is no subscription data for the user driver, create commission record on complete of journey
+        if (!subscriptionData) {
           if (!paymentAmount || paymentAmount <= 0) {
             throw new AppError(
               "Invalid payment amount from journey decision",
