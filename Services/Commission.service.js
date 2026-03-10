@@ -44,6 +44,9 @@ async function executeInTransaction(callback) {
 }
 
 function validateCommissionData(data) {
+  if (!data.commissionAmount) {
+    throw new AppError("Commission amount is required", 400);
+  }
   // Additional business logic validation
   if (data.commissionAmount <= 0) {
     throw new AppError("Commission amount must be greater than 0", 400);
@@ -62,6 +65,13 @@ async function createCommission({
   connection, // Optional: use existing connection if provided
 }) {
   validateCommissionData({ commissionAmount: paymentAmount }); // Basic validation on payment amount
+
+  if (!journeyDecisionUniqueId) {
+    throw new AppError("Journey decision unique id is required", 400);
+  }
+  if (!commissionCreatedBy) {
+    throw new AppError("Commission created by is required", 400);
+  }
 
   // Fetch commission rate once (cached) and reuse in createCommissionInConnection
   const { commissionRateUniqueId, commissionRateValue } =
