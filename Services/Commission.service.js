@@ -265,6 +265,7 @@ async function createCommissionInConnection(
 
 async function getAllCommissions(filters = {}) {
   try {
+    console.log("@filters in getAllCommissions", filters);
     // Build safe WHERE clause
     const conditions = ["c.commissionDeletedAt IS NULL"];
     const values = [];
@@ -370,11 +371,11 @@ async function getAllCommissions(filters = {}) {
         cr.commissionRate as commissionRateValue,
         NULL as commissionRateName
       FROM Commission c
-      JOIN CommissionStatus cs ON c.commissionStatusUniqueId = cs.commissionStatusUniqueId
-      JOIN JourneyDecisions jd ON c.journeyDecisionUniqueId = jd.journeyDecisionUniqueId
-      JOIN DriverRequest dr ON jd.driverRequestId = dr.driverRequestId
-      JOIN Users u ON dr.userUniqueId = u.userUniqueId
-      JOIN PassengerRequest pr ON jd.passengerRequestId = pr.passengerRequestId
+      left JOIN CommissionStatus cs ON c.commissionStatusUniqueId = cs.commissionStatusUniqueId
+      left JOIN JourneyDecisions jd ON c.journeyDecisionUniqueId = jd.journeyDecisionUniqueId
+      left JOIN DriverRequest dr ON jd.driverRequestId = dr.driverRequestId
+      left JOIN Users u ON dr.userUniqueId = u.userUniqueId
+      left  JOIN PassengerRequest pr ON jd.passengerRequestId = pr.passengerRequestId
       JOIN Users u_pass ON pr.userUniqueId = u_pass.userUniqueId
       JOIN CommissionRates cr ON c.commissionRateUniqueId = cr.commissionRateUniqueId
       ${whereClause}
@@ -491,7 +492,11 @@ async function updateCommission(id, data, updatedBy) {
     }
 
     // Reconcile UserBalance when amount or driver changes: reverse old, deduct new
-    if (amountOrDriverChanged && oldAmount != null && oldDriverUniqueId != null) {
+    if (
+      amountOrDriverChanged &&
+      oldAmount != null &&
+      oldDriverUniqueId != null
+    ) {
       const [newRows] = await pool.query(
         `SELECT c.commissionAmount, dr.userUniqueId AS driverUniqueId
          FROM Commission c
@@ -525,8 +530,15 @@ async function updateCommission(id, data, updatedBy) {
             userBalanceCreatedBy: updatedBy,
           });
         } catch (balanceError) {
-          logger.application.databaseError(balanceError, "prepareAndCreateNewBalance on commission update", { commissionId: id });
-          throw new AppError("Commission updated but balance reconciliation failed", 500);
+          logger.application.databaseError(
+            balanceError,
+            "prepareAndCreateNewBalance on commission update",
+            { commissionId: id },
+          );
+          throw new AppError(
+            "Commission updated but balance reconciliation failed",
+            500,
+          );
         }
       }
     }
@@ -571,7 +583,11 @@ async function deleteCommission(id, deletedBy) {
     WHERE commissionUniqueId = ? AND commissionDeletedAt IS NULL
   `;
   try {
-    const [result] = await pool.query(updateSql, [currentDate(), deletedBy, id]);
+    const [result] = await pool.query(updateSql, [
+      currentDate(),
+      deletedBy,
+      id,
+    ]);
 
     if (result.affectedRows === 0) {
       throw new AppError("Commission not found or already deleted", 404);
@@ -594,8 +610,15 @@ async function deleteCommission(id, deletedBy) {
         `UPDATE Commission SET commissionDeletedAt = NULL, commissionDeletedBy = NULL WHERE commissionUniqueId = ?`,
         [id],
       );
-      logger.application.databaseError(reversalError, "prepareAndCreateNewBalance", { commissionId: id });
-      throw new AppError("Failed to reverse balance for deleted commission", 500);
+      logger.application.databaseError(
+        reversalError,
+        "prepareAndCreateNewBalance",
+        { commissionId: id },
+      );
+      throw new AppError(
+        "Failed to reverse balance for deleted commission",
+        500,
+      );
     }
 
     logger.info("Commission Deleted", { commissionId: id, deletedBy });

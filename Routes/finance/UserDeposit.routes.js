@@ -1,7 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const controller = require("../../Controllers/UserDeposit.controller");
-const { verifyTokenOfAxios } = require("../../Middleware/VerifyToken");
+const {
+  verifyTokenOfAxios,
+  verifyIfUserIsAdminOrSupperAdmin,
+} = require("../../Middleware/VerifyToken");
 
 const { validator } = require("../../Middleware/Validator");
 const {
@@ -30,6 +33,7 @@ router.get(
 router.put(
   "/:userDepositUniqueId",
   verifyTokenOfAxios,
+  verifyIfUserIsAdminOrSupperAdmin,
   validator(depositParams, "params"),
   validator(updateUserDeposit),
   controller.updateUserDepositByUniqueId,
@@ -39,6 +43,7 @@ router.put(
 router.delete(
   "/:userDepositUniqueId",
   verifyTokenOfAxios,
+  verifyIfUserIsAdminOrSupperAdmin,
   validator(depositParams, "params"),
   controller.deleteUserDepositByUniqueId,
 );

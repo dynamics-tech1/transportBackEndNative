@@ -177,7 +177,10 @@ const getUserDeposit = async (filters = {}) => {
     sortOrder = "DESC",
   } = filters;
 
-  const whereConditions = [];
+  const whereConditions = [
+    "dd.userDepositDeletedAt IS NULL",
+    "dd.userDepositDeletedBy IS NULL",
+  ];
   const params = [];
 
   if (driverUniqueId) {
@@ -512,14 +515,39 @@ const updateUserDepositByUniqueId = async (userDepositUniqueId, data) => {
   return { message: "success", data: updatedData };
 };
 
-const deleteUserDepositByUniqueId = async (userDepositUniqueId) => {
-  const sql = `DELETE FROM UserDeposit WHERE userDepositUniqueId = ?`;
-  const [result] = await pool.query(sql, [userDepositUniqueId]);
+const deleteUserDepositByUniqueId = async (
+  userDepositUniqueId,
+  userDepositDeletedBy,
+) => {
+  if (!userDepositUniqueId || !userDepositDeletedBy) {
+    throw new AppError("Missing deposit ID or deleted by", 400);
+  }
+  const depositData = await fetchDepositData(userDepositUniqueId);
+  const { depositAmount, driverUniqueId, depositStatus } = depositData;
+  const oldDepositAmount = Number(depositAmount);
+  //use soft delete to delete the deposit
+  const sql = `update UserDeposit SET userDepositDeletedAt = ?, userDepositDeletedBy = ?  WHERE userDepositUniqueId = ?`;
+  const [result] = await pool.query(sql, [
+    currentDate(),
+    userDepositDeletedBy,
+    userDepositUniqueId,
+  ]);
 
   if (result.affectedRows === 0) {
     throw new AppError("Delete failed or deposit not found", 404);
   }
-
+  //update the balance, by deduct the deposit amount if the deposit is approved before like depositStatus === "approved"
+  if (depositStatus === "approved") {
+    await prepareAndCreateNewBalance({
+      addOrDeduct: "deduct",
+      amount: oldDepositAmount,
+      driverUniqueId,
+      transactionType: "Deposit",
+      transactionUniqueId: userDepositUniqueId,
+      userBalanceAdjustmentType: "reversal",
+      userBalanceCreatedBy: userDepositDeletedBy,
+    });
+  }
   return { message: "success", data: `Deleted: ${userDepositUniqueId}` };
 };
 

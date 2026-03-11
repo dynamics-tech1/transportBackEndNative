@@ -64,9 +64,13 @@ exports.updateUserDepositByUniqueId = async (req, res, next) => {
 // Delete
 exports.deleteUserDepositByUniqueId = async (req, res, next) => {
   try {
+    const user = req?.user;
+    const userDepositDeletedBy = user?.userUniqueId;
     const { userDepositUniqueId } = req.params;
-    const result =
-      await service.deleteUserDepositByUniqueId(userDepositUniqueId);
+    const result = await service.deleteUserDepositByUniqueId(
+      userDepositUniqueId,
+      userDepositDeletedBy,
+    );
     ServerResponder(res, result);
   } catch (error) {
     next(error);
