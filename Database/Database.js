@@ -1055,6 +1055,7 @@ CREATE TABLE IF NOT EXISTS UserBalance (
     transactionType enum('Deposit', 'Commission','Transfer','Refund','Subscription',"freeGift") NOT NULL,  -- Type of transaction
     transactionUniqueId VARCHAR(36) NOT NULL,  -- UUID for 'Deposit', 'Commission','Transfer','Refund','Subscription'
     transactionTime DATETIME NOT NULL,  -- Time of transaction
+    userBalanceAdjustmentType enum('reversal','adjustment', 'creation') NOT NULL,  -- Type of adjustment for user balance
     netBalance DECIMAL(10, 2) NOT NULL,  -- Balance which is previous balance + (deposit or - Commission)
     userBalanceCreatedBy VARCHAR(36) NOT NULL,  -- Who created the driver balance
     userBalanceUpdatedBy VARCHAR(36) NULL,  -- Who updated the driver balance

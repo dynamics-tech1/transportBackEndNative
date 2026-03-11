@@ -1,11 +1,14 @@
 const { pool } = require("../../Middleware/Database.config");
 const AppError = require("../../Utils/AppError");
+const { currentDate } = require("../../Utils/CurrentDate");
 
 const updateUserBalance = async (userBalanceUniqueId, data) => {
   const sql = `
     UPDATE UserBalance
     SET userUniqueId = ?, transactionType = ?, 
-        transactionUniqueId = ?, transactionTime = ?, netBalance = ?
+        transactionUniqueId = ?, transactionTime = ?, netBalance = ?,
+        userBalanceCreatedBy = ?,
+        userBalanceCreatedAt = ?,
     WHERE userBalanceUniqueId = ?
   `;
   const values = [
@@ -15,6 +18,8 @@ const updateUserBalance = async (userBalanceUniqueId, data) => {
     data.transactionTime,
     data.netBalance,
     userBalanceUniqueId,
+    data.userBalanceCreatedOrUpdatedBy,
+    currentDate(),
   ];
 
   const [result] = await pool.query(sql, values);

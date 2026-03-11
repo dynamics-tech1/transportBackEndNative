@@ -51,9 +51,16 @@ exports.getuserBalanceById = async (req, res, next) => {
 // Update a driver balance record by ID
 exports.updateUserBalance = async (req, res, next) => {
   try {
+    const user = req?.user;
+    const userUniqueId = user?.userUniqueId;
+    const body = {
+      ...req.body,
+
+      userBalanceCreatedOrUpdatedBy: userUniqueId,
+    };
     const result = await updateUserBalance(
       req.params.userBalanceUniqueId,
-      req.body,
+      body,
     );
     ServerResponder(res, result);
   } catch (error) {

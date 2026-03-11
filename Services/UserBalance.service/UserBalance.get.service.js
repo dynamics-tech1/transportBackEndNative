@@ -20,7 +20,11 @@ const enrichUserBalanceRecord = async (balance) => {
         userDepositUniqueId: transactionUniqueId,
       });
     } else if (transactionType === "Commission") {
-      const result = await getAllCommissions({ commissionUniqueId: transactionUniqueId, limit: 1 });
+      const result = await getAllCommissions({
+        commissionUniqueId: transactionUniqueId,
+        limit: 1,
+      });
+      console.log("result of getAllCommissions ", result);
       transactionDetails = result?.data?.[0] || null;
     } else if (transactionType === "Transfer") {
       transactionDetails = await getTransferByUniqueId(transactionUniqueId);
@@ -40,8 +44,13 @@ const enrichUserBalanceRecord = async (balance) => {
     } else if (transactionType === "CommissionReversal") {
       transactionDetails = { reversedCommissionId: transactionUniqueId };
     } else if (transactionType === "CommissionAdjustment") {
-      const result = await getAllCommissions({ commissionUniqueId: transactionUniqueId, limit: 1 });
-      transactionDetails = result?.data?.[0] ? { ...result.data[0], _adjustmentForCommissionId: transactionUniqueId } : { commissionUniqueId: transactionUniqueId };
+      const result = await getAllCommissions({
+        commissionUniqueId: transactionUniqueId,
+        limit: 1,
+      });
+      transactionDetails = result?.data?.[0]
+        ? { ...result.data[0], _adjustmentForCommissionId: transactionUniqueId }
+        : { commissionUniqueId: transactionUniqueId };
     }
 
     return {
@@ -61,7 +70,7 @@ const enrichUserBalanceRecord = async (balance) => {
 const getAlluserBalances = async () => {
   const sql = `SELECT * FROM UserBalance ORDER BY userBalanceId DESC`;
   const [results] = await pool.query(sql);
-
+  console.log("results of getAlluserBalances ", results);
   const enrichedResults = await Promise.all(
     results.map(enrichUserBalanceRecord),
   );
@@ -110,7 +119,10 @@ const getDriverLastBalanceByUserUniqueId = async (userUniqueId) => {
         TransactionData = { ...record, ...result?.data?.[0] };
       }
     } else if (record.transactionType === "Commission") {
-      const commissionResult = await getAllCommissions({ commissionUniqueId: record.transactionUniqueId, limit: 1 });
+      const commissionResult = await getAllCommissions({
+        commissionUniqueId: record.transactionUniqueId,
+        limit: 1,
+      });
       if (commissionResult?.data?.[0]) {
         TransactionData = { ...record, ...commissionResult.data[0] };
       }
@@ -139,10 +151,22 @@ const getDriverLastBalanceByUserUniqueId = async (userUniqueId) => {
         TransactionData = { ...record, ...refundResult[0] };
       }
     } else if (record.transactionType === "CommissionReversal") {
-      TransactionData = { ...record, reversedCommissionId: transactionUniqueId };
+      TransactionData = {
+        ...record,
+        reversedCommissionId: transactionUniqueId,
+      };
     } else if (record.transactionType === "CommissionAdjustment") {
-      const commissionResult = await getAllCommissions({ commissionUniqueId: record.transactionUniqueId, limit: 1 });
-      TransactionData = commissionResult?.data?.[0] ? { ...record, ...commissionResult.data[0], _adjustmentForCommissionId: transactionUniqueId } : { ...record, commissionUniqueId: transactionUniqueId };
+      const commissionResult = await getAllCommissions({
+        commissionUniqueId: record.transactionUniqueId,
+        limit: 1,
+      });
+      TransactionData = commissionResult?.data?.[0]
+        ? {
+            ...record,
+            ...commissionResult.data[0],
+            _adjustmentForCommissionId: transactionUniqueId,
+          }
+        : { ...record, commissionUniqueId: transactionUniqueId };
     }
   } catch {
     // If enrichment fails, return base record
@@ -181,7 +205,10 @@ const getuserBalanceByDateRange = async ({
             TransactionData = { ...record, ...result?.data?.[0] };
           }
         } else if (transactionType === "Commission") {
-          const commissionResult = await getAllCommissions({ commissionUniqueId: record.transactionUniqueId, limit: 1 });
+          const commissionResult = await getAllCommissions({
+            commissionUniqueId: record.transactionUniqueId,
+            limit: 1,
+          });
           if (commissionResult?.data?.[0]) {
             TransactionData = { ...record, ...commissionResult.data[0] };
           }
@@ -201,10 +228,22 @@ const getuserBalanceByDateRange = async ({
             TransactionData = { ...record, ...transferData };
           }
         } else if (transactionType === "CommissionReversal") {
-          TransactionData = { ...record, reversedCommissionId: transactionUniqueId };
+          TransactionData = {
+            ...record,
+            reversedCommissionId: transactionUniqueId,
+          };
         } else if (transactionType === "CommissionAdjustment") {
-          const commissionResult = await getAllCommissions({ commissionUniqueId: record.transactionUniqueId, limit: 1 });
-          TransactionData = commissionResult?.data?.[0] ? { ...record, ...commissionResult.data[0], _adjustmentForCommissionId: transactionUniqueId } : { ...record, commissionUniqueId: transactionUniqueId };
+          const commissionResult = await getAllCommissions({
+            commissionUniqueId: record.transactionUniqueId,
+            limit: 1,
+          });
+          TransactionData = commissionResult?.data?.[0]
+            ? {
+                ...record,
+                ...commissionResult.data[0],
+                _adjustmentForCommissionId: transactionUniqueId,
+              }
+            : { ...record, commissionUniqueId: transactionUniqueId };
         }
       } catch {
         // Continue with record as is if enrichment fails
@@ -317,9 +356,20 @@ const getUserBalanceByFilterServices = async (query, connection) => {
             transactionDetails = result.data?.[0];
           }
         } else if (transactionType === "Commission") {
-          const commissionResult = await getAllCommissions({ commissionUniqueId: transactionUniqueId, limit: 1 });
+          const commissionResult = await getAllCommissions({
+            commissionUniqueId: transactionUniqueId,
+            limit: 1,
+          });
+          console.log(
+            "commissionResult of getAllCommissions ",
+            commissionResult,
+          );
           if (commissionResult?.data?.[0]) {
-            transactionDetails = commissionResult.data[0];
+            transactionDetails = commissionResult.data?.[0];
+            console.log(
+              "transactionDetails of commissionResult ",
+              transactionDetails,
+            );
           }
         } else if (transactionType === "Subscription") {
           const subscriptionData = await getUserSubscriptionsWithFilters({
@@ -346,8 +396,16 @@ const getUserBalanceByFilterServices = async (query, connection) => {
         } else if (transactionType === "CommissionReversal") {
           transactionDetails = { reversedCommissionId: transactionUniqueId };
         } else if (transactionType === "CommissionAdjustment") {
-          const commissionResult = await getAllCommissions({ commissionUniqueId: transactionUniqueId, limit: 1 });
-          transactionDetails = commissionResult?.data?.[0] ? { ...commissionResult.data[0], _adjustmentForCommissionId: transactionUniqueId } : { commissionUniqueId: transactionUniqueId };
+          const commissionResult = await getAllCommissions({
+            commissionUniqueId: transactionUniqueId,
+            limit: 1,
+          });
+          transactionDetails = commissionResult?.data?.[0]
+            ? {
+                ...commissionResult.data[0],
+                _adjustmentForCommissionId: transactionUniqueId,
+              }
+            : { commissionUniqueId: transactionUniqueId };
         }
       } catch {
         // enrichment details null

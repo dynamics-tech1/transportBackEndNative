@@ -4,7 +4,7 @@ const { currentDate } = require("../../Utils/CurrentDate");
 const AppError = require("../../Utils/AppError");
 const logger = require("../../Utils/logger");
 
-const getDriverLastBalance = async (driverUniqueId) => {
+const getDriverLastBalance = async (driverUniqueId, connection = null) => {
   const sql = `
     SELECT *
     FROM UserBalance
@@ -12,7 +12,8 @@ const getDriverLastBalance = async (driverUniqueId) => {
     ORDER BY transactionTime DESC
     LIMIT 1
   `;
-  const [result] = await pool.query(sql, [driverUniqueId]);
+  const executor = connection || pool;
+  const [result] = await executor.query(sql, [driverUniqueId]);
 
   if (result.length === 0) {
     throw new AppError("No balance record found", 404);
@@ -76,7 +77,8 @@ const prepareAndCreateNewBalance = async ({
   return await createUserBalance(newNetBalanceData);
 };
 
-const createUserBalance = async (data) => {
+const createUserBalance = async (data, connection = null) => {
+  const executor = connection || pool;
   // Verify existence of data transactionUniqueId in userBalance
   const transactionTime = currentDate();
   const sqlToGetData = `
@@ -84,7 +86,7 @@ const createUserBalance = async (data) => {
     WHERE transactionUniqueId = ? AND transactionType = ?
   `;
   const targetedTransactionType = data?.transactionType;
-  const [existingRecords] = await pool.query(sqlToGetData, [
+  const [existingRecords] = await executor.query(sqlToGetData, [
     data.transactionUniqueId,
     targetedTransactionType,
   ]);
@@ -97,12 +99,13 @@ const createUserBalance = async (data) => {
     return existingRecords[0];
   }
 
+  const adjustmentType = data?.userBalanceAdjustmentType || "creation";
   const sqlInsert = `
     INSERT INTO UserBalance (
       userBalanceUniqueId, userUniqueId, transactionType, 
       transactionUniqueId, transactionTime, netBalance,
-      userBalanceCreatedBy, userBalanceCreatedAt
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      userBalanceAdjustmentType, userBalanceCreatedBy, userBalanceCreatedAt
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   const userBalanceUniqueId = uuidv4();
   const userUniqueId = data?.userUniqueId;
@@ -117,11 +120,12 @@ const createUserBalance = async (data) => {
     transactionUniqueId,
     transactionTime,
     netBalance,
+    adjustmentType,
     userBalanceCreatedBy,
     currentDate(),
   ];
 
-  await pool.query(sqlInsert, values);
+  await executor.query(sqlInsert, values);
 
   return {
     userBalanceUniqueId,

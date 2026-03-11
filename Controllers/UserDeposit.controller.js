@@ -47,10 +47,13 @@ exports.getUserDeposit = async (req, res, next) => {
 // Update
 exports.updateUserDepositByUniqueId = async (req, res, next) => {
   try {
+    const user = req?.user;
+    const userUniqueId = user?.userUniqueId;
+    const body = { ...req.body, userDepositCreatedOrUpdatedBy: userUniqueId };
     const { userDepositUniqueId } = req.params;
     const result = await service.updateUserDepositByUniqueId(
       userDepositUniqueId,
-      req.body,
+      body,
     );
     ServerResponder(res, result);
   } catch (error) {
