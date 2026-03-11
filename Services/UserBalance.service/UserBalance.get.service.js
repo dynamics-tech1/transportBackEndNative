@@ -8,6 +8,39 @@ const {
 const { getAllCommissions } = require("../Commission.service");
 
 const { pool } = require("../../Middleware/Database.config");
+const logger = require("../../Utils/logger");
+
+/**
+ * Fetch Commission by transactionUniqueId with fallbacks.
+ * UserBalance.transactionUniqueId for Commission-type rows may be commissionUniqueId,
+ * paymentUniqueId, or journeyDecisionUniqueId (legacy). Try each until one returns a row.
+ */
+async function getCommissionByTransactionUniqueId(transactionUniqueId) {
+  logger.info(
+    "@transactionUniqueId in getCommissionByTransactionUniqueId " +
+      transactionUniqueId,
+  );
+  if (!transactionUniqueId) return null;
+  let result = await getAllCommissions({
+    commissionUniqueId: transactionUniqueId,
+    limit: 1,
+  });
+  logger.info(
+    "@result in getCommissionByTransactionUniqueId",
+    JSON.stringify(result),
+  );
+  if (result?.data?.[0]) return result.data[0];
+  result = await getAllCommissions({
+    paymentUniqueId: transactionUniqueId,
+    limit: 1,
+  });
+  if (result?.data?.[0]) return result.data[0];
+  result = await getAllCommissions({
+    journeyDecisionUniqueId: transactionUniqueId,
+    limit: 1,
+  });
+  return result?.data?.[0] || null;
+}
 
 // enrichUserBalanceRecord.js
 const enrichUserBalanceRecord = async (balance) => {
@@ -20,12 +53,8 @@ const enrichUserBalanceRecord = async (balance) => {
         userDepositUniqueId: transactionUniqueId,
       });
     } else if (transactionType === "Commission") {
-      const result = await getAllCommissions({
-        commissionUniqueId: transactionUniqueId,
-        limit: 1,
-      });
-      console.log("result of getAllCommissions ", result);
-      transactionDetails = result?.data?.[0] || null;
+      transactionDetails =
+        await getCommissionByTransactionUniqueId(transactionUniqueId);
     } else if (transactionType === "Transfer") {
       transactionDetails = await getTransferByUniqueId(transactionUniqueId);
     } else if (transactionType === "Refund") {
@@ -119,12 +148,11 @@ const getDriverLastBalanceByUserUniqueId = async (userUniqueId) => {
         TransactionData = { ...record, ...result?.data?.[0] };
       }
     } else if (record.transactionType === "Commission") {
-      const commissionResult = await getAllCommissions({
-        commissionUniqueId: record.transactionUniqueId,
-        limit: 1,
-      });
-      if (commissionResult?.data?.[0]) {
-        TransactionData = { ...record, ...commissionResult.data[0] };
+      const commissionRow = await getCommissionByTransactionUniqueId(
+        record.transactionUniqueId,
+      );
+      if (commissionRow) {
+        TransactionData = { ...record, ...commissionRow };
       }
     } else if (record.transactionType === "Subscription") {
       const SubscriptionData = await getUserSubscriptionsWithFilters({
@@ -205,12 +233,11 @@ const getuserBalanceByDateRange = async ({
             TransactionData = { ...record, ...result?.data?.[0] };
           }
         } else if (transactionType === "Commission") {
-          const commissionResult = await getAllCommissions({
-            commissionUniqueId: record.transactionUniqueId,
-            limit: 1,
-          });
-          if (commissionResult?.data?.[0]) {
-            TransactionData = { ...record, ...commissionResult.data[0] };
+          const commissionRow = await getCommissionByTransactionUniqueId(
+            record.transactionUniqueId,
+          );
+          if (commissionRow) {
+            TransactionData = { ...record, ...commissionRow };
           }
         } else if (transactionType === "Subscription") {
           const SubscriptionData = await getUserSubscriptionsWithFilters({
@@ -337,7 +364,7 @@ const getUserBalanceByFilterServices = async (query, connection) => {
 
   const [dataRows] = await (connection || pool).query(dataSql, dataParams);
   const [countRows] = await pool.query(countSql, params);
-
+  logger.info("@dataRows", dataRows);
   const total = countRows[0]?.total || 0;
 
   // Enrich each balance record with transaction details
@@ -356,21 +383,16 @@ const getUserBalanceByFilterServices = async (query, connection) => {
             transactionDetails = result.data?.[0];
           }
         } else if (transactionType === "Commission") {
-          const commissionResult = await getAllCommissions({
-            commissionUniqueId: transactionUniqueId,
-            limit: 1,
-          });
-          console.log(
-            "commissionResult of getAllCommissions ",
-            commissionResult,
+          transactionDetails =
+            await getCommissionByTransactionUniqueId(transactionUniqueId);
+          logger.info(
+            "@transactionUniqueId in Commission in getUserBalanceByFilterServices" +
+              transactionUniqueId,
           );
-          if (commissionResult?.data?.[0]) {
-            transactionDetails = commissionResult.data?.[0];
-            console.log(
-              "transactionDetails of commissionResult ",
-              transactionDetails,
-            );
-          }
+          logger.info(
+            "@transactionDetails in Commission " +
+              JSON.stringify(transactionDetails),
+          );
         } else if (transactionType === "Subscription") {
           const subscriptionData = await getUserSubscriptionsWithFilters({
             userSubscriptionUniqueId: transactionUniqueId,

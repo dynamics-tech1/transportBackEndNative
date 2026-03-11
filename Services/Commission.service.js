@@ -310,6 +310,8 @@ async function getAllCommissions(filters = {}) {
 
     // Apply filters
     addCondition("c.commissionUniqueId", filters.commissionUniqueId);
+    addCondition("c.paymentUniqueId", filters.paymentUniqueId);
+    addCondition("c.journeyDecisionUniqueId", filters.journeyDecisionUniqueId);
     addCondition("c.commissionRateUniqueId", filters.commissionRateUniqueId);
     addCondition("u.userUniqueId", filters.driverUniqueId);
     addCondition("u_pass.userUniqueId", filters.passengerUniqueId);
