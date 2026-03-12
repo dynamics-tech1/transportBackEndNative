@@ -4,7 +4,6 @@ const { getData } = require("../../CRUD/Read/ReadData");
 const { insertData } = require("../../CRUD/Create/CreateData");
 const logger = require("../../Utils/logger");
 
-// Removed unused import: sendSocketIONotificationToPassenger
 const { sendFCMNotificationToUser } = require("../Firebase.service");
 const { createJourneyRoutePoint } = require("../JourneyRoutePoints.service");
 const {
@@ -18,14 +17,12 @@ const { fetchJourneyNotificationData } = require("./helpers");
 const { currentDate } = require("../../Utils/CurrentDate");
 const AppError = require("../../Utils/AppError");
 const { createCommission } = require("../Commission.service");
-const {
-  getUserBalanceByFilterServices,
-} = require("../UserBalance.service/UserBalance.get.service");
+
 const {
   getUserSubscriptionsWithFilters,
 } = require("../UserSubscription.service");
 
-const startJourney = async (body) => {
+const startJourney = async (body, connection = null) => {
   try {
     const journeyUniqueId = uuidv4();
     const journeyDecisionUniqueId = body?.journeyDecisionUniqueId;
@@ -55,7 +52,7 @@ const startJourney = async (body) => {
       LIMIT 1
     `;
 
-    const [journeyDecisionDriverData] = await pool.query(validateQuery, [
+    const [journeyDecisionDriverData] = await (connection || pool).query(validateQuery, [
       journeyDecisionUniqueId,
     ]);
 
@@ -76,65 +73,68 @@ const startJourney = async (body) => {
 
     // Wrap Journey creation/route point and status updates in a single transaction
     // This ensures atomicity - either all operations succeed or all fail
-    await executeInTransaction(
-      async (connection) => {
-        // Check if Journey exists within transaction using connection for consistency
-        const checkJourneySql = `SELECT * FROM Journey WHERE journeyDecisionUniqueId = ? LIMIT 1`;
-        const [existingJourneyCheck] = await connection.query(checkJourneySql, [
-          journeyDecisionUniqueId,
-        ]);
+    const runJourneyStartUpdates = async (conn) => {
+      // Check if Journey exists within transaction using connection for consistency
+      const checkJourneySql = `SELECT * FROM Journey WHERE journeyDecisionUniqueId = ? LIMIT 1`;
+      const [existingJourneyCheck] = await conn.query(checkJourneySql, [
+        journeyDecisionUniqueId,
+      ]);
 
-        let finalJourneyUniqueId = journeyUniqueId;
+      let finalJourneyUniqueId = journeyUniqueId;
 
-        // Create Journey if it doesn't exist (within transaction)
-        if (
-          !existingJourneyCheck?.length ||
-          existingJourneyCheck.length === 0
-        ) {
-          await insertData({
-            tableName: "Journey",
-            colAndVal: {
-              journeyUniqueId,
-              journeyDecisionUniqueId: body.journeyDecisionUniqueId,
-              journeyStatusId: body.journeyStatusId,
-              startTime: currentDate(),
-              journeyCreatedBy: userUniqueId,
-              journeyCreatedAt: currentDate(),
-            },
-            connection, // Pass connection for transaction support
-          });
-
-          // Create initial JourneyRoutePoint with correct parameter (within transaction)
-          // Fixed: Use journeyDecisionUniqueId instead of journeyUniqueId
-          await createJourneyRoutePoint(
-            {
-              journeyDecisionUniqueId: body.journeyDecisionUniqueId,
-              latitude,
-              longitude,
-              userUniqueId,
-            },
-            connection, // Pass connection for transaction support
-          );
-        } else {
-          // Journey already exists, use its journeyUniqueId for status update
-          finalJourneyUniqueId = existingJourneyCheck[0].journeyUniqueId;
-        }
-
-        // Update journey status to journeyStarted (within transaction)
-        // Include journeyUniqueId so updateJourneyStatus can update Journey table too
-        // Set shippingDateByDriver when driver starts journey
-        await updateJourneyStatus({
-          ...body,
-          journeyUniqueId: finalJourneyUniqueId, // Add journeyUniqueId to update Journey table
-          shippingDateByDriver: currentDate(),
-          connection, // Pass connection for transaction support
+      // Create Journey if it doesn't exist (within transaction)
+      if (
+        !existingJourneyCheck?.length ||
+        existingJourneyCheck.length === 0
+      ) {
+        await insertData({
+          tableName: "Journey",
+          colAndVal: {
+            journeyUniqueId,
+            journeyDecisionUniqueId: body.journeyDecisionUniqueId,
+            journeyStatusId: body.journeyStatusId,
+            startTime: currentDate(),
+            journeyCreatedBy: userUniqueId,
+            journeyCreatedAt: currentDate(),
+          },
+          connection: conn, // Pass connection for transaction support
         });
-      },
-      {
+
+        // Create initial JourneyRoutePoint with correct parameter (within transaction)
+        // Fixed: Use journeyDecisionUniqueId instead of journeyUniqueId
+        await createJourneyRoutePoint(
+          {
+            journeyDecisionUniqueId: body.journeyDecisionUniqueId,
+            latitude,
+            longitude,
+            userUniqueId,
+          },
+          conn, // Pass connection for transaction support
+        );
+      } else {
+        // Journey already exists, use its journeyUniqueId for status update
+        finalJourneyUniqueId = existingJourneyCheck[0].journeyUniqueId;
+      }
+
+      // Update journey status to journeyStarted (within transaction)
+      // Include journeyUniqueId so updateJourneyStatus can update Journey table too
+      // Set shippingDateByDriver when driver starts journey
+      await updateJourneyStatus({
+        ...body,
+        journeyUniqueId: finalJourneyUniqueId, // Add journeyUniqueId to update Journey table
+        shippingDateByDriver: currentDate(),
+        connection: conn, // Pass connection for transaction support
+      });
+    };
+
+    if (connection) {
+      await runJourneyStartUpdates(connection);
+    } else {
+      await executeInTransaction(runJourneyStartUpdates, {
         timeout: 15000, // 15 second timeout for journey start operations
         logging: true,
-      },
-    );
+      });
+    }
 
     // Import here to avoid circular dependency
     const {

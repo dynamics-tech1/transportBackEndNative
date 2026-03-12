@@ -169,7 +169,10 @@ const startJourney = async (req, res, next) => {
     req.body.journeyStatusId = journeyStatusMap.journeyStarted;
     req.body.previousStatusId = journeyStatusMap.acceptedByPassenger;
     req.body.userUniqueId = userUniqueId;
-    const result = await services.startJourney(req.body);
+
+    const result = await executeInTransaction(async (connection) => {
+      return await services.startJourney(req.body, connection);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -214,7 +217,9 @@ const cancelDriverRequest = async (req, res, next) => {
       ownerUserUniqueId = userUniqueId;
     }
     // Prefer body.cancellationReasonsTypeId (query may be "undefined" string)
-    const rawReasonId = req.body?.cancellationReasonsTypeId ?? req.query?.cancellationReasonsTypeId;
+    const rawReasonId =
+      req.body?.cancellationReasonsTypeId ??
+      req.query?.cancellationReasonsTypeId;
     const cancellationReasonsTypeId =
       rawReasonId !== null && rawReasonId !== "undefined"
         ? Number(rawReasonId)
@@ -225,7 +230,8 @@ const cancelDriverRequest = async (req, res, next) => {
       ownerUserUniqueId,
       user,
       roleId,
-      ...(cancellationReasonsTypeId !== undefined && !Number.isNaN(cancellationReasonsTypeId)
+      ...(cancellationReasonsTypeId !== undefined &&
+      !Number.isNaN(cancellationReasonsTypeId)
         ? { cancellationReasonsTypeId }
         : {}),
     };
