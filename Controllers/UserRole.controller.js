@@ -32,13 +32,15 @@ const getUserRoleListByFilter = async (req, res, next) => {
       }
     }
 
-    const response = await userRoleService.getUserRoleListByFilter({
-      page,
-      limit,
-      sortBy,
-      sortOrder,
-      search,
-      filters,
+    const response = await executeInTransaction(async () => {
+      return await userRoleService.getUserRoleListByFilter({
+        page,
+        limit,
+        sortBy,
+        sortOrder,
+        search,
+        filters,
+      });
     });
     ServerResponder(res, response);
   } catch (error) {

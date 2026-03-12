@@ -1,5 +1,6 @@
 const AppError = require("../Utils/AppError");
 const { transactionStorage } = require("../Utils/TransactionContext");
+const { pool } = require("../Middleware/Database.config");
 
 // Service to create UserRole
 const createUserRole = async (body, user) => {

@@ -33,7 +33,7 @@ const createVehicleController = async (req, res, next) => {
 
     const response = await executeInTransaction(async () => {
       return await createVehicle(req.body, user, driverUserUniqueId);
-    });
+    }, { timeout: 90000 }); // 90s — createVehicle chains 5+ DB calls on remote server
     ServerResponder(res, response, 201);
   } catch (error) {
     next(error);
