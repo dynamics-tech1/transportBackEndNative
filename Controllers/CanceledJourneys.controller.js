@@ -5,60 +5,54 @@ const {
 } = require("../Utils/Notifications");
 const ServerResponder = require("../Utils/ServerResponder");
 const messageTypes = require("../Utils/MessageTypes");
-const { pool } = require("../Middleware/Database.config");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 const AppError = require("../Utils/AppError");
 const { usersRolesList } = require("../Utils/ListOfSeedData");
 const { journeyStatusMap } = require("../Utils/ListOfSeedData");
 
-// Helper function to handle service responses
-const handleServiceResponse = async (serviceCall, res, next) => {
-  try {
-    const result = await serviceCall;
-    ServerResponder(res, result);
-  } catch (error) {
-    next(error);
-  }
-};
-
 // System cancellation process
 const cancelJourneyBySystem = async (req, res, next) => {
   try {
-    const now = currentDate();
-    const cutoffTime = new Date(now.getTime() - 5 * 60 * 1000);
+    const result = await executeInTransaction(async (connection) => {
+      const now = currentDate();
+      const cutoffTime = new Date(now.getTime() - 5 * 60 * 1000);
 
-    const sqlQuery = `
-      SELECT PassengerRequest.*, Users.phoneNumber
-      FROM PassengerRequest
-      JOIN Users ON Users.userUniqueId = PassengerRequest.userUniqueId
-      WHERE PassengerRequest.journeyStatusId = ${journeyStatusMap.waiting}
-        AND PassengerRequest.shipperRequestCreatedAt <= ?
-    `;
+      const sqlQuery = `
+        SELECT PassengerRequest.*, Users.phoneNumber
+        FROM PassengerRequest
+        JOIN Users ON Users.userUniqueId = PassengerRequest.userUniqueId
+        WHERE PassengerRequest.journeyStatusId = ${journeyStatusMap.waiting}
+          AND PassengerRequest.shipperRequestCreatedAt <= ?
+      `;
 
-    const [activeRequests] = await pool.query(sqlQuery, [cutoffTime]);
+      const [activeRequests] = await connection.query(sqlQuery, [cutoffTime]);
 
-    for (const request of activeRequests) {
-      await cancelPassengerRequest({
-        ownerUserUniqueId: request.userUniqueId,
-        cancellationReasonsTypeId: 1,
-      });
+      for (const request of activeRequests) {
+        await cancelPassengerRequest({
+          ownerUserUniqueId: request.userUniqueId,
+          cancellationReasonsTypeId: 1,
+        });
 
-      await sendSocketIONotificationToPassenger({
-        phoneNumber: request.phoneNumber,
-        message: {
-          message: "success",
-          status: null,
-          driver: null,
-          passenger: null,
-          messageTypes: messageTypes.request_other_driver,
-        },
-      });
-    }
+        await sendSocketIONotificationToPassenger({
+          phoneNumber: request.phoneNumber,
+          message: {
+            message: "success",
+            status: null,
+            driver: null,
+            passenger: null,
+            messageTypes: messageTypes.request_other_driver,
+          },
+        });
+      }
 
-    ServerResponder(res, {
-      success: true,
-      message: "System cancellation process completed",
-      data: { processed: activeRequests.length },
+      return {
+        success: true,
+        message: "System cancellation process completed",
+        data: { processed: activeRequests.length },
+      };
     });
+
+    ServerResponder(res, result);
   } catch (error) {
     next(error);
   }
@@ -66,76 +60,89 @@ const cancelJourneyBySystem = async (req, res, next) => {
 
 // Create a new canceled journey
 const createCanceledJourney = async (req, res, next) => {
-  const user = req.user;
-  const data = {
-    ...req.body,
-    userUniqueId: user.userUniqueId,
-    roleId: user.roleId,
-  };
+  try {
+    const user = req.user;
+    const data = {
+      ...req.body,
+      userUniqueId: user.userUniqueId,
+      roleId: user.roleId,
+    };
 
-  await handleServiceResponse(
-    canceledJourneyService.createCanceledJourney(data),
-    res,
-    next,
-  );
+    const result = await executeInTransaction(async () => {
+      return await canceledJourneyService.createCanceledJourney(data);
+    });
+    ServerResponder(res, result);
+  } catch (error) {
+    next(error);
+  }
 };
 
 // UNIFIED GET ENDPOINT - Handles all filtering scenarios
 const getCanceledJourneyByFilter = async (req, res, next) => {
-  const { page = 1, limit = 10 } = req.query;
-  const user = req.user;
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const user = req.user;
 
-  // Build filter data from query parameters
-  const filters = {
-    ...req.query,
-    page: parseInt(page),
-    limit: parseInt(limit),
-  };
+    // Build filter data from query parameters
+    const filters = {
+      ...req.query,
+      page: parseInt(page),
+      limit: parseInt(limit),
+    };
 
-  // Handle "self" user reference
-  if (filters.userUniqueId === "self") {
-    filters.userUniqueId = user.userUniqueId;
+    // Handle "self" user reference
+    if (filters.userUniqueId === "self") {
+      filters.userUniqueId = user.userUniqueId;
+    }
+
+    const result = await canceledJourneyService.getCanceledJourneyByFilter(filters);
+    ServerResponder(res, result);
+  } catch (error) {
+    next(error);
   }
-
-  await handleServiceResponse(
-    canceledJourneyService.getCanceledJourneyByFilter(filters),
-    res,
-    next,
-  );
 };
 
 // Update seen by admin status
 const updateSeenByAdmin = async (req, res, next) => {
-  const { canceledJourneyUniqueId } = req.params;
+  try {
+    const { canceledJourneyUniqueId } = req.params;
 
-  await handleServiceResponse(
-    canceledJourneyService.updateSeenByAdmin(canceledJourneyUniqueId),
-    res,
-    next,
-  );
+    const result = await executeInTransaction(async () => {
+      return await canceledJourneyService.updateSeenByAdmin(canceledJourneyUniqueId);
+    });
+    ServerResponder(res, result);
+  } catch (error) {
+    next(error);
+  }
 };
 
 // Update a canceled journey
 const updateCanceledJourney = async (req, res, next) => {
-  const { canceledJourneyUniqueId } = req.params;
-  const data = req.body;
+  try {
+    const { canceledJourneyUniqueId } = req.params;
+    const data = req.body;
 
-  await handleServiceResponse(
-    canceledJourneyService.updateCanceledJourney(canceledJourneyUniqueId, data),
-    res,
-    next,
-  );
+    const result = await executeInTransaction(async () => {
+      return await canceledJourneyService.updateCanceledJourney(canceledJourneyUniqueId, data);
+    });
+    ServerResponder(res, result);
+  } catch (error) {
+    next(error);
+  }
 };
 
 // Delete a canceled journey
 const deleteCanceledJourney = async (req, res, next) => {
-  const { canceledJourneyUniqueId } = req.params;
+  try {
+    const { canceledJourneyUniqueId } = req.params;
 
-  await handleServiceResponse(
-    canceledJourneyService.deleteCanceledJourney(canceledJourneyUniqueId),
-    res,
-    next,
-  );
+    const result = await executeInTransaction(async () => {
+      return await canceledJourneyService.deleteCanceledJourney(canceledJourneyUniqueId);
+    });
+    ServerResponder(res, result);
+  } catch (error) {
+    next(error);
+  }
 };
 
 const getCanceledJourneyCountsByDate = async (req, res, next) => {
@@ -224,23 +231,29 @@ const getCanceledJourneyCountsByReason = async (req, res, next) => {
 };
 
 const unbanUser = async (req, res, next) => {
-  const user = req?.user;
+  try {
+    const user = req?.user;
 
-  await handleServiceResponse(
-    canceledJourneyService.unbanUser(req.query, user),
-    res,
-    next,
-  );
+    const result = await executeInTransaction(async () => {
+      return await canceledJourneyService.unbanUser(req.query, user);
+    });
+    ServerResponder(res, result);
+  } catch (error) {
+    next(error);
+  }
 };
 
 const deactivateBan = async (req, res, next) => {
-  const { banUniqueId } = req.params;
+  try {
+    const { banUniqueId } = req.params;
 
-  await handleServiceResponse(
-    canceledJourneyService.deactivateBan(banUniqueId),
-    res,
-    next,
-  );
+    const result = await executeInTransaction(async () => {
+      return await canceledJourneyService.deactivateBan(banUniqueId);
+    });
+    ServerResponder(res, result);
+  } catch (error) {
+    next(error);
+  }
 };
 
 module.exports = {

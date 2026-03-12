@@ -11,6 +11,7 @@ const { uploadToFTP } = require("../Utils/FTPHandler");
 const AppError = require("../Utils/AppError");
 const logger = require("../Utils/logger");
 const { usersRolesList } = require("../Utils/ListOfSeedData");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 // Single consolidated filter method for ALL document retrieval
 // Single consolidated filter method for ALL document retrieval
@@ -158,29 +159,31 @@ const createAttachedDocuments = async (req, res, next) => {
     const fileErrors = [];
     const fileSuccesses = [];
 
-    // Save all documents to database
-    for (const document of documentsToRegister) {
-      try {
-        await attachedDocumentsService.createAttachedDocument({
-          ...document,
-          roleId,
-          userUniqueId,
-        });
+    // Save all documents to database within a transaction
+    await executeInTransaction(async () => {
+      for (const document of documentsToRegister) {
+        try {
+          await attachedDocumentsService.createAttachedDocument({
+            ...document,
+            roleId,
+            userUniqueId,
+          });
 
-        fileSuccesses.push(document.originalFileName);
-        uploadResults.push({
-          file: document.fieldname,
-          status: "success",
-        });
-      } catch (error) {
-        fileErrors.push(document.originalFileName);
-        uploadResults.push({
-          file: document.fieldname,
-          status: "failed",
-          reason: error.message,
-        });
+          fileSuccesses.push(document.originalFileName);
+          uploadResults.push({
+            file: document.fieldname,
+            status: "success",
+          });
+        } catch (error) {
+          fileErrors.push(document.originalFileName);
+          uploadResults.push({
+            file: document.fieldname,
+            status: "failed",
+            reason: error.message,
+          });
+        }
       }
-    }
+    });
 
     if (fileSuccesses.length > 0) {
       const userData = await performJoinSelect({
@@ -288,8 +291,9 @@ const updateAttachedDocument = async (req, res, next) => {
       attachedDocumentName: fileUrl,
     };
 
-    const result =
-      await attachedDocumentsService.updateAttachedDocument(updatePayload);
+    const result = await executeInTransaction(async () => {
+      return await attachedDocumentsService.updateAttachedDocument(updatePayload);
+    });
 
     if (result.message === "error") {
       return next(new AppError(result.error, 400));
@@ -308,9 +312,11 @@ const deleteAttachedDocument = async (req, res, next) => {
   try {
     const { attachedDocumentUniqueId } = req.params;
 
-    const result = await attachedDocumentsService.deleteAttachedDocument(
-      attachedDocumentUniqueId,
-    );
+    const result = await executeInTransaction(async () => {
+      return await attachedDocumentsService.deleteAttachedDocument(
+        attachedDocumentUniqueId,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -321,9 +327,11 @@ const acceptRejectAttachedDocuments = async (req, res, next) => {
   const user = req?.user;
   req.body.user = user;
   try {
-    const result = await attachedDocumentsService.acceptRejectAttachedDocuments(
-      req.body,
-    );
+    const result = await executeInTransaction(async () => {
+      return await attachedDocumentsService.acceptRejectAttachedDocuments(
+        req.body,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

@@ -6,10 +6,12 @@ const { pool } = require("../Middleware/Database.config");
 const { v4: uuidv4 } = require("uuid");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 // Helper function for database queries
 const query = async (sql, values = []) => {
-  const [result] = await pool.query(sql, values);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, values);
   return result;
 };
 
@@ -462,7 +464,8 @@ const getCanceledJourneyByFilter = async (filters = {}) => {
 
     // Count query
     const countQuery = `SELECT COUNT(*) as total FROM (${baseQuery}) as count_table`;
-    const [countResult] = await pool.query(countQuery, queryParams);
+    const executor = transactionStorage.getStore() || pool;
+    const [countResult] = await executor.query(countQuery, queryParams);
     const totalCount = countResult[0]?.total || 0;
 
     // Data query with pagination
@@ -474,7 +477,7 @@ const getCanceledJourneyByFilter = async (filters = {}) => {
 
     // Add pagination parameters
     const dataParams = [...queryParams, safeLimit, offset];
-    const [results] = await pool.query(dataQuery, dataParams);
+    const [results] = await executor.query(dataQuery, dataParams);
 
     // Enrich data with ONLY journey details and cancellation details
     const enrichedData = await Promise.all(
@@ -819,7 +822,8 @@ const getCanceledJourneyCountsByDate = async (filters = {}) => {
       ORDER BY canceledDate
     `;
 
-    const [countRows] = await pool.query(countSql, queryParams);
+    const executor = transactionStorage.getStore() || pool;
+    const [countRows] = await executor.query(countSql, queryParams);
 
     // Transform results into the desired format { date: count, ... }
     const dateCounts = {};
@@ -915,7 +919,8 @@ const getCanceledJourneyCountsByReason = async (filters = {}) => {
       ORDER BY ${groupBy === "reason" ? "qty" : "count"} DESC
     `;
 
-    const [results] = await pool.query(sql, queryParams);
+    const executor = transactionStorage.getStore() || pool;
+    const [results] = await executor.query(sql, queryParams);
 
     // Transform results into array format
     let formattedData;
@@ -980,7 +985,7 @@ const getCanceledJourneyCountsByReason = async (filters = {}) => {
         FROM CancellationReasonsType 
         WHERE roleId = ? OR ? IS NULL
       `;
-      const [allReasons] = await pool.query(allReasonsSql, [roleId, roleId]);
+      const [allReasons] = await executor.query(allReasonsSql, [roleId, roleId]);
 
       const existingReasons = new Set(formattedData.map((item) => item.reason));
 

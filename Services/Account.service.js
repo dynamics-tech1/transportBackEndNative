@@ -57,7 +57,6 @@ const validateAccountStatusParams = ({
   user,
   body,
   enableDocumentChecks,
-  connection,
 }) => {
   // Check if at least one user identifier is provided
   const hasUserIdentifier =
@@ -132,20 +131,6 @@ const validateAccountStatusParams = ({
   if (typeof enableDocumentChecks !== "boolean") {
     throw new AppError("enableDocumentChecks must be a boolean", 400);
   }
-
-  // Validate connection if provided
-  if (connection !== undefined) {
-    if (
-      typeof connection !== "object" ||
-      connection === null ||
-      typeof connection.query !== "function"
-    ) {
-      throw new AppError(
-        "connection must be a valid database connection object with a query method",
-        400,
-      );
-    }
-  }
 };
 
 /**
@@ -172,7 +157,6 @@ const accountStatus = async ({
   user,
   body,
   enableDocumentChecks = true,
-  connection, // Optional: use existing connection if provided
 }) => {
   // ========== PARAMETER VALIDATION ==========
   validateAccountStatusParams({
@@ -182,7 +166,6 @@ const accountStatus = async ({
     user,
     body,
     enableDocumentChecks,
-    connection,
   });
 
   // --- Initialize state for all checks ---
@@ -402,7 +385,6 @@ const accountStatus = async ({
       Number(roleId) === usersRoles.driverRoleId
         ? getUserBalanceByFilterServices(
             { userUniqueId: resolvedUserUniqueId, page: 1, limit: 1 },
-            connection,
           )
         : Promise.resolve(null),
     ]);
@@ -446,7 +428,7 @@ const accountStatus = async ({
           WHERE rdr.roleId = ?
           ORDER BY dt.documentTypeId
         `;
-        const executor = transactionStorage.getStore() || connection || pool;
+        const executor = transactionStorage.getStore() || pool;
         const [allDocs] = await executor.query(sql, [
           resolvedUserUniqueId,
           roleId,

@@ -8,6 +8,7 @@ const {
   journeyStatusMap,
   activeJourneyStatuses,
 } = require("../Utils/ListOfSeedData");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 const adminServices = {
   getAllActiveDrivers: async (req) => {
@@ -123,7 +124,8 @@ const adminServices = {
     ${whereClause}
     `;
 
-    const [countRows] = await pool.query(countSql, params);
+    const executor = transactionStorage.getStore() || pool;
+    const [countRows] = await executor.query(countSql, params);
     const total = countRows[0].total;
 
     // Data query with comprehensive driver information
@@ -174,7 +176,7 @@ const adminServices = {
     `;
 
     const dataParams = [...params, parseInt(limit), parseInt(offset)];
-    const [data] = await pool.query(dataSql, dataParams);
+    const [data] = await executor.query(dataSql, dataParams);
 
     return {
       message: "success",
@@ -287,7 +289,8 @@ const adminServices = {
     ${whereClause}
     `;
 
-      const [countRows] = await pool.query(countSql, params);
+      const executor = transactionStorage.getStore() || pool;
+      const [countRows] = await executor.query(countSql, params);
       const total = countRows[0]?.total || 0;
 
       // Data query
@@ -349,7 +352,7 @@ const adminServices = {
     `;
 
       const dataParams = [...params, parseInt(limit), parseInt(offset)];
-      const [data] = await pool.query(dataSql, dataParams);
+      const [data] = await executor.query(dataSql, dataParams);
 
       return {
         message: data.length > 0 ? "success" : "No offline drivers found",
@@ -472,7 +475,8 @@ const adminServices = {
     ${whereClause}
     `;
 
-      const [countRows] = await pool.query(countSql, params);
+      const executor = transactionStorage.getStore() || pool;
+      const [countRows] = await executor.query(countSql, params);
       const total = countRows[0]?.total || 0;
 
       // Data query with comprehensive driver information
@@ -532,7 +536,7 @@ const adminServices = {
     `;
 
       const dataParams = [...params, parseInt(limit), parseInt(offset)];
-      const [data] = await pool.query(dataSql, dataParams);
+      const [data] = await executor.query(dataSql, dataParams);
 
       return {
         message: data.length > 0 ? "success" : "No online drivers found",
@@ -549,7 +553,7 @@ const adminServices = {
     }
   },
 
-  getUnauthorizedDriver: async (query, connection) => {
+  getUnauthorizedDriver: async (query) => {
     const {
       page = 1,
       limit = 10,
@@ -687,7 +691,8 @@ const adminServices = {
     ${whereClause}
     `;
 
-    const [countRows] = await (connection || pool).query(countSql, params);
+    const executor = transactionStorage.getStore() || pool;
+    const [countRows] = await executor.query(countSql, params);
     const total = countRows[0].total;
     const totalPages = Math.ceil(total / limit);
     const currentPage = parseInt(page);
@@ -730,7 +735,7 @@ const adminServices = {
 
     const dataParams = [...params, parseInt(limit), parseInt(offset)];
 
-    const [unauthorizedUsers] = await (connection || pool).query(
+    const [unauthorizedUsers] = await executor.query(
       dataSql,
       dataParams,
     );

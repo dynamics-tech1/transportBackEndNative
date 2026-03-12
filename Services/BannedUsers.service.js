@@ -248,8 +248,25 @@ const updateBannedUser = async (banUniqueId, data) => {
     SET banReason = ?, banDurationDays = ?, banExpiresAt = ?
     WHERE banUniqueId = ?
   `;
+const params= []
+const values=[]
+if(banReason){
+  values.push(banReason)
+  params.push('banReason')
+}
+if(banDurationDays){
+  values.push(banDurationDays)
+  params.push('banDurationDays')      
+}
+if(banExpiresAt){
+  values.push(banExpiresAt)
+  params.push('banExpiresAt')
+}
+if(banUniqueId){
+  values.push(banUniqueId)
+  params.push('banUniqueId')
+}
 
-  const values = [banReason, banDurationDays, banExpiresAt, banUniqueId];
   const result = await query(sql, values);
 
   if (result.affectedRows > 0) {

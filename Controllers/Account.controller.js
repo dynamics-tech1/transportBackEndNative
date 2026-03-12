@@ -78,7 +78,7 @@ const accountStatus = async (req, res, next) => {
       user = null;
     }
 
-    const result = await executeInTransaction(async (connection) => {
+    const result = await executeInTransaction(async () => {
       return await AccountService?.accountStatus({
         ownerUserUniqueId,
         phoneNumber,
@@ -86,7 +86,6 @@ const accountStatus = async (req, res, next) => {
         user,
         body: query || {},
         enableDocumentChecks,
-        connection, // Pass connection for transaction support
       });
     });
 

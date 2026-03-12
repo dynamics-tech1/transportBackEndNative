@@ -7,7 +7,10 @@ const AdminController = {
 
   getOfflineDrivers: async (req, res, next) => {
     try {
-      ServerResponder(res, await adminServices.getOfflineDrivers(req));
+      const result = await executeInTransaction(async () => {
+        return await adminServices.getOfflineDrivers(req);
+      });
+      ServerResponder(res, result);
     } catch (error) {
       next(error);
     }
@@ -15,7 +18,10 @@ const AdminController = {
 
   getOnlineDrivers: async (req, res, next) => {
     try {
-      ServerResponder(res, await adminServices.getOnlineDrivers(req));
+      const result = await executeInTransaction(async () => {
+        return await adminServices.getOnlineDrivers(req);
+      });
+      ServerResponder(res, result);
     } catch (error) {
       next(error);
     }
@@ -23,7 +29,10 @@ const AdminController = {
 
   getAllActiveDrivers: async (req, res, next) => {
     try {
-      ServerResponder(res, await adminServices.getAllActiveDrivers(req));
+      const result = await executeInTransaction(async () => {
+        return await adminServices.getAllActiveDrivers(req);
+      });
+      ServerResponder(res, result);
     } catch (error) {
       next(error);
     }
@@ -33,10 +42,9 @@ const AdminController = {
     try {
       ServerResponder(
         res,
-        await executeInTransaction(async (connection) => {
+        await executeInTransaction(async () => {
           return await adminServices.getUnauthorizedDriver(
             req?.query,
-            connection,
           );
         }),
       );
