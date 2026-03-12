@@ -315,59 +315,56 @@ const completeJourney = async (body, connection = null) => {
     const subscriptionData = subscriptionInfo?.data?.[0] || null;
     console.log("@completeJourney subscriptionInfo", subscriptionInfo);
     logger.debug("@completeJourney subscriptionData", subscriptionData);
-    // 2. Wrap journey status update in transaction to ensure atomicity
-    // updateJourneyStatus will update multiple tables: Journey, PassengerRequest, JourneyDecisions, DriverRequest
-    // All updates must succeed or all must fail to maintain data consistency
-    await executeInTransaction(
-      async (connection) => {
-        // Update journey status with connection for transaction support
-        // Pass all required IDs to ensure all related tables are updated atomically
-        // Set deliveryDateByDriver when driver completes journey
-        await updateJourneyStatus({
-          ...body,
-          deliveryDateByDriver: currentDate(),
-          connection, // Pass connection for transaction support
-        });
+    // 2. Run journey status update (and related updates) in one transaction.
+    // When connection is passed from the controller, use it so the whole flow is in the same transaction.
+    // When not passed (e.g. direct service call), start a new transaction here.
+    const runJourneyCompletionUpdates = async (conn) => {
+      await updateJourneyStatus({
+        ...body,
+        deliveryDateByDriver: currentDate(),
+        connection: conn,
+      });
 
-        // Create commission record (rate and status handled internally by service)
-        const paymentAmount = combinedData?.shippingCostByDriver;
+      const paymentAmount = combinedData?.shippingCostByDriver;
 
-        // if there is no subscription data for the user driver, create commission record on complete of journey
-        if (!subscriptionData) {
-          if (!paymentAmount || paymentAmount <= 0) {
-            throw new AppError(
-              "Invalid payment amount from journey decision",
-              400,
-            );
-          }
-          const commissionResult = await createCommission({
-            journeyDecisionUniqueId: body?.journeyDecisionUniqueId,
-            paymentAmount,
-            commissionCreatedBy: userUniqueId, // Driver who completed the journey
-            connection, // Pass connection for transaction support
-          });
-          console.log("@completeJourney commissionResult", commissionResult);
-          if (commissionResult.message === "error") {
-            throw new AppError(commissionResult.message, 400);
-          }
+      if (!subscriptionData) {
+        if (!paymentAmount || paymentAmount <= 0) {
+          throw new AppError(
+            "Invalid payment amount from journey decision",
+            400,
+          );
         }
+        const commissionResult = await createCommission({
+          journeyDecisionUniqueId: body?.journeyDecisionUniqueId,
+          paymentAmount,
+          commissionCreatedBy: userUniqueId,
+          connection: conn,
+        });
+        console.log("@completeJourney commissionResult", commissionResult);
+        if (commissionResult.message === "error") {
+          throw new AppError(commissionResult.message, 400);
+        }
+      }
 
-        // Record completion location in JourneyRoutePoints
-        await createJourneyRoutePoint(
-          {
-            journeyDecisionUniqueId: body?.journeyDecisionUniqueId,
-            latitude: body?.latitude,
-            longitude: body?.longitude,
-            userUniqueId,
-          },
-          connection, // Pass connection for transaction support
-        );
-      },
-      {
-        timeout: 20000, // 20 second timeout for journey completion operations
-        logging: true, // Log transaction operations
-      },
-    );
+      await createJourneyRoutePoint(
+        {
+          journeyDecisionUniqueId: body?.journeyDecisionUniqueId,
+          latitude: body?.latitude,
+          longitude: body?.longitude,
+          userUniqueId,
+        },
+        conn,
+      );
+    };
+
+    if (connection) {
+      await runJourneyCompletionUpdates(connection);
+    } else {
+      await executeInTransaction(runJourneyCompletionUpdates, {
+        timeout: 20000,
+        logging: true,
+      });
+    }
 
     // After successful transaction commit, handle notifications
     // Import here to avoid circular dependency
