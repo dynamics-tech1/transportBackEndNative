@@ -10,6 +10,7 @@ const { uploadToFTP } = require("../Utils/FTPHandler");
 const ServerResponder = require("../Utils/ServerResponder");
 const { usersRoles } = require("../Utils/ListOfSeedData");
 const AppError = require("../Utils/AppError");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 const createUser = async (req, res, next) => {
   try {
@@ -109,102 +110,56 @@ const updateUser = async (req, res, next) => {
     const roleId = user?.roleId;
     const body = { ...req.body, userUniqueId: ownerUserUniqueId, roleId };
 
-    // Initialize response tracker
-    const updateResponses = { textUpdate: "success", fileUpdate: "success" };
+    const response = await executeInTransaction(async () => {
+      // Update user text information
+      const textResponse = await services.updateUser(body);
 
-    // Update user text information
-    const textResponse = await services.updateUser(body);
-    updateResponses.textUpdate = textResponse.message;
-
-    // Handle file upload if files are provided
-    if (req.files && req.files.length > 0) {
-      const {
-        attachedDocumentUniqueId,
-        profilePhotoTypeId,
-        ProfilePhotoDescription,
-        ProfilePhotoExpirationDate,
-      } = body;
-
-      // --- FTP UPLOAD LOGIC ---
-      const file = req.files[0]; // Get the first uploaded file
-
-      // Generate unique filename
-      const fileExtension = path.extname(file.originalname);
-      const uniqueFilename = `${user.userId}_${uuidv4()}${fileExtension}`;
-
-      let fileUrl; // Variable to store the FTP file URL
-
-      try {
-        // Upload to FTP server - pass the buffer and unique filename
-        fileUrl = await uploadToFTP(file.buffer, uniqueFilename);
-      } catch {
-        // If FTP upload fails, respond with error but text update may have succeeded
-        return ServerResponder(res, {
-          message: "partial_success",
-          error:
-            "User information updated, but failed to upload profile image to server.",
-        });
-      }
-      // --- END FTP UPLOAD LOGIC ---
-
-      // Validate attachedDocumentUniqueId
-      if (
-        !attachedDocumentUniqueId ||
-        attachedDocumentUniqueId === "undefined" ||
-        attachedDocumentUniqueId === "null"
-      ) {
-        // Create a new attached document with FTP URL
-        const fileResponse = await createAttachedDocument({
-          attachedDocumentDescription: ProfilePhotoDescription,
-          attachedDocumentName: fileUrl, // Use the FTP URL instead of local path
-          documentTypeId: profilePhotoTypeId,
-          documentExpirationDate: ProfilePhotoExpirationDate,
-          roleId: user.roleId,
-          user,
-          userUniqueId: ownerUserUniqueId,
-        });
-
-        updateResponses.fileUpdate = fileResponse.message;
-      } else {
-        // Update the existing attached document with new FTP URL
-        const fileResponse = await updateAttachedDocument(
+      // Handle file upload if files are provided
+      if (req.files && req.files.length > 0) {
+        const {
           attachedDocumentUniqueId,
-          user,
-          body,
-          [fileUrl], // Pass the new URL to the update function
-        );
+          profilePhotoTypeId,
+          ProfilePhotoDescription,
+          ProfilePhotoExpirationDate,
+        } = body;
 
-        updateResponses.fileUpdate = fileResponse.message;
+        // --- FTP UPLOAD LOGIC ---
+        const file = req.files[0];
+        const fileExtension = path.extname(file.originalname);
+        const uniqueFilename = `${user.userId}_${uuidv4()}${fileExtension}`;
+
+        const fileUrl = await uploadToFTP(file.buffer, uniqueFilename).catch((err) => {
+          throw new AppError(`User information updated, but failed to upload profile image to server: ${err.message}`, 500);
+        });
+
+        // Validate attachedDocumentUniqueId
+        if (
+          !attachedDocumentUniqueId ||
+          attachedDocumentUniqueId === "undefined" ||
+          attachedDocumentUniqueId === "null"
+        ) {
+          await createAttachedDocument({
+            attachedDocumentDescription: ProfilePhotoDescription,
+            attachedDocumentName: fileUrl,
+            documentTypeId: profilePhotoTypeId,
+            documentExpirationDate: ProfilePhotoExpirationDate,
+            roleId: user.roleId,
+            userUniqueId: ownerUserUniqueId,
+          });
+        } else {
+          await updateAttachedDocument({
+            attachedDocumentUniqueId,
+            roleId: user.roleId,
+            attachedDocumentName: fileUrl,
+            attachedDocumentDescription: ProfilePhotoDescription,
+            documentExpirationDate: ProfilePhotoExpirationDate,
+          });
+        }
       }
-    } else {
-      updateResponses.fileUpdate = "success";
-    }
+      return textResponse;
+    });
 
-    // Consolidate response based on update results
-    const { textUpdate, fileUpdate } = updateResponses;
-
-    if (textUpdate === "success" && fileUpdate === "success") {
-      return ServerResponder(res, textResponse); // Both updates successful
-    }
-
-    if (textUpdate === "success" && fileUpdate === "error") {
-      return ServerResponder(res, {
-        message: "partial_success",
-        error: "User information updated, but failed to update profile image.",
-      });
-    }
-
-    if (textUpdate === "error" && fileUpdate === "success") {
-      return ServerResponder(res, {
-        message: "partial_success",
-        error: "Profile image updated, but failed to update user information.",
-      });
-    }
-
-    throw new AppError(
-      "Failed to update both user information and profile image.",
-      500,
-    );
+    return ServerResponder(res, response);
   } catch (error) {
     next(error);
   }

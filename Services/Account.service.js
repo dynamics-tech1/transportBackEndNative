@@ -19,6 +19,7 @@ const AppError = require("../Utils/AppError");
 const {
   getUserBalanceByFilterServices,
 } = require("./UserBalance.service/UserBalance.get.service");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 /**
  * @fileoverview Account Service
@@ -445,7 +446,8 @@ const accountStatus = async ({
           WHERE rdr.roleId = ?
           ORDER BY dt.documentTypeId
         `;
-        const [allDocs] = await (connection || pool).query(sql, [
+        const executor = transactionStorage.getStore() || connection || pool;
+        const [allDocs] = await executor.query(sql, [
           resolvedUserUniqueId,
           roleId,
         ]);

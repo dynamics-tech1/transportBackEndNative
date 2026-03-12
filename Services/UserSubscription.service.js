@@ -9,6 +9,7 @@ const { getPricingWithFilters } = require("./SubscriptionPlanPricing.service");
 const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 const AppError = require("../Utils/AppError");
 const logger = require("../Utils/logger");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 function getDaysBetweenDates(date1, date2) {
   const d1 = new Date(date1);
@@ -209,7 +210,8 @@ const updateUserSubscriptionByUniqueId = async (
     WHERE userSubscriptionUniqueId = ?
   `;
 
-  const [result] = await pool.query(sql, values);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, values);
 
   if (result.affectedRows === 0) {
     throw new AppError("Subscription not found or no changes made", 404);
@@ -495,12 +497,13 @@ const getUserSubscriptionsWithFilters = async (filters = {}, connection) => {
     ${whereClause}
   `;
 
-  const [rows] = await (connection || pool).query(sql, [
+  const executor = transactionStorage.getStore() || connection || pool;
+  const [rows] = await executor.query(sql, [
     ...queryParams,
     parseInt(limit),
     offset,
   ]);
-  const [countRes] = await (connection || pool).query(countSql, queryParams);
+  const [countRes] = await executor.query(countSql, queryParams);
   const total = countRes[0]?.total || 0;
 
   return {
@@ -617,13 +620,14 @@ const getUnassignedFreePlans = async (filters = {}, connection) => {
     ${whereClause}
   `;
 
-  const [rows] = await (connection || pool).query(sql, [
+  const executor = transactionStorage.getStore() || connection || pool;
+  const [rows] = await executor.query(sql, [
     driverUniqueId,
     ...params,
     safeLimit,
     offset,
   ]);
-  const [countRes] = await (connection || pool).query(countSql, params);
+  const [countRes] = await executor.query(countSql, params);
   const total = countRes[0]?.total || 0;
 
   return {

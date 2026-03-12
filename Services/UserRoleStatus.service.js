@@ -10,6 +10,7 @@ const { pool } = require("../Middleware/Database.config");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
 const { usersRoles, USER_STATUS } = require("../Utils/ListOfSeedData");
+const { transactionStorage } = require("../Utils/TransactionContext");
 // Create UserRoleStatus
 const createUserRoleStatus = async (body) => {
   const { statusId, userRoleId, userRoleStatusDescription, createdByUserId } =
@@ -59,7 +60,8 @@ const updateUserRoleStatus = async (updateDataValues) => {
   }
   const sql = `SELECT UserRoleStatusCurrent.* FROM UserRoleStatusCurrent,Statuses, UserRole,Users WHERE  UserRoleStatusCurrent.statusId = Statuses.statusId AND UserRole.userRoleId = UserRoleStatusCurrent.userRoleId AND Users.userUniqueId  = UserRole.userUniqueId AND Users.phoneNumber = ?  AND UserRole.roleId = ?`;
 
-  const [existingUserRoleStatus] = await pool.query(sql, [phoneNumber, roleId]);
+  const executor = transactionStorage.getStore() || pool;
+  const [existingUserRoleStatus] = await executor.query(sql, [phoneNumber, roleId]);
 
   if (existingUserRoleStatus.length === 0) {
     throw new AppError("Active user role status not found", 404);
@@ -353,8 +355,9 @@ const getUserRoleStatusCurrent = async ({ data }) => {
   queryParams.push(parseInt(limit), offset);
 
   // Execute queries
-  const [countResult] = await pool.query(countQuery, queryParams.slice(0, -2));
-  const [results] = await pool.query(dataQuery, queryParams);
+  const executor = transactionStorage.getStore() || pool;
+  const [countResult] = await executor.query(countQuery, queryParams.slice(0, -2));
+  const [results] = await executor.query(dataQuery, queryParams);
 
   const total = countResult[0].total;
   const totalPages = Math.ceil(total / limit);

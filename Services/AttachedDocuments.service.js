@@ -19,6 +19,7 @@ const { currentDate } = require("../Utils/CurrentDate");
 const { pool } = require("../Middleware/Database.config");
 const AppError = require("../Utils/AppError");
 const { accountStatus } = require("./Account.service");
+const { transactionStorage } = require("../Utils/TransactionContext");
 const createAttachedDocument = async ({
   attachedDocumentDescription,
   attachedDocumentName, // This is now the URL from FTP
@@ -430,7 +431,8 @@ const getAttachedDocumentsByFilter = async ({ filter, pagination, sort }) => {
         JOIN Users u ON ad.userUniqueId = u.userUniqueId
         WHERE ad.attachedDocumentUniqueId = ?
       `;
-      const [document] = await pool.query(sql, [attachedDocumentUniqueId]);
+      const executor = transactionStorage.getStore() || pool;
+      const [document] = await executor.query(sql, [attachedDocumentUniqueId]);
 
       if (!document || document.length === 0) {
         throw new AppError("Document not found", 404);
@@ -484,7 +486,8 @@ const getAttachedDocumentsByFilter = async ({ filter, pagination, sort }) => {
       JOIN Users u ON ad.userUniqueId = u.userUniqueId
       ${whereClause}
     `;
-    const [countResult] = await pool.query(countSql, params);
+    const executor = transactionStorage.getStore() || pool;
+    const [countResult] = await executor.query(countSql, params);
     const totalCount = countResult[0]?.total || 0;
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -510,7 +513,7 @@ const getAttachedDocumentsByFilter = async ({ filter, pagination, sort }) => {
       LIMIT ? OFFSET ?
     `;
     logger.debug("@sql", sql, "@userUniqueId", userUniqueId);
-    const [documents] = await pool.query(sql, [...params, limit, offset]);
+    const [documents] = await executor.query(sql, [...params, limit, offset]);
 
     return {
       message: "success",

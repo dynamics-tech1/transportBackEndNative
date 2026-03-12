@@ -2,6 +2,7 @@ const { pool } = require("../Middleware/Database.config");
 const { v4: uuidv4 } = require("uuid");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 // Helper function to add days to a date
 const addDays = (date, days) => {
@@ -41,8 +42,9 @@ const createPricing = async (
     subscriptionPlanUniqueId = subscriptionPlanUniqueIdOrObj;
   }
 
+  const executor = transactionStorage.getStore() || pool;
   // 0. Validate Subscription Plan Existence
-  const [planExists] = await pool.query(
+  const [planExists] = await executor.query(
     "SELECT subscriptionPlanUniqueId, isFree FROM SubscriptionPlan WHERE subscriptionPlanUniqueId = ?",
     [subscriptionPlanUniqueId],
   );
@@ -80,7 +82,7 @@ const createPricing = async (
       AND price = ? 
       AND DATE(effectiveFrom) = DATE(?)
   `;
-  const [duplicates] = await pool.query(checkDuplicateSql, [
+  const [duplicates] = await executor.query(checkDuplicateSql, [
     subscriptionPlanUniqueId,
     price,
     effectiveFrom,
@@ -148,7 +150,7 @@ const createPricing = async (
     currentDate(),
   ];
 
-  await pool.query(sql, values);
+  await executor.query(sql, values);
 
   return {
     message: "success",
@@ -274,7 +276,8 @@ const getPricingWithFilters = async (filters = {}) => {
     ${whereClause}
   `;
 
-  const [countResult] = await pool.query(countSql, queryParams);
+  const executor = transactionStorage.getStore() || pool;
+  const [countResult] = await executor.query(countSql, queryParams);
   const total = countResult[0]?.total || 0;
   const totalPages = Math.ceil(total / limit);
 
@@ -291,7 +294,7 @@ const getPricingWithFilters = async (filters = {}) => {
   `;
 
   const allParams = [...queryParams, limit, offset];
-  const [result] = await pool.query(sql, allParams);
+  const [result] = await executor.query(sql, allParams);
 
   return {
     message: "success",
@@ -427,14 +430,15 @@ const updatePricingByUniqueId = async (
   `;
 
   try {
-    const [result] = await pool.query(sql, values);
+    const executor = transactionStorage.getStore() || pool;
+    const [result] = await executor.query(sql, values);
 
     if (result.affectedRows === 0) {
       throw new AppError("Pricing record not found or no changes made", 404);
     }
 
     // Get the updated record
-    const [updated] = await pool.query(
+    const [updated] = await executor.query(
       "SELECT * FROM SubscriptionPlanPricing WHERE subscriptionPlanPricingUniqueId = ?",
       [subscriptionPlanPricingUniqueId],
     );
@@ -507,7 +511,8 @@ function validateAndFormatDate(dateValue) {
 
 // Delete by unique pricing ID
 const deletePricingByUniqueId = async (subscriptionPlanPricingUniqueId) => {
-  const [existing] = await pool.query(
+  const executor = transactionStorage.getStore() || pool;
+  const [existing] = await executor.query(
     "SELECT subscriptionPlanPricingUniqueId FROM SubscriptionPlanPricing WHERE subscriptionPlanPricingUniqueId = ?",
     [subscriptionPlanPricingUniqueId],
   );
@@ -517,7 +522,7 @@ const deletePricingByUniqueId = async (subscriptionPlanPricingUniqueId) => {
   }
 
   const sql = `DELETE FROM SubscriptionPlanPricing WHERE subscriptionPlanPricingUniqueId = ?`;
-  const [result] = await pool.query(sql, [subscriptionPlanPricingUniqueId]);
+  const [result] = await executor.query(sql, [subscriptionPlanPricingUniqueId]);
 
   if (result.affectedRows === 0) {
     throw new AppError("Failed to delete pricing", 500);

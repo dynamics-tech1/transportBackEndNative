@@ -4,9 +4,11 @@ const { updateUserRoleStatus } = require("./UserRoleStatus.service");
 const { accountStatus } = require("./Account.service");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 const query = async (sql, values = []) => {
-  const [result] = await pool.query(sql, values);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, values);
   return result;
 };
 
@@ -14,8 +16,9 @@ const banUser = async (data) => {
   const { userDelinquencyUniqueId, bannedBy, banReason, banDurationDays } =
     data;
 
+  const executor = transactionStorage.getStore() || pool;
   // fetch user phone and role by userDelinquencyUniqueId and validate existence
-  const [userInfoRows] = await pool.query(
+  const [userInfoRows] = await executor.query(
     `SELECT u.phoneNumber, ur.roleId
      FROM UserDelinquency ud
      INNER JOIN UserRole ur ON ud.userRoleUniqueId = ur.userRoleUniqueId
@@ -29,7 +32,7 @@ const banUser = async (data) => {
   }
   const { phoneNumber, roleId } = userInfoRows[0];
 
-  const [existingActiveBanRows] = await pool.query(
+  const [existingActiveBanRows] = await executor.query(
     `SELECT b.* FROM BannedUsers b 
      WHERE b.userDelinquencyUniqueId = ? 
        AND b.isActive = TRUE 
@@ -215,8 +218,9 @@ const getBannedUsers = async (filters = {}) => {
 
   const dataQueryParams = [...queryParams, parseInt(limit), offset];
 
-  const [countResult] = await pool.query(countQuery, queryParams);
-  const [results] = await pool.query(dataQuery, dataQueryParams);
+  const executor = transactionStorage.getStore() || pool;
+  const [countResult] = await executor.query(countQuery, queryParams);
+  const [results] = await executor.query(dataQuery, dataQueryParams);
 
   const total = countResult[0].total;
   const totalPages = Math.ceil(total / limit);
@@ -266,7 +270,8 @@ const unbanUser = async (query) => {
       throw new AppError("all fields are required", 400);
     }
     const sql = "update   BannedUsers set isActive=? WHERE banUniqueId = ?";
-    const [updatedBanResult] = await pool.query(sql, [false, banUniqueId]);
+    const executor = transactionStorage.getStore() || pool;
+    const [updatedBanResult] = await executor.query(sql, [false, banUniqueId]);
 
     const { getUserByFilterDetailed } = require("./User.service");
     const filters = { phoneNumber };

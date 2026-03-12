@@ -24,6 +24,7 @@ const {
 // Removed unused import: createFreeGiftToDriver
 const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 const { createUserSubscription } = require("./UserSubscription.service");
 const { getPricingWithFilters } = require("./SubscriptionPlanPricing.service");
@@ -761,7 +762,7 @@ const getUsersByRoleUniqueId = async (
     }
   `;
 
-  const executor = connection || pool;
+  const executor = transactionStorage.getStore() || connection || pool;
   const [countRows] = await executor.query(
     countSql,
     search
@@ -902,7 +903,7 @@ const deleteUser = async (
     "UPDATE Users SET userDeletedAt = ?, userDeletedBy = ?, isDeleted = ? WHERE userUniqueId = ?";
   const values = [userDeletedAt, deletedBy, isDeleted, userUniqueId];
 
-  const executor = connection || pool;
+  const executor = transactionStorage.getStore() || connection || pool;
   const [deleteResults] = await executor.query(sql, values);
 
   if (deleteResults.affectedRows === 0) {

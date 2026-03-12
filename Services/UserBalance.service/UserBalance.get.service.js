@@ -9,6 +9,7 @@ const { getAllCommissions } = require("../Commission.service");
 
 const { pool } = require("../../Middleware/Database.config");
 const logger = require("../../Utils/logger");
+const { transactionStorage } = require("../../Utils/TransactionContext");
 
 /**
  * Fetch Commission by transactionUniqueId with fallbacks.
@@ -58,8 +59,9 @@ const enrichUserBalanceRecord = async (balance) => {
     } else if (transactionType === "Transfer") {
       transactionDetails = await getTransferByUniqueId(transactionUniqueId);
     } else if (transactionType === "Refund") {
+      const executor = transactionStorage.getStore() || pool;
       // Direct SQL query to avoid circular dependency with UserRefund.service
-      const [refundResult] = await pool.query(
+      const [refundResult] = await executor.query(
         "SELECT * FROM UserRefund WHERE userRefundUniqueId = ?",
         [transactionUniqueId],
       );
@@ -97,8 +99,9 @@ const enrichUserBalanceRecord = async (balance) => {
 };
 
 const getAlluserBalances = async () => {
+  const executor = transactionStorage.getStore() || pool;
   const sql = `SELECT * FROM UserBalance ORDER BY userBalanceId DESC`;
-  const [results] = await pool.query(sql);
+  const [results] = await executor.query(sql);
   console.log("results of getAlluserBalances ", results);
   const enrichedResults = await Promise.all(
     results.map(enrichUserBalanceRecord),
@@ -109,8 +112,9 @@ const getAlluserBalances = async () => {
 
 // Get a driver balance record by ID
 const getuserBalanceById = async (userBalanceUniqueId) => {
+  const executor = transactionStorage.getStore() || pool;
   const sql = `SELECT * FROM UserBalance WHERE userBalanceUniqueId = ?`;
-  const [result] = await pool.query(sql, [userBalanceUniqueId]);
+  const [result] = await executor.query(sql, [userBalanceUniqueId]);
 
   if (result.length === 0) {
     throw new AppError("Driver balance not found", 404);
@@ -127,7 +131,8 @@ const getDriverLastBalanceByUserUniqueId = async (userUniqueId) => {
     ORDER BY userBalanceId DESC 
     LIMIT 1
   `;
-  const [results] = await pool.query(sql, [userUniqueId]);
+  const executor = transactionStorage.getStore() || pool;
+  const [results] = await executor.query(sql, [userUniqueId]);
 
   if (results.length === 0) {
     throw new AppError("Driver balance not found", 404);
@@ -212,11 +217,13 @@ const getuserBalanceByDateRange = async ({
   let results = null;
   if (fromDate === "lastTen" && toDate === "lastTen") {
     const sql = `SELECT * FROM UserBalance WHERE userUniqueId=? ORDER BY userBalanceId DESC LIMIT 10`;
-    results = (await pool.query(sql, [userUniqueId]))[0];
+    const executor2 = transactionStorage.getStore() || pool;
+    results = (await executor2.query(sql, [userUniqueId]))[0];
   } else {
-    const sql = `SELECT * FROM UserBalance WHERE transactionTime BETWEEN ? AND ? AND userUniqueId=? ORDER BY userBalanceId DESC LIMIT 30 OFFSET ?`;
+    const sql2 = `SELECT * FROM UserBalance WHERE transactionTime BETWEEN ? AND ? AND userUniqueId=? ORDER BY userBalanceId DESC LIMIT 30 OFFSET ?`;
     const values = [fromDate, toDate, userUniqueId, Number(offset)];
-    results = (await pool.query(sql, values))[0];
+    const executor3 = transactionStorage.getStore() || pool;
+    results = (await executor3.query(sql2, values))[0];
   }
 
   const fullData = await Promise.all(
@@ -362,8 +369,9 @@ const getUserBalanceByFilterServices = async (query, connection) => {
     ${whereSql}
   `;
 
-  const [dataRows] = await (connection || pool).query(dataSql, dataParams);
-  const [countRows] = await pool.query(countSql, params);
+  const executor = transactionStorage.getStore() || connection || pool;
+  const [dataRows] = await executor.query(dataSql, dataParams);
+  const [countRows] = await executor.query(countSql, params);
   logger.info("@dataRows", dataRows);
   const total = countRows[0]?.total || 0;
 
@@ -407,8 +415,9 @@ const getUserBalanceByFilterServices = async (query, connection) => {
             transactionDetails = transferData;
           }
         } else if (transactionType === "Refund") {
+          const executor = transactionStorage.getStore() || pool;
           // Direct SQL query to avoid circular dependency
-          const [refundResult] = await pool.query(
+          const [refundResult] = await executor.query(
             "SELECT * FROM UserRefund WHERE userRefundUniqueId = ?",
             [transactionUniqueId],
           );

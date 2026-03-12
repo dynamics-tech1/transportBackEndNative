@@ -12,6 +12,7 @@ const {
 const AppError = require("../Utils/AppError");
 const { currentDate } = require("../Utils/CurrentDate");
 const { usersRoles } = require("../Utils/ListOfSeedData");
+const { transactionStorage } = require("../Utils/TransactionContext");
 // Create a new mapping
 const createMapping = async ({ body }) => {
   const {
@@ -62,8 +63,9 @@ const createMapping = async ({ body }) => {
       404,
     );
   }
+  const executor = transactionStorage.getStore() || pool;
   // Check if the mapping already exists
-  const existingMapping = await pool.query(
+  const existingMapping = await executor.query(
     "SELECT * FROM RoleDocumentRequirements WHERE roleId = ? AND documentTypeId = ? AND roleDocumentRequirementDeletedAt IS NULL",
     [numericRoleId, numericDocumentTypeId],
   );
@@ -73,7 +75,7 @@ const createMapping = async ({ body }) => {
   }
 
   // Insert new mapping
-  const result = await pool.query(
+  const result = await executor.query(
     "INSERT INTO RoleDocumentRequirements(roleDocumentRequirementUniqueId,roleDocumentRequirementCreatedBy, roleId, documentTypeId, isDocumentMandatory, isFileNumberRequired, isExpirationDateRequired, isDescriptionRequired, roleDocumentRequirementCreatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
     [
       uuidv4(),
@@ -240,8 +242,9 @@ const getRoleDocumentRequirements = async (filters = {}) => {
     ${whereClause}
   `;
 
-  const [rows] = await pool.query(sql, [...params, numLimit, offset]);
-  const [countRows] = await pool.query(countSql, params);
+  const executor = transactionStorage.getStore() || pool;
+  const [rows] = await executor.query(sql, [...params, numLimit, offset]);
+  const [countRows] = await executor.query(countSql, params);
   const total = countRows[0]?.total || 0;
   const totalPages = Math.ceil(total / numLimit);
 
@@ -272,7 +275,8 @@ const updateMapping = async (roleDocumentRequirementUniqueId, data) => {
     roleDocumentRequirementUpdatedBy,
   } = data;
 
-  const [currentRows] = await pool.query(
+  const executor = transactionStorage.getStore() || pool;
+  const [currentRows] = await executor.query(
     "SELECT * FROM RoleDocumentRequirements WHERE roleDocumentRequirementUniqueId = ?",
     [roleDocumentRequirementUniqueId],
   );
@@ -301,7 +305,7 @@ const updateMapping = async (roleDocumentRequirementUniqueId, data) => {
       ? resolvedDocumentTypeId
       : currentRows[0].documentTypeId;
 
-  const [dupRows] = await pool.query(
+  const [dupRows] = await executor.query(
     "SELECT * FROM RoleDocumentRequirements WHERE roleId = ? AND documentTypeId = ? AND roleDocumentRequirementUniqueId != ? AND roleDocumentRequirementDeletedAt IS NULL",
     [nextRoleId, nextDocumentTypeId, roleDocumentRequirementUniqueId],
   );
@@ -358,7 +362,7 @@ const updateMapping = async (roleDocumentRequirementUniqueId, data) => {
   const sql = `UPDATE RoleDocumentRequirements SET ${setParts.join(", ")} WHERE roleDocumentRequirementUniqueId = ?`;
   values.push(roleDocumentRequirementUniqueId);
 
-  const result = await pool.query(sql, values);
+  const result = await executor.query(sql, values);
   if (result[0].affectedRows === 0) {
     throw new AppError("Failed to update mapping", 500);
   }
@@ -368,7 +372,8 @@ const updateMapping = async (roleDocumentRequirementUniqueId, data) => {
 // Removed individual GET by ID helper in favor of consolidated getter
 // Delete a mapping by ID
 const deleteMapping = async (roleDocumentRequirementUniqueId, deletedBy) => {
-  const [existingRows] = await pool.query(
+  const executor = transactionStorage.getStore() || pool;
+  const [existingRows] = await executor.query(
     "SELECT * FROM RoleDocumentRequirements WHERE roleDocumentRequirementUniqueId = ?",
     [roleDocumentRequirementUniqueId],
   );
@@ -379,7 +384,7 @@ const deleteMapping = async (roleDocumentRequirementUniqueId, deletedBy) => {
     throw new AppError("Mapping already deleted", 400);
   }
 
-  const result = await pool.query(
+  const result = await executor.query(
     "UPDATE RoleDocumentRequirements SET roleDocumentRequirementDeletedAt = ?, roleDocumentRequirementDeletedBy = ? WHERE roleDocumentRequirementUniqueId = ? AND roleDocumentRequirementDeletedAt IS NULL",
     [currentDate(), deletedBy, roleDocumentRequirementUniqueId],
   );
@@ -436,8 +441,9 @@ JOIN DocumentTypes    ON AttachedDocuments.documentTypeId = DocumentTypes.docume
 JOIN RoleDocumentRequirements    ON RoleDocumentRequirements.documentTypeId = DocumentTypes.documentTypeId
 WHERE AttachedDocuments.userUniqueId = ? and RoleDocumentRequirements.roleId = ?
 `;
+    const executor = transactionStorage.getStore() || pool;
     const values = [ownerUserUniqueId, roleId];
-    const [attachedDocuments] = await pool.query(sql, values);
+    const [attachedDocuments] = await executor.query(sql, values);
     // Find unattached document types
     const unAttachedDocumentTypes = requiredDocuments.filter(
       (requiredDocument) =>
