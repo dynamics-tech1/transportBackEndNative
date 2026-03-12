@@ -1,6 +1,6 @@
 const { v4: uuidv4 } = require("uuid");
 const { pool } = require("../../Middleware/Database.config");
-const transactionStorage = require("../../Utils/TransactionContext");
+const { transactionStorage } = require("../../Utils/TransactionContext");
 const { currentDate } = require("../../Utils/CurrentDate");
 const AppError = require("../../Utils/AppError");
 const logger = require("../../Utils/logger");

@@ -10,6 +10,7 @@ const {
 } = require("../../Utils/ListOfSeedData");
 const logger = require("../../Utils/logger");
 const AppError = require("../../Utils/AppError");
+const { transactionStorage } = require("../../Utils/TransactionContext");
 // verifyPassengerStatus removed - only available via API endpoint to reduce heavy operations
 const {
   handleWaitingRequest,
@@ -58,8 +59,7 @@ const {
  */
 const createPassengerRequest = async (
   body,
-  journeyStatusId,
-  connection = null,
+  journeyStatusId
 ) => {
   try {
     const { shipperRequestCreatedByRoleId } = body;
@@ -78,23 +78,13 @@ const createPassengerRequest = async (
       throw new AppError("Batch uniqueId Can't be null", 400);
     }
 
-    // Use connection for batch check if provided (for transaction support)
-    // Otherwise use regular getData which uses pool
-    let dataByBatchId;
-    if (connection) {
-      // Use raw query with connection for transaction support
-      const batchCheckSql = `SELECT * FROM PassengerRequest WHERE passengerRequestBatchId = ? AND userUniqueId = ?`;
-      const [batchCheckResult] = await connection.query(batchCheckSql, [
-        passengerRequestBatchId,
-        userUniqueId,
-      ]);
-      dataByBatchId = batchCheckResult;
-    } else {
-      dataByBatchId = await getData({
-        tableName: "PassengerRequest",
-        conditions: { passengerRequestBatchId, userUniqueId },
-      });
-    }
+    // Use context-aware executor for raw query with locking
+    const executor = transactionStorage.getStore() || pool;
+    const batchCheckSql = `SELECT * FROM PassengerRequest WHERE passengerRequestBatchId = ? AND userUniqueId = ? FOR UPDATE`;
+    const [dataByBatchId] = await executor.query(batchCheckSql, [
+      passengerRequestBatchId,
+      userUniqueId,
+    ]);
 
     if (dataByBatchId?.length >= numberOfVehicles) {
       // User has already created all required requests for this batch
@@ -121,8 +111,7 @@ const createPassengerRequest = async (
           createNewPassengerRequest(
             body,
             userUniqueId,
-            journeyStatusId,
-            connection,
+            journeyStatusId
           ),
         );
 
@@ -174,7 +163,6 @@ const createPassengerRequest = async (
             decisions: localDecisions,
             notifiedDrivers, // Shared Set for deduplication (minor race condition acceptable)
             userUniqueId, // Pass userUniqueId for audit columns
-            connection, // Pass connection for transaction consistency
           });
         }),
       );
@@ -184,8 +172,7 @@ const createPassengerRequest = async (
       return newRequests;
     }
     return await verifyPassengerStatus({
-      userUniqueId,
-      connection,
+      userUniqueId
     });
   } catch (error) {
     logger.error("Error in createPassengerRequest service", {

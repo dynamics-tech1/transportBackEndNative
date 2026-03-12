@@ -1,7 +1,7 @@
 const { v4: uuidv4 } = require("uuid");
 const { pool } = require("../../Middleware/Database.config");
 const { getData } = require("../Read/ReadData");
-const transactionStorage = require("../../Utils/TransactionContext");
+const { transactionStorage } = require("../../Utils/TransactionContext");
 const formatDateToReadable = require("../../Utils/FormatDateToReadable");
 const {
   journeyStatusMap,

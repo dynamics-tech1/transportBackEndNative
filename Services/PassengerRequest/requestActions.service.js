@@ -27,7 +27,9 @@ const AppError = require("../../Utils/AppError");
 const { verifyPassengerStatus } = require("./statusVerification.service");
 const { executeInTransaction } = require("../../Utils/DatabaseTransaction");
 const { currentDate } = require("../../Utils/CurrentDate");
-// Lazy require to avoid circular dependency
+const { transactionStorage } = require("../../Utils/TransactionContext");
+const { verifyDriverJourneyStatus } = require("../DriverRequest");
+// Lazy require or internal check
 // const { verifyDriverJourneyStatus } = require("../DriverRequest.service");
 
 /**
@@ -43,158 +45,107 @@ const { currentDate } = require("../../Utils/CurrentDate");
 const acceptDriverRequest = async (body) => {
   try {
     const {
-      journeyDecisionUniqueId,
       driverRequestUniqueId,
-      passengerRequestUniqueId,
+      journeyDecisionUniqueId,
       userUniqueId,
     } = body;
 
     // Validate required fields
-    if (
-      !journeyDecisionUniqueId ||
-      !driverRequestUniqueId ||
-      !passengerRequestUniqueId ||
-      !userUniqueId
-    ) {
+    if (!driverRequestUniqueId || !journeyDecisionUniqueId || !userUniqueId) {
       throw new AppError(
-        "journeyDecisionUniqueId, driverRequestUniqueId, passengerRequestUniqueId, and userUniqueId are required",
+        "driverRequestUniqueId, journeyDecisionUniqueId, and userUniqueId are required",
         400,
       );
     }
 
-    // Validate that the provided IDs match and the journey decision exists with eligible status
-    const validationQuery = `
-      SELECT jd.journeyDecisionUniqueId, jd.journeyStatusId, 
-             dr.driverRequestUniqueId, pr.passengerRequestUniqueId,
-             pr.userUniqueId as passengerUserUniqueId
-      FROM JourneyDecisions jd
-      JOIN DriverRequest dr ON jd.driverRequestId = dr.driverRequestId
-      JOIN PassengerRequest pr ON jd.passengerRequestId = pr.passengerRequestId
-      WHERE jd.journeyDecisionUniqueId = ?
-        AND dr.driverRequestUniqueId = ?
-        AND pr.passengerRequestUniqueId = ?
-      LIMIT 1
-    `;
+    return await executeInTransaction(async () => {
+      const connectedDrivers = await performJoinSelect({
+        baseTable: "DriverRequest",
+        joins: [
+          {
+            table: "JourneyDecisions",
+            on: "DriverRequest.driverRequestId = JourneyDecisions.driverRequestId",
+          },
+          {
+            table: "PassengerRequest",
+            on: "JourneyDecisions.passengerRequestId = PassengerRequest.passengerRequestId",
+          },
+        ],
+        conditions: {
+          "PassengerRequest.userUniqueId": userUniqueId,
+          "JourneyDecisions.journeyStatusId": journeyStatusMap.acceptedByDriver,
+        },
+      });
 
-    const [validationResult] = await pool.query(validationQuery, [
-      journeyDecisionUniqueId,
-      driverRequestUniqueId,
-      passengerRequestUniqueId,
-    ]);
+      if (!connectedDrivers?.length) {
+        throw new AppError("No driver requests found to accept", 404);
+      }
 
-    if (validationResult.length === 0) {
-      throw new AppError("Journey decision not found or IDs do not match", 404);
-    }
+      for (let i = 0; i < connectedDrivers?.length; i++) {
+        const driver = connectedDrivers[i];
+        const phoneNumber = driver?.phoneNumber;
+        const targetDriverUserUniqueId = driver?.userUniqueId;
 
-    const decision = validationResult[0];
+        const isAccepted = driverRequestUniqueId === driver.driverRequestUniqueId;
 
-    // Check if the user is the owner of the passenger request
-    if (decision.passengerUserUniqueId !== userUniqueId) {
-      throw new AppError(
-        "Unauthorized: You can only accept drivers for your own requests",
-        403,
-      );
-    }
+        const updatePayload = {
+          journeyStatusId: isAccepted
+            ? journeyStatusMap.acceptedByPassenger
+            : journeyStatusMap.notSelectedInBid,
+          driverRequestUniqueId: driver?.driverRequestUniqueId,
+          journeyDecisionUniqueId: driver?.journeyDecisionUniqueId,
+          passengerRequestUniqueId: driver?.passengerRequestUniqueId,
+        };
 
-    // Check if the journey decision is in an eligible status for acceptance
-    if (
-      ![journeyStatusMap.requested, journeyStatusMap.acceptedByDriver].includes(
-        decision.journeyStatusId,
-      )
-    ) {
-      throw new AppError(
-        `Driver is not connected to shipper in this decision. `,
-        400,
-      );
-    }
+        await updateJourneyStatus(updatePayload);
 
-    // Proceed with acceptance (decision validated above)
-
-    const updatePayloads = [];
-    const notificationDataArray = [];
-
-    // Since we have the specific decision, create update payload
-    const updatePayload = {
-      journeyStatusId: journeyStatusMap.acceptedByPassenger,
-      driverRequestUniqueId: decision.driverRequestUniqueId,
-      journeyDecisionUniqueId: decision.journeyDecisionUniqueId,
-      passengerRequestUniqueId: decision.passengerRequestUniqueId,
-    };
-
-    updatePayloads.push(updatePayload);
-
-    // For notifications, use the decision data
-    notificationDataArray.push({
-      driver: decision, // This will need to be expanded with full driver data
-      phoneNumber: null, // Will need to fetch
-      targetDriverUserUniqueId: null, // Will need to fetch
-      isAccepted: true,
-      updatePayload,
-    });
-
-    // Wrap all updates in a single transaction
-    await executeInTransaction(
-      async (connection) => {
-        // Update the journey decision status
-        await updateJourneyStatus({
-          ...updatePayload,
-          connection,
+        // Verification of driver journey status (lazy required/internal check)
+        const driverStatus = await verifyDriverJourneyStatus({
+          userUniqueId: driver?.userUniqueId,
         });
-      },
-      {
-        timeout: 15000,
-        logging: true,
-      },
-    );
 
-    // For notifications, we need to fetch full driver data
-    // This is simplified; in practice, fetch the full data
-    const fullDriverData = await performJoinSelect({
-      baseTable: "DriverRequest",
-      joins: [
-        {
-          table: "Users",
-          on: "DriverRequest.userUniqueId = Users.userUniqueId",
-        },
-        {
-          table: "JourneyDecisions",
-          on: "DriverRequest.driverRequestId = JourneyDecisions.driverRequestId",
-        },
-      ],
-      conditions: {
-        "DriverRequest.driverRequestUniqueId": driverRequestUniqueId,
-        "JourneyDecisions.journeyDecisionUniqueId": journeyDecisionUniqueId,
-      },
+        const notification = {
+          title: isAccepted ? "Offer accepted" : "Offer not selected",
+          body: isAccepted
+            ? "Passenger accepted your price."
+            : "Passenger selected another offer.",
+        };
+        const data = {
+          type: "driver_offer_status",
+          status: isAccepted ? "success" : "not_selected",
+          driverRequestUniqueId: String(driver?.driverRequestUniqueId || ""),
+          journeyDecisionUniqueId: String(journeyDecisionUniqueId || ""),
+          passengerUserUniqueId: String(userUniqueId || ""),
+        };
+
+        if (targetDriverUserUniqueId) {
+          await sendFCMNotificationToUser({
+            userUniqueId: targetDriverUserUniqueId,
+            roleId: usersRoles.driverRoleId,
+            notification,
+            data,
+          }).catch((e) => logger.error("Error sending FCM notification", e));
+        }
+
+        if (driverStatus) {
+          await sendSocketIONotificationToDriver({
+            message: driverStatus,
+            phoneNumber,
+          });
+        }
+      }
+
+      const statusResult = await verifyPassengerStatus({
+        userUniqueId,
+      });
+
+      return {
+        message: "success",
+        totalRecords: statusResult?.totalRecords || null,
+        pageSize: statusResult?.pageSize || 10,
+        page: statusResult?.page || 1,
+      };
     });
-
-    if (fullDriverData.length > 0) {
-      const driver = fullDriverData[0];
-      const phoneNumber = driver.phoneNumber;
-      const targetDriverUserUniqueId = driver.userUniqueId;
-
-      // Update notification data
-      notificationDataArray[0].driver = driver;
-      notificationDataArray[0].phoneNumber = phoneNumber;
-      notificationDataArray[0].targetDriverUserUniqueId =
-        targetDriverUserUniqueId;
-
-      // Send notifications (similar to original code, but simplified)
-      // ... notification logic ...
-    }
-
-    // Get updated status counts after acceptance
-    const statusResult = await verifyPassengerStatus({
-      userUniqueId,
-      sendNotificationsToDrivers: false, // Don't send notifications, just get counts
-    });
-
-    // Return success with unique IDs and updated status counts
-    return {
-      message: "success",
-      totalRecords: statusResult?.totalRecords || null,
-      pageSize: statusResult?.pageSize || 10,
-      page: statusResult?.page || 1,
-    };
   } catch (error) {
     logger.error("Unable to accept driver request", {
       error: error.message,
@@ -242,7 +193,7 @@ const rejectDriverOffer = async (body) => {
     // Wrap all updates in a transaction to ensure atomicity
     let negativeStatusUpdateResult;
     await executeInTransaction(
-      async (connection) => {
+      async () => {
         // Update PassengerRequest if there is only one request (all-or-nothing)
         if (allPassengerRequests.length <= 1) {
           await updateData({
@@ -253,7 +204,6 @@ const rejectDriverOffer = async (body) => {
             updateValues: {
               journeyStatusId: journeyStatusMap.waiting,
             },
-            connection, // Pass connection for transaction support
           });
         }
 
@@ -262,7 +212,6 @@ const rejectDriverOffer = async (body) => {
           driverRequestUniqueId: body.driverRequestUniqueId,
           journeyDecisionUniqueId: body.journeyDecisionUniqueId,
           newStatusId: journeyStatusMap.rejectedByPassenger,
-          connection, // Pass connection for transaction support
         });
       },
       {
@@ -465,7 +414,8 @@ const cancelPassengerRequest = async (body) => {
       WHERE PassengerRequest.passengerRequestUniqueId = ?
     `;
 
-    const [combinedResults] = await pool.query(sql, [passengerRequestUniqueId]);
+    const executor = transactionStorage.getStore() || pool;
+    const [combinedResults] = await executor.query(sql, [passengerRequestUniqueId]);
     logger.debug("@combinedResults", { combinedResults });
     if (!combinedResults || combinedResults.length === 0) {
       throw new AppError("Passenger request not found", 404);
@@ -556,7 +506,7 @@ const cancelPassengerRequest = async (body) => {
     const driverNotificationData = [];
 
     await executeInTransaction(
-      async (connection) => {
+      async () => {
         // 1. Update PassengerRequest
         await updateData({
           tableName: "PassengerRequest",
@@ -564,7 +514,6 @@ const cancelPassengerRequest = async (body) => {
           updateValues: {
             journeyStatusId: cancellationJourneyStatusId, // Can be cancelledByPassenger (7) or cancelledByAdmin (10)
           },
-          connection, // Use transaction connection
         });
 
         // 2. If journey decisions found, update all related tables atomically
@@ -579,7 +528,6 @@ const cancelPassengerRequest = async (body) => {
               driverRequestId,
               journeyDecisionUniqueId,
               newStatusId: cancellationJourneyStatusId,
-              connection, // Pass transaction connection
             });
 
             // Store driverRequestId and journeyDecision for notification after transaction

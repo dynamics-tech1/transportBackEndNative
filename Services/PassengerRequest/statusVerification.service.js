@@ -23,6 +23,7 @@ const { v4: uuidv4 } = require("uuid");
 const logger = require("../../Utils/logger");
 const { currentDate } = require("../../Utils/CurrentDate");
 const AppError = require("../../Utils/AppError");
+const { transactionStorage } = require("../../Utils/TransactionContext");
 
 /**
  * Gets the passenger's current journey status
@@ -131,7 +132,6 @@ async function handleWaitingRequest({
   decisions,
   notifiedDrivers,
   userUniqueId,
-  connection,
 }) {
   void driversData; // avoid no-unused-vars
   // Find available drivers near the passenger's location (READ-ONLY - outside transaction)
@@ -163,7 +163,8 @@ async function handleWaitingRequest({
     passengerRequest.vehicleTypeUniqueId,
   ];
 
-  const [driverResults] = await connection.query(sql, driverParams);
+  const executor = transactionStorage.getStore() || pool;
+  const [driverResults] = await executor.query(sql, driverParams);
 
   if (driverResults.length === 0) {
     return false;
@@ -177,8 +178,7 @@ async function handleWaitingRequest({
     // Pre-fetch profile photo outside critical transaction (READ-ONLY)
     const documents = await getAttachedDocumentsByUserUniqueIdAndDocumentTypeId(
       driverResult.driverUserUniqueId,
-      listOfDocumentsTypeAndId.profilePhoto,
-      connection,
+      listOfDocumentsTypeAndId.profilePhoto
     );
 
     const data = documents?.data;
@@ -200,7 +200,8 @@ async function handleWaitingRequest({
 
     // CRITICAL TRANSACTION BLOCK - Only essential writes
     // Check if driver is still available (race condition protection)
-    const availabilityCheck = await connection.query(
+    const executorAvailability = transactionStorage.getStore() || pool;
+    const availabilityCheck = await executorAvailability.query(
       `SELECT COUNT(*) as count FROM DriverRequest
        WHERE driverRequestId = ? AND journeyStatusId = ?`,
       [driverResult.driverRequestId, journeyStatusMap.waiting],
@@ -229,7 +230,6 @@ async function handleWaitingRequest({
       await insertData({
         tableName: "JourneyDecisions",
         colAndVal: journeyDecisionPayload,
-        connection,
       });
     } catch (error) {
       // Handle duplicate key error (race condition)
@@ -256,7 +256,6 @@ async function handleWaitingRequest({
       tableName: "PassengerRequest",
       conditions: { passengerRequestId },
       updateValues: { journeyStatusId: journeyStatusMap.requested },
-      connection,
     });
 
     // Update driver request status
@@ -264,7 +263,6 @@ async function handleWaitingRequest({
       tableName: "DriverRequest",
       conditions: { driverRequestId: driver.driverRequestId },
       updateValues: { journeyStatusId: journeyStatusMap.requested },
-      connection,
     });
     // END CRITICAL TRANSACTION BLOCK
 
@@ -596,7 +594,6 @@ const verifyPassengerStatus = async ({
   totalRecords,
   pageSize,
   page,
-  connection = null,
 }) => {
   try {
     // 1. Check if the user has an active request (status 1, 2, 3, 4, 5, 6)
@@ -605,7 +602,6 @@ const verifyPassengerStatus = async ({
         userUniqueId,
         pageSize,
         page,
-        connection,
       });
 
       activeRequest = dataOfActiveRequest?.activeRequests;

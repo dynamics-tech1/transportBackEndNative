@@ -55,7 +55,7 @@ const createPassengerRequest = async (req, res, next) => {
     req.body.shipperRequestCreatedByRoleId = shipperRequestCreatedByRoleId;
 
     const result = await executeInTransaction(
-      async (connection) => {
+      async () => {
         if (shipperRequestCreatedByRoleId === usersRoles.adminRoleId) {
           const { shipperPhoneNumber } = req.body;
           if (!shipperPhoneNumber) {
@@ -74,8 +74,7 @@ const createPassengerRequest = async (req, res, next) => {
               email: `fakeEmail_${randNumber}@passenger.com`,
               userRoleStatusDescription: "this is shipper ",
               requestedFrom: "system",
-            },
-            connection,
+            }
           );
 
           if (createdUser?.message === "error") {
@@ -100,8 +99,7 @@ const createPassengerRequest = async (req, res, next) => {
 
         return await PassengerService.createPassengerRequest(
           req.body,
-          journeyStatusMap.waiting,
-          connection,
+          journeyStatusMap.waiting
         );
       },
       {

@@ -6,4 +6,4 @@ const { AsyncLocalStorage } = require('async_hooks');
  */
 const transactionStorage = new AsyncLocalStorage();
 
-module.exports = transactionStorage;
+module.exports = { transactionStorage };

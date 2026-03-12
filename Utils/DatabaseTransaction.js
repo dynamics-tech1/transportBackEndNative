@@ -1,7 +1,7 @@
 const { pool } = require("../Middleware/Database.config");
 const { currentDate } = require("./CurrentDate");
 const logger = require("./logger");
-const transactionStorage = require("./TransactionContext");
+const { transactionStorage } = require("./TransactionContext");
 
 /**
  * Execute a callback within a database transaction

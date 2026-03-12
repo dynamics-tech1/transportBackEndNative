@@ -8,7 +8,7 @@ const { journeyStatusMap } = require("../Utils/ListOfSeedData");
 const logger = require("../Utils/logger");
 const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 const AppError = require("../Utils/AppError");
-const transactionStorage = require("../Utils/TransactionContext");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 // Create a new journey status
 const createJourneyStatus = async (body, user) => {

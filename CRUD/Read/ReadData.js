@@ -7,7 +7,7 @@ const {
   VerifyIfPassengerRequestWasNotRejected,
 } = require("../../Utils/RejectedRequests");
 const AppError = require("../../Utils/AppError");
-const transactionStorage = require("../../Utils/TransactionContext");
+const { transactionStorage } = require("../../Utils/TransactionContext");
 const searchRange = 0.941;
 
 const getData = async ({

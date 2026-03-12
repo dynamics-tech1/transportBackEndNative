@@ -1,5 +1,5 @@
 const { pool } = require("../../Middleware/Database.config");
-const transactionStorage = require("../../Utils/TransactionContext");
+const { transactionStorage } = require("../../Utils/TransactionContext");
 
 const updateData = async ({
   tableName,

@@ -3,6 +3,7 @@ const { updateData } = require("../../CRUD/Update/Data.update");
 const { pool } = require("../../Middleware/Database.config");
 const { journeyStatusMap } = require("../../Utils/ListOfSeedData");
 const AppError = require("../../Utils/AppError");
+const { transactionStorage } = require("../../Utils/TransactionContext");
 
 /**
  * Gets cancellation notifications for a passenger
@@ -108,7 +109,8 @@ const getCancellationNotifications = async ({
     `;
 
     // Execute count query first (before adding pagination params)
-    const [countResults] = await pool.query(countSql, queryParams);
+    const executorCount = transactionStorage.getStore() || pool;
+    const [countResults] = await executorCount.query(countSql, queryParams);
     const total = countResults[0]?.total || 0;
 
     // Add pagination params to query params for main query
@@ -118,7 +120,8 @@ const getCancellationNotifications = async ({
       parseInt(offset),
     ];
 
-    const [results] = await pool.query(sql, paginatedQueryParams);
+    const executorMain = transactionStorage.getStore() || pool;
+    const [results] = await executorMain.query(sql, paginatedQueryParams);
 
     if (results.length === 0) {
       return {

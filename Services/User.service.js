@@ -112,7 +112,6 @@ const handleExistingUser = async ({
   roleId,
   statusId,
   userRoleStatusDescription = "no description",
-  connection = null, // Optional: connection for transaction support
 }) => {
   const userUniqueId = user.userUniqueId;
   if (!userUniqueId) {
@@ -125,16 +124,14 @@ const handleExistingUser = async ({
   const [credential] = await Promise.all([
     getData({
       tableName: "usersCredential",
-      conditions: { userUniqueId },
-      connection, // Pass connection for transaction support
+      conditions: { userUniqueId }
     }),
     // Handle existing user: Insert/Update roles and statuses
     handleUserRoleStatus(
       user.userUniqueId,
       roleId,
       statusId,
-      userRoleStatusDescription,
-      connection, // Pass connection for transaction support
+      userRoleStatusDescription
     ),
   ]);
 
@@ -151,7 +148,6 @@ const handleExistingUser = async ({
         hashedPassword: hashedOtps,
         usersCredentialCreatedAt: currentDate(),
       },
-      connection, // Pass connection for transaction support
     });
   }
 
@@ -170,7 +166,6 @@ const handleExistingUser = async ({
     hashedOTP: hashedOTP,
     phoneNumber: user.phoneNumber,
     OTP,
-    connection, // Pass connection for transaction support
   });
 
   try {
@@ -218,7 +213,6 @@ const registerNewUser = async ({
   userRoleStatusDescription,
   requestedFrom,
   createdBy = "system",
-  connection = null, // Optional: connection for transaction support
 }) => {
   const userUniqueId = uuidv4();
   const credentialUniqueId = uuidv4();
@@ -274,9 +268,7 @@ const registerNewUser = async ({
   };
 
   // Use transaction to ensure both user and credential are created atomically
-  const [insertedUser, insertedCredential] = connection
-    ? await insertUserAndCredential(connection)
-    : await executeInTransaction(insertUserAndCredential);
+  const [insertedUser, insertedCredential] = await executeInTransaction(insertUserAndCredential);
 
   const userCreationSuccess = [insertedCredential, insertedUser];
   const allInserted = userCreationSuccess.every((res) => res?.affectedRows > 0);
@@ -289,12 +281,12 @@ const registerNewUser = async ({
     userUniqueId,
     roleId,
     statusId,
-    userRoleStatusDescription,
-    connection, // ensure same transaction/connection is used
+    userRoleStatusDescription
   );
 
   if (requestedFrom === "user") {
     // send otp to users via AfroMessage SMS (defer if inside transaction)
+    const connection = transactionStorage.getStore();
     if (!connection) {
       try {
         const smsResult = await sendSms(phoneNumber, OTP);
@@ -358,7 +350,7 @@ const registerNewUser = async ({
   }
 };
 
-const createUser = async (body, connection = null) => {
+const createUser = async (body) => {
   const requestedFrom = body?.requestedFrom || "user";
   const fullName = body?.fullName;
   const phoneNumber = body?.phoneNumber;
@@ -389,8 +381,7 @@ const createUser = async (body, connection = null) => {
   const savedUser = await getData({
     tableName: "Users",
     conditions,
-    operator: "OR",
-    connection,
+    operator: "OR"
   });
   if (savedUser?.length > 1) {
     throw new AppError("phone or email is reserved in another user", 409);
@@ -434,8 +425,7 @@ const createUser = async (body, connection = null) => {
         await updateData({
           tableName: "Users",
           updateValues: { email },
-          conditions: { userUniqueId: existingUser.userUniqueId },
-          connection, // Pass connection for transaction support
+          conditions: { userUniqueId: existingUser.userUniqueId }
         });
       }
 
@@ -444,8 +434,7 @@ const createUser = async (body, connection = null) => {
         await updateData({
           tableName: "Users",
           updateValues: { fullName },
-          conditions: { userUniqueId: existingUser.userUniqueId },
-          connection, // Pass connection for transaction support
+          conditions: { userUniqueId: existingUser.userUniqueId }
         });
       }
     }
@@ -458,8 +447,7 @@ const createUser = async (body, connection = null) => {
       userRoleStatusDescription,
       requestedFrom,
       email,
-      fullName,
-      connection, // Pass connection, though existing users don't need transaction
+      fullName
     });
   }
 
@@ -471,8 +459,7 @@ const createUser = async (body, connection = null) => {
     roleId,
     statusId,
     userRoleStatusDescription,
-    requestedFrom,
-    connection, // Pass connection for transaction support
+    requestedFrom
   });
 };
 
@@ -480,14 +467,12 @@ const handleUserRoleStatus = async (
   userUniqueId,
   roleId,
   statusId,
-  userRoleStatusDescription,
-  connection = null, // Optional: connection for transaction support
+  userRoleStatusDescription
 ) => {
   // Check if the UserRole already exists
   const userRole = await getData({
     tableName: "UserRole",
-    conditions: { userUniqueId, roleId },
-    connection, // Pass connection for transaction support
+    conditions: { userUniqueId, roleId }
   });
   let userRoleId = null;
 
@@ -501,8 +486,7 @@ const handleUserRoleStatus = async (
         roleId,
         userRoleCreatedAt: currentDate(),
         userRoleCreatedBy: userUniqueId,
-      },
-      connection, // Pass connection for transaction support
+      }
     });
 
     if (insertUserRole.affectedRows > 0) {
@@ -517,8 +501,7 @@ const handleUserRoleStatus = async (
   // Check if the UserRole is in UserRoleStatus already exists
   const userRoleStatus = await getData({
     tableName: "UserRoleStatusCurrent",
-    conditions: { userRoleId },
-    connection, // Pass connection for transaction support
+    conditions: { userRoleId }
   });
 
   if (userRoleStatus.length === 0) {
@@ -542,8 +525,7 @@ const handleUserRoleStatus = async (
     // Insert new UserRoleStatus if not found
     await insertData({
       tableName: "UserRoleStatusCurrent",
-      colAndVal,
-      connection, // Pass connection for transaction support
+      colAndVal
     });
     const newUser = await performJoinSelect({
       baseTable: "Users",
@@ -557,8 +539,7 @@ const handleUserRoleStatus = async (
           on: "UserRole.userRoleId = UserRoleStatusCurrent.userRoleId",
         },
       ],
-      conditions: { "Users.userUniqueId": userUniqueId },
-      connection, // Pass connection for transaction support (read within transaction)
+      conditions: { "Users.userUniqueId": userUniqueId }
     });
     // if user is driver send notification to admin to verify its account using driver license etc
     if (roleId === usersRoles.driverRoleId) {
@@ -568,6 +549,7 @@ const handleUserRoleStatus = async (
       };
       // Do NOT send socket notifications when inside a transaction (connection provided)
       // Caller should send notifications after transaction commits.
+      const connection = transactionStorage.getStore();
       if (!connection) {
         await sendSocketIONotificationToAdmin({
           message,
@@ -591,17 +573,16 @@ const updateOtpForUser = async ({
   OTP,
   phoneNumber,
   hashedOTP,
-  connection = null, // Optional: connection for transaction support
 }) => {
   const updateOtpResult = await updateData({
     tableName: "usersCredential",
     updateValues: { OTP: hashedOTP },
-    conditions: { userUniqueId },
-    connection, // Pass connection for transaction support
+    conditions: { userUniqueId }
   });
 
   if (updateOtpResult.affectedRows > 0) {
     // When inside a transaction (connection provided), defer sending SMS until after commit
+    const connection = transactionStorage.getStore();
     if (connection) {
       return {
         messageDetail: "OTP updated (SMS deferred until after transaction)",
