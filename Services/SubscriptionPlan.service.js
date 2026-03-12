@@ -2,6 +2,7 @@ const { pool } = require("../Middleware/Database.config");
 const { v4: uuidv4 } = require("uuid");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 // Create
 const createSubscriptionPlan = async ({
@@ -12,7 +13,8 @@ const createSubscriptionPlan = async ({
   user,
 }) => {
   const checkSql = `SELECT * FROM SubscriptionPlan WHERE planName = ?`;
-  const [existing] = await pool.query(checkSql, [planName]);
+  const executor = transactionStorage.getStore() || pool;
+  const [existing] = await executor.query(checkSql, [planName]);
   if (existing.length > 0) {
     throw new AppError("Plan name already exists", 400);
   }
@@ -23,7 +25,7 @@ const createSubscriptionPlan = async ({
     INSERT INTO SubscriptionPlan (subscriptionPlanUniqueId, planName, description, isFree, durationInDays, subscriptionPlanCreatedBy, subscriptionPlanCreatedAt)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
-  await pool.query(insertSql, [
+  await executor.query(insertSql, [
     subscriptionPlanUniqueId,
     planName,
     description,
@@ -84,7 +86,8 @@ const getSubscriptionPlans = async (filters = {}) => {
       LIMIT 1
     `;
 
-    const [result] = await pool.query(sql, queryParams);
+    const executor = transactionStorage.getStore() || pool;
+    const [result] = await executor.query(sql, queryParams);
 
     if (result.length === 0) {
       throw new AppError("Subscription plan not found", 404);
@@ -98,7 +101,8 @@ const getSubscriptionPlans = async (filters = {}) => {
 
   // Get total count for pagination
   const countSql = `SELECT COUNT(*) as total FROM SubscriptionPlan ${whereClause}`;
-  const [countResult] = await pool.query(countSql, queryParams);
+  const executor = transactionStorage.getStore() || pool;
+  const [countResult] = await executor.query(countSql, queryParams);
   const total = countResult[0]?.total || 0;
   const totalPages = Math.ceil(total / limit);
 
@@ -111,7 +115,7 @@ const getSubscriptionPlans = async (filters = {}) => {
   `;
 
   const allParams = [...queryParams, limit, offset];
-  const [result] = await pool.query(sql, allParams);
+  const [result] = await executor.query(sql, allParams);
 
   return {
     message: "success",
@@ -202,7 +206,8 @@ const updateSubscriptionPlan = async (
   `;
 
   try {
-    const [result] = await pool.query(sql, values);
+    const executor = transactionStorage.getStore() || pool;
+    const [result] = await executor.query(sql, values);
 
     if (result.affectedRows === 0) {
       throw new AppError(
@@ -233,7 +238,8 @@ const updateSubscriptionPlan = async (
 // Delete by uniqueId
 const deleteSubscriptionPlan = async (uniqueId) => {
   const sql = `DELETE FROM SubscriptionPlan WHERE subscriptionPlanUniqueId = ?`;
-  const [result] = await pool.query(sql, [uniqueId]);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, [uniqueId]);
 
   if (result.affectedRows === 0) {
     throw new AppError("Failed to delete subscription plan or not found", 404);

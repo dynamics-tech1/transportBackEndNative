@@ -1,11 +1,14 @@
 const services = require("../Services/Role.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 const createRoleController = async (req, res, next) => {
   try {
     const user = req.user;
     req.body.user = user;
-    const result = await services.createRole(req.body);
+    const result = await executeInTransaction(async () => {
+      return await services.createRole(req.body);
+    });
     return ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -25,10 +28,9 @@ const updateRoleController = async (req, res, next) => {
   try {
     const user = req.user;
     req.body.user = user;
-    const response = await services.updateRole(
-      req.params.roleUniqueId,
-      req.body,
-    );
+    const response = await executeInTransaction(async () => {
+      return await services.updateRole(req.params.roleUniqueId, req.body);
+    });
     ServerResponder(res, response);
   } catch (error) {
     next(error);
@@ -38,7 +40,9 @@ const updateRoleController = async (req, res, next) => {
 const deleteRoleController = async (req, res, next) => {
   try {
     const user = req.user;
-    const response = await services.deleteRole(req.params.roleUniqueId, user);
+    const response = await executeInTransaction(async () => {
+      return await services.deleteRole(req.params.roleUniqueId, user);
+    });
     ServerResponder(res, response);
   } catch (error) {
     next(error);

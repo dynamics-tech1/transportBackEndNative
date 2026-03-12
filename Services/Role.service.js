@@ -4,6 +4,7 @@ const { currentDate } = require("../Utils/CurrentDate");
 const { getData } = require("../CRUD/Read/ReadData");
 const { insertData } = require("../CRUD/Create/CreateData");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 const createRole = async (body) => {
   const { roleName, roleDescription, user } = body;
@@ -43,7 +44,8 @@ const getRole = async (roleUniqueId) => {
   const sql = `SELECT * FROM Roles WHERE roleUniqueId = ? AND roleDeletedAt IS NULL`;
 
   try {
-    const [rows] = await pool.query(sql, [roleUniqueId]);
+    const executor = transactionStorage.getStore() || pool;
+    const [rows] = await executor.query(sql, [roleUniqueId]);
     if (rows.length > 0) {
       return { message: "success", data: rows[0] };
     }
@@ -86,8 +88,9 @@ const updateRole = async (roleUniqueId, body) => {
   const sql = `UPDATE Roles SET ${setParts.join(", ")} WHERE roleUniqueId = ? AND roleDeletedAt IS NULL`;
   values.push(roleUniqueId);
 
+  const executor = transactionStorage.getStore() || pool;
   try {
-    const [result] = await pool.query(sql, values);
+    const [result] = await executor.query(sql, values);
     if (result.affectedRows > 0) {
       return { message: "success", data: "Role updated successfully" };
     }
@@ -104,8 +107,9 @@ const deleteRole = async (roleUniqueId, user) => {
   const userUniqueId = user?.userUniqueId;
   const sql = `UPDATE Roles SET roleDeletedAt = ?, roleDeletedBy = ? WHERE roleUniqueId = ?`;
 
+  const executor = transactionStorage.getStore() || pool;
   try {
-    const [result] = await pool.query(sql, [
+    const [result] = await executor.query(sql, [
       currentDate(),
       userUniqueId,
       roleUniqueId,
@@ -204,8 +208,9 @@ const getAllRoles = async (filters = {}) => {
   `;
 
   try {
-    const [dataRows] = await pool.query(dataSql, [...params, limit, offset]);
-    const [countRows] = await pool.query(countSql, params);
+    const executor = transactionStorage.getStore() || pool;
+    const [dataRows] = await executor.query(dataSql, [...params, limit, offset]);
+    const [countRows] = await executor.query(countSql, params);
     const total = countRows?.[0]?.total || 0;
 
     if (!dataRows || dataRows.length === 0) {

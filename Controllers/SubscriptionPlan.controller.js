@@ -1,15 +1,18 @@
 const subscriptionPlanService = require("../Services/SubscriptionPlan.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 exports.createSubscriptionPlan = async (req, res, next) => {
   try {
     const { planName, description, isFree, durationInDays } = req.body;
-    const result = await subscriptionPlanService.createSubscriptionPlan({
-      planName,
-      description,
-      isFree,
-      durationInDays,
-      user: req.user,
+    const result = await executeInTransaction(async () => {
+      return await subscriptionPlanService.createSubscriptionPlan({
+        planName,
+        description,
+        isFree,
+        durationInDays,
+        user: req.user,
+      });
     });
     ServerResponder(res, result);
   } catch (error) {
@@ -60,14 +63,16 @@ exports.updateSubscriptionPlan = async (req, res, next) => {
     const { uniqueId } = req.params;
     const { planName, description, isFree, durationInDays } = req.body;
     const updatedBy = req.user?.userUniqueId;
-    const result = await subscriptionPlanService.updateSubscriptionPlan(
-      uniqueId,
-      planName,
-      description,
-      isFree,
-      durationInDays,
-      updatedBy,
-    );
+    const result = await executeInTransaction(async () => {
+      return await subscriptionPlanService.updateSubscriptionPlan(
+        uniqueId,
+        planName,
+        description,
+        isFree,
+        durationInDays,
+        updatedBy,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -77,8 +82,9 @@ exports.updateSubscriptionPlan = async (req, res, next) => {
 exports.deleteSubscriptionPlan = async (req, res, next) => {
   try {
     const { uniqueId } = req.params;
-    const result =
-      await subscriptionPlanService.deleteSubscriptionPlan(uniqueId);
+    const result = await executeInTransaction(async () => {
+      return await subscriptionPlanService.deleteSubscriptionPlan(uniqueId);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

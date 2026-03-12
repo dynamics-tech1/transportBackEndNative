@@ -119,7 +119,9 @@ const acceptDriverRequest = async (req, res, next) => {
     const user = req?.user;
     const userUniqueId = user.userUniqueId;
     req.body.userUniqueId = userUniqueId;
-    const result = await PassengerService.acceptDriverRequest(req.body);
+    const result = await executeInTransaction(async () => {
+      return await PassengerService.acceptDriverRequest(req.body);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -133,7 +135,9 @@ const rejectDriverOffer = async (req, res, next) => {
     const user = req?.user;
     const userUniqueId = user.userUniqueId;
     req.body.userUniqueId = userUniqueId;
-    const result = await PassengerService.rejectDriverOffer(req.body);
+    const result = await executeInTransaction(async () => {
+      return await PassengerService.rejectDriverOffer(req.body);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -207,10 +211,9 @@ const getPassengerRequest4allOrSingleUser = async (req, res, next) => {
 
 const updateRequestById = async (req, res, next) => {
   try {
-    const result = await PassengerService.updateRequestById(
-      req.params.id,
-      req.body,
-    );
+    const result = await executeInTransaction(async () => {
+      return await PassengerService.updateRequestById(req.params.id, req.body);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -219,7 +222,9 @@ const updateRequestById = async (req, res, next) => {
 
 const deleteRequest = async (req, res, next) => {
   try {
-    const result = await PassengerService.deleteRequest(req.params.id);
+    const result = await executeInTransaction(async () => {
+      return await PassengerService.deleteRequest(req.params.id);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -266,7 +271,9 @@ const cancelPassengerRequest = async (req, res, next) => {
     req.body.user = req.user;
     req.body.cancellationJourneyStatusId = cancellationJourneyStatusId;
 
-    const result = await PassengerService.cancelPassengerRequest(req.body);
+    const result = await executeInTransaction(async () => {
+      return await PassengerService.cancelPassengerRequest(req.body);
+    });
     ServerResponder(res, result, 200);
   } catch (error) {
     next(error);
@@ -277,7 +284,9 @@ const markJourneyCompletionAsSeenController = async (req, res, next) => {
     const user = req.user;
     const userUniqueId = user?.userUniqueId;
     req.body.userUniqueId = userUniqueId;
-    const result = await PassengerService.seenByPassenger(req.body);
+    const result = await executeInTransaction(async () => {
+      return await PassengerService.seenByPassenger(req.body);
+    });
     ServerResponder(res, result, 200);
   } catch (error) {
     next(error);
@@ -315,11 +324,9 @@ const markCancellationAsSeenController = async (req, res, next) => {
       throw new AppError("Missing required fields", 400);
     }
 
-    const result = await PassengerService.markCancellationAsSeen({
-      journeyDecisionUniqueId,
-      userUniqueId,
+    const result = await executeInTransaction(async () => {
+      return await PassengerService.markCancellationAsSeen(req.body);
     });
-
     ServerResponder(res, result, 200);
   } catch (error) {
     next(error);

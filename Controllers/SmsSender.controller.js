@@ -1,15 +1,18 @@
 const smsSenderService = require("../Services/SMSSender.service");
 const ServerResponder = require("../Utils/ServerResponder");
 const AppError = require("../Utils/AppError");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 // controller createSMSSender
 const createSMSSender = async (req, res, next) => {
   try {
     const { phoneNumber, password } = req.body;
 
-    const result = await smsSenderService.createSMSSender({
-      phoneNumber,
-      password,
+    const result = await executeInTransaction(async () => {
+      return await smsSenderService.createSMSSender({
+        phoneNumber,
+        password,
+      });
     });
 
     ServerResponder(res, result);
@@ -44,9 +47,11 @@ const updateSMSSender = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { phoneNumber, password } = req.body;
-    const result = await smsSenderService.updateSMSSender(id, {
-      phoneNumber,
-      password,
+    const result = await executeInTransaction(async () => {
+      return await smsSenderService.updateSMSSender(id, {
+        phoneNumber,
+        password,
+      });
     });
     if (result.affectedRows === 0) {
       return next(new AppError("SMS sender not found", 404));
@@ -60,7 +65,9 @@ const updateSMSSender = async (req, res, next) => {
 const deleteSMSSender = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await smsSenderService.deleteSMSSender(id);
+    const result = await executeInTransaction(async () => {
+      return await smsSenderService.deleteSMSSender(id);
+    });
     if (result.affectedRows === 0) {
       return next(new AppError("SMS sender not found", 404));
     }

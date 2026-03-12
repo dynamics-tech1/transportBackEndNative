@@ -1,13 +1,16 @@
 const paymentStatusService = require("../Services/PaymentStatus.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 // Create a new payment status
 exports.createPaymentStatus = async (req, res, next) => {
   try {
     const { paymentStatus } = req.body;
-    const result = await paymentStatusService.createPaymentStatus({
-      paymentStatus,
-      user: req.user,
+    const result = await executeInTransaction(async () => {
+      return await paymentStatusService.createPaymentStatus({
+        paymentStatus,
+        user: req.user,
+      });
     });
     ServerResponder(res, result);
   } catch (error) {
@@ -30,10 +33,12 @@ exports.updatePaymentStatus = async (req, res, next) => {
   try {
     const { paymentStatusUniqueId } = req.params;
     const { paymentStatus } = req.body;
-    const result = await paymentStatusService.updatePaymentStatus(
-      paymentStatusUniqueId,
-      { paymentStatus, user: req.user },
-    );
+    const result = await executeInTransaction(async () => {
+      return await paymentStatusService.updatePaymentStatus(
+        paymentStatusUniqueId,
+        { paymentStatus, user: req.user },
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -44,10 +49,12 @@ exports.updatePaymentStatus = async (req, res, next) => {
 exports.deletePaymentStatus = async (req, res, next) => {
   try {
     const { paymentStatusUniqueId } = req.params;
-    const result = await paymentStatusService.deletePaymentStatus(
-      paymentStatusUniqueId,
-      req.user,
-    );
+    const result = await executeInTransaction(async () => {
+      return await paymentStatusService.deletePaymentStatus(
+        paymentStatusUniqueId,
+        req.user,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

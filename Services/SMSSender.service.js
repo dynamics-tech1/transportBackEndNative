@@ -4,6 +4,7 @@ const createJWT = require("../Utils/CreateJWT");
 const bcrypt = require("bcryptjs");
 const verifyPassword = require("../Utils/VerifyPassword");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 // Create a new SMS sender
 const createSMSSender = async ({ phoneNumber, password }) => {
   try {
@@ -45,7 +46,8 @@ const createSMSSender = async ({ phoneNumber, password }) => {
     // If user does not exist, hash the password and create a new record
     const hashedPassword = await bcrypt.hash(password, 10);
     const sql = `INSERT INTO SMSSender (phoneNumber, password) VALUES (?, ?)`;
-    const [result] = await pool.query(sql, [phoneNumber, hashedPassword]);
+    const executor = transactionStorage.getStore() || pool;
+    const [result] = await executor.query(sql, [phoneNumber, hashedPassword]);
 
     if (result.affectedRows === 0) {
       throw new AppError("Failed to create SMSSender record", 500);
@@ -77,28 +79,32 @@ const createSMSSender = async ({ phoneNumber, password }) => {
 // Get all SMS senders
 const getAllSMSSenders = async () => {
   const sql = `SELECT * FROM SMSSender`;
-  const [result] = await pool.query(sql);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql);
   return result;
 };
 
 // Get a single SMS sender by ID
 const getSMSSenderById = async (id) => {
   const sql = `SELECT * FROM SMSSender WHERE SMSSenderId = ?`;
-  const [result] = await pool.query(sql, [id]);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, [id]);
   return result[0];
 };
 
 // Update an SMS sender by ID
 const updateSMSSender = async (id, { phoneNumber, password }) => {
   const sql = `UPDATE SMSSender SET phoneNumber = ?, password = ? WHERE SMSSenderId = ?`;
-  const [result] = await pool.query(sql, [phoneNumber, password, id]);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, [phoneNumber, password, id]);
   return result;
 };
 
 // Delete an SMS sender by ID
 const deleteSMSSender = async (id) => {
   const sql = `DELETE FROM SMSSender WHERE SMSSenderId = ?`;
-  const [result] = await pool.query(sql, [id]);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, [id]);
   return result;
 };
 

@@ -3,6 +3,7 @@ const { pool } = require("../Middleware/Database.config");
 const { getData } = require("../CRUD/Read/ReadData");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 // Create a new payment method
 exports.createPaymentMethod = async ({ paymentMethod, user }) => {
@@ -18,7 +19,8 @@ exports.createPaymentMethod = async ({ paymentMethod, user }) => {
   const createdAt = currentDate();
   const sql = `INSERT INTO PaymentMethod (paymentMethodUniqueId, paymentMethod, paymentMethodCreatedBy, paymentMethodCreatedAt) VALUES (?, ?, ?, ?)`;
   const values = [paymentMethodUniqueId, paymentMethod, createdBy, createdAt];
-  await pool.query(sql, values);
+  const executor = transactionStorage.getStore() || pool;
+  await executor.query(sql, values);
 
   return {
     message: "success",
@@ -90,8 +92,9 @@ exports.getAllPaymentMethods = async (filters = {}) => {
     ${whereClause}
   `;
 
-  const [rows] = await pool.query(dataSql, [...params, limit, offset]);
-  const [countRows] = await pool.query(countSql, params);
+  const executor = transactionStorage.getStore() || pool;
+  const [rows] = await executor.query(dataSql, [...params, limit, offset]);
+  const [countRows] = await executor.query(countSql, params);
   const total = countRows?.[0]?.total || 0;
 
   return {
@@ -112,7 +115,8 @@ exports.updatePaymentMethod = async (
   updateData = {},
 ) => {
   const userUniqueId = updateData.user?.userUniqueId;
-  const [existing] = await pool.query(
+  const executor = transactionStorage.getStore() || pool;
+  const [existing] = await executor.query(
     "SELECT paymentMethodUniqueId FROM PaymentMethod WHERE paymentMethodUniqueId = ?",
     [paymentMethodUniqueId],
   );
@@ -141,7 +145,7 @@ exports.updatePaymentMethod = async (
 
   values.push(paymentMethodUniqueId);
   const sql = `UPDATE PaymentMethod SET ${setParts.join(", ")} WHERE paymentMethodUniqueId = ?`;
-  const [result] = await pool.query(sql, values);
+  const [result] = await executor.query(sql, values);
 
   if (result.affectedRows === 0) {
     throw new AppError("Failed to update payment method", 500);
@@ -156,7 +160,8 @@ exports.updatePaymentMethod = async (
 // Delete a specific payment method by ID
 exports.deletePaymentMethod = async (paymentMethodUniqueId, user) => {
   const userUniqueId = user?.userUniqueId;
-  const [existing] = await pool.query(
+  const executor = transactionStorage.getStore() || pool;
+  const [existing] = await executor.query(
     "SELECT paymentMethodUniqueId FROM PaymentMethod WHERE paymentMethodUniqueId = ?",
     [paymentMethodUniqueId],
   );
@@ -166,7 +171,7 @@ exports.deletePaymentMethod = async (paymentMethodUniqueId, user) => {
   }
 
   const sql = `UPDATE PaymentMethod SET paymentMethodDeletedAt = ?, paymentMethodDeletedBy = ? WHERE paymentMethodUniqueId = ?`;
-  const [result] = await pool.query(sql, [
+  const [result] = await executor.query(sql, [
     currentDate(),
     userUniqueId,
     paymentMethodUniqueId,

@@ -2,15 +2,18 @@ const paymentMethodService = require("../Services/PaymentMethod.service");
 const { usersRoles } = require("../Utils/ListOfSeedData");
 const ServerResponder = require("../Utils/ServerResponder");
 const AppError = require("../Utils/AppError");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 // Create a new payment method
 exports.createPaymentMethod = async (req, res, next) => {
   try {
     const { paymentMethod } = req.body;
     const user = req.user;
-    const result = await paymentMethodService.createPaymentMethod({
-      paymentMethod,
-      user,
+    const result = await executeInTransaction(async () => {
+      return await paymentMethodService.createPaymentMethod({
+        paymentMethod,
+        user,
+      });
     });
     ServerResponder(res, result);
   } catch (error) {
@@ -42,10 +45,12 @@ exports.updatePaymentMethod = async (req, res, next) => {
     }
     const { paymentMethodUniqueId } = req.params;
     const { paymentMethod } = req.body;
-    const result = await paymentMethodService.updatePaymentMethod(
-      paymentMethodUniqueId,
-      { paymentMethod, user },
-    );
+    const result = await executeInTransaction(async () => {
+      return await paymentMethodService.updatePaymentMethod(
+        paymentMethodUniqueId,
+        { paymentMethod, user },
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -65,10 +70,12 @@ exports.deletePaymentMethod = async (req, res, next) => {
       throw new AppError("Unauthorized", 403);
     }
     const { paymentMethodUniqueId } = req.params;
-    const result = await paymentMethodService.deletePaymentMethod(
-      paymentMethodUniqueId,
-      req.user,
-    );
+    const result = await executeInTransaction(async () => {
+      return await paymentMethodService.deletePaymentMethod(
+        paymentMethodUniqueId,
+        req.user,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

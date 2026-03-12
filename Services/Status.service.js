@@ -4,6 +4,7 @@ const { currentDate } = require("../Utils/CurrentDate");
 const { getData } = require("../CRUD/Read/ReadData");
 const { insertData } = require("../CRUD/Create/CreateData");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 const createStatus = async (body) => {
   const { statusName, statusDescription, user } = body;
@@ -66,7 +67,8 @@ const updateStatus = async (statusUniqueId, body) => {
   const sql = `UPDATE Statuses SET ${setParts.join(", ")} WHERE statusUniqueId = ? AND statusDeletedAt IS NULL`;
   values.push(statusUniqueId);
 
-  const [result] = await pool.query(sql, values);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, values);
   if (result.affectedRows === 0) {
     throw new AppError("Status update failed or status not found", 404);
   }
@@ -77,7 +79,8 @@ const deleteStatus = async (id, user) => {
   const userUniqueId = user?.userUniqueId;
   const sql = `UPDATE Statuses SET statusDeletedAt = ?, statusDeletedBy = ? WHERE statusUniqueId = ?`;
 
-  const [result] = await pool.query(sql, [currentDate(), userUniqueId, id]);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, [currentDate(), userUniqueId, id]);
   if (result.affectedRows === 0) {
     throw new AppError("Status deletion failed or status not found", 404);
   }
@@ -117,8 +120,9 @@ const getAllStatuses = async (filters = {}) => {
     ${whereClause}
   `;
 
-  const [dataRows] = await pool.query(dataSql, [...params, limit, offset]);
-  const [countRows] = await pool.query(countSql, params);
+  const executor = transactionStorage.getStore() || pool;
+  const [dataRows] = await executor.query(dataSql, [...params, limit, offset]);
+  const [countRows] = await executor.query(countSql, params);
   const total = countRows?.[0]?.total || 0;
   return {
     message: "success",

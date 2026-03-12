@@ -1,6 +1,7 @@
 const service = require("../Services/SubscriptionPlanPricing.service");
 const { currentDate } = require("../Utils/CurrentDate");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 // Create
 exports.createPricing = async (req, res, next) => {
@@ -26,7 +27,9 @@ exports.createPricing = async (req, res, next) => {
       effectiveTo,
       user,
     };
-    const result = await service.createPricing(subscriptionPlanUniqueIdOrObj);
+    const result = await executeInTransaction(async () => {
+      return await service.createPricing(subscriptionPlanUniqueIdOrObj);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -114,18 +117,20 @@ exports.updatePricingByUniqueId = async (req, res, next) => {
     } = req.body;
     const updatedBy = req.user?.userUniqueId;
 
-    const result = await service.updatePricingByUniqueId(
-      subscriptionPlanPricingUniqueId,
-      {
-        isFree,
-        price,
-        durationInDays,
-        effectiveFrom,
-        effectiveTo,
-        subscriptionPlanUniqueId,
-      },
-      updatedBy,
-    );
+    const result = await executeInTransaction(async () => {
+      return await service.updatePricingByUniqueId(
+        subscriptionPlanPricingUniqueId,
+        {
+          isFree,
+          price,
+          durationInDays,
+          effectiveFrom,
+          effectiveTo,
+          subscriptionPlanUniqueId,
+        },
+        updatedBy,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -136,9 +141,11 @@ exports.updatePricingByUniqueId = async (req, res, next) => {
 exports.deletePricingByUniqueId = async (req, res, next) => {
   try {
     const { subscriptionPlanPricingUniqueId } = req.params;
-    const result = await service.deletePricingByUniqueId(
-      subscriptionPlanPricingUniqueId,
-    );
+    const result = await executeInTransaction(async () => {
+      return await service.deletePricingByUniqueId(
+        subscriptionPlanPricingUniqueId,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

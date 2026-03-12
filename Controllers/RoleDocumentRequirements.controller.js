@@ -1,6 +1,7 @@
 const RoleDocumentRequirementsService = require("../Services/RoleDocumentRequirements.service");
 const { getUserByUserUniqueId } = require("../Services/User.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 // Create a new role-document mapping
 const createMapping = async (req, res, next) => {
@@ -8,8 +9,10 @@ const createMapping = async (req, res, next) => {
     const user = req?.user;
     const userUniqueId = user?.userUniqueId;
     req.body.userUniqueId = userUniqueId;
-    const result = await RoleDocumentRequirementsService.createMapping({
-      body: req.body,
+    const result = await executeInTransaction(async () => {
+      return await RoleDocumentRequirementsService.createMapping({
+        body: req.body,
+      });
     });
     ServerResponder(res, result);
   } catch (error) {
@@ -32,10 +35,11 @@ const driversDocumentVehicleRequirement = async (req, res, next) => {
     }
 
     req.body.ownerUserUniqueId = ownerUserUniqueId;
-    const result =
-      await RoleDocumentRequirementsService.driversDocumentVehicleRequirement(
+    const result = await executeInTransaction(async () => {
+      return await RoleDocumentRequirementsService.driversDocumentVehicleRequirement(
         req.body,
       );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -91,13 +95,15 @@ const getRoleDocumentRequirements = async (req, res, next) => {
 // Update a mapping by ID
 const updateMapping = async (req, res, next) => {
   try {
-    const result = await RoleDocumentRequirementsService.updateMapping(
-      req.params.roleDocumentRequirementUniqueId,
-      {
-        ...req.body,
-        roleDocumentRequirementUpdatedBy: req?.user?.userUniqueId,
-      },
-    );
+    const result = await executeInTransaction(async () => {
+      return await RoleDocumentRequirementsService.updateMapping(
+        req.params.roleDocumentRequirementUniqueId,
+        {
+          ...req.body,
+          roleDocumentRequirementUpdatedBy: req?.user?.userUniqueId,
+        },
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -107,10 +113,12 @@ const updateMapping = async (req, res, next) => {
 // Delete a mapping by ID
 const deleteMapping = async (req, res, next) => {
   try {
-    const result = await RoleDocumentRequirementsService.deleteMapping(
-      req.params.roleDocumentRequirementUniqueId,
-      req?.user?.userUniqueId,
-    );
+    const result = await executeInTransaction(async () => {
+      return await RoleDocumentRequirementsService.deleteMapping(
+        req.params.roleDocumentRequirementUniqueId,
+        req?.user?.userUniqueId,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

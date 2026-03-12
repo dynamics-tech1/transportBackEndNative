@@ -1,16 +1,19 @@
 const ratingsService = require("../Services/Ratings.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 // Create a new rating
 exports.createRating = async (req, res, next) => {
   try {
     const { journeyDecisionUniqueId, rating, comment } = req.body;
     const ratedBy = req.user.userUniqueId;
-    const result = await ratingsService.createRating({
-      journeyDecisionUniqueId,
-      ratedBy,
-      rating,
-      comment,
+    const result = await executeInTransaction(async () => {
+      return await ratingsService.createRating({
+        journeyDecisionUniqueId,
+        ratedBy,
+        rating,
+        comment,
+      });
     });
     ServerResponder(res, result);
   } catch (error) {
@@ -46,7 +49,9 @@ exports.updateRating = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { rating, comment } = req.body;
-    const result = await ratingsService.updateRating(id, rating, comment);
+    const result = await executeInTransaction(async () => {
+      return await ratingsService.updateRating(id, rating, comment);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -57,7 +62,9 @@ exports.updateRating = async (req, res, next) => {
 exports.deleteRating = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await ratingsService.deleteRating(id);
+    const result = await executeInTransaction(async () => {
+      return await ratingsService.deleteRating(id);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

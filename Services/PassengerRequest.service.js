@@ -92,8 +92,7 @@ const createPassengerRequest = async (
   return newRequests;
 };
 const acceptDriverRequest = async (body) => {
-  return await executeInTransaction(async () => {
-    const userUniqueId = body?.userUniqueId;
+  const userUniqueId = body?.userUniqueId;
     const driverRequestUniqueId = body?.driverRequestUniqueId;
     const journeyDecisionUniqueId = body?.journeyDecisionUniqueId;
 
@@ -172,11 +171,9 @@ const acceptDriverRequest = async (body) => {
       }
     }
     return "Driver request accepted successfully";
-  });
 };
 
 const rejectDriverOffer = async (body) => {
-  return await executeInTransaction(async () => {
     // Validate required fields
     const requiredFields = [
       "passengerRequestId",
@@ -242,7 +239,6 @@ const rejectDriverOffer = async (body) => {
     }
 
     return "Driver offer rejected successfully";
-  });
 };
 // const getAllActiveRequests = async () => {
 //   const activeStatusIds = [
@@ -387,8 +383,9 @@ const getAllActiveRequests = async (filters = {}) => {
   baseQuery += ` ORDER BY pr.${sortBy} ${sortOrder} LIMIT ? OFFSET ?`;
   values.push(parseInt(limit), parseInt(offset));
 
-  const [countResults] = await pool.query(countQuery, values.slice(0, -2));
-  const [results] = await pool.query(baseQuery, values);
+  const executor = transactionStorage.getStore() || pool;
+  const [countResults] = await executor.query(countQuery, values.slice(0, -2));
+  const [results] = await executor.query(baseQuery, values);
 
   const totalCount = countResults[0]?.totalCount || 0;
   const totalPages = Math.ceil(totalCount / limit);
@@ -698,7 +695,8 @@ const getPassengerRequest4allOrSingleUser = async ({ data }) => {
   `;
 
   queryParams.push(parseInt(limit), offset);
-  const [passengerRequests] = await pool.query(sqlToGetRequests, queryParams);
+  const executor = transactionStorage.getStore() || pool;
+  const [passengerRequests] = await executor.query(sqlToGetRequests, queryParams);
 
   const sqlCount = `
 SELECT COUNT(*) as total 
@@ -708,7 +706,7 @@ JOIN VehicleTypes ON VehicleTypes.vehicleTypeUniqueId = PassengerRequest.vehicle
 ${whereClause}
 `;
 
-  const [countResult] = await pool.query(sqlCount, countParams);
+  const [countResult] = await executor.query(sqlCount, countParams);
   const total = countResult[0]?.total || 0;
   const totalPages = Math.ceil(total / limit);
   const formattedData = await getDetailedJourneyData(passengerRequests);
@@ -815,58 +813,52 @@ const cancelPassengerRequest = async (body) => {
 
   const driverNotificationData = [];
 
-  await executeInTransaction(
-    async () => {
-      await updateData({
-        tableName: "PassengerRequest",
-        conditions: { passengerRequestId },
-        updateValues: {
-          journeyStatusId: cancellationJourneyStatusId,
-        },
-      });
+  await (async () => {
+    await updateData({
+      tableName: "PassengerRequest",
+      conditions: { passengerRequestId },
+      updateValues: {
+        journeyStatusId: cancellationJourneyStatusId,
+      },
+    });
 
-      if (journeyDecisions.length) {
-        for (const journeyDecision of journeyDecisions) {
-          const { journeyDecisionUniqueId, driverRequestId } = journeyDecision;
+    if (journeyDecisions.length) {
+      for (const journeyDecision of journeyDecisions) {
+        const { journeyDecisionUniqueId, driverRequestId } = journeyDecision;
 
-          if (driverRequestId) {
-            await updateData({
-              tableName: "DriverRequest",
-              conditions: { driverRequestId },
-              updateValues: {
-                journeyStatusId: cancellationJourneyStatusId,
-                isCancellationByPassengerSeenByDriver: "not seen by driver yet",
-              },
-            });
-          }
-
-          if (journeyDecisionUniqueId) {
-            await updateData({
-              tableName: "JourneyDecisions",
-              conditions: { journeyDecisionUniqueId },
-              updateValues: { journeyStatusId: cancellationJourneyStatusId },
-            });
-
-            await updateData({
-              tableName: "Journey",
-              conditions: { journeyDecisionUniqueId },
-              updateValues: { journeyStatusId: cancellationJourneyStatusId },
-            });
-          }
-
-          driverNotificationData.push({
-            journeyDecision,
-            driverRequestId,
-            journeyDecisionUniqueId,
+        if (driverRequestId) {
+          await updateData({
+            tableName: "DriverRequest",
+            conditions: { driverRequestId },
+            updateValues: {
+              journeyStatusId: cancellationJourneyStatusId,
+              isCancellationByPassengerSeenByDriver: "not seen by driver yet",
+            },
           });
         }
+
+        if (journeyDecisionUniqueId) {
+          await updateData({
+            tableName: "JourneyDecisions",
+            conditions: { journeyDecisionUniqueId },
+            updateValues: { journeyStatusId: cancellationJourneyStatusId },
+          });
+
+          await updateData({
+            tableName: "Journey",
+            conditions: { journeyDecisionUniqueId },
+            updateValues: { journeyStatusId: cancellationJourneyStatusId },
+          });
+        }
+
+        driverNotificationData.push({
+          journeyDecision,
+          driverRequestId,
+          journeyDecisionUniqueId,
+        });
       }
-    },
-    {
-      timeout: 20000,
-      logging: true,
-    },
-  );
+    }
+  })();
 
   if (journeyDecisions.length && driverNotificationData.length) {
     const notificationPromises = driverNotificationData.map(
@@ -1033,7 +1025,6 @@ const getRecentCompletedJourney = async (user) => {
   return { message: "success", data: results };
 };
 const seenByPassenger = async (body) => {
-  return await executeInTransaction(async () => {
     const {
       userUniqueId,
       passengerRequestUniqueId,
@@ -1056,7 +1047,6 @@ const seenByPassenger = async (body) => {
     ]);
 
     return "Data seen by passenger";
-  });
 };
 
 // this function is used to get status of passenger and find driver if driver is not found.
@@ -1140,7 +1130,8 @@ const getCancellationNotifications = async ({
       WHERE ${whereConditions.join(" AND ")}
     `;
 
-  const [countResults] = await pool.query(countSql, queryParams);
+  const executor = transactionStorage.getStore() || pool;
+  const [countResults] = await executor.query(countSql, queryParams);
   const total = countResults[0]?.total || 0;
 
   const paginatedQueryParams = [
@@ -1149,7 +1140,7 @@ const getCancellationNotifications = async ({
     parseInt(offset),
   ];
 
-  const [results] = await pool.query(sql, paginatedQueryParams);
+  const [results] = await executor.query(sql, paginatedQueryParams);
 
   if (results.length === 0) {
     return {
@@ -1316,7 +1307,6 @@ const verifyPassengerStatus = async ({
   pageSize,
   page,
 }) => {
-  return await executeInTransaction(async () => {
   if (!activeRequest || activeRequest?.length === 0) {
     const dataOfActiveRequest = await checkActivePassengerRequest({
       userUniqueId,
@@ -1590,7 +1580,6 @@ const verifyPassengerStatus = async ({
       pageSize,
       page,
     };
-  });
 };
 
 // verifyPassengerStatus ends here

@@ -3,6 +3,7 @@ const { pool } = require("../Middleware/Database.config");
 const { getData } = require("../CRUD/Read/ReadData");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 // Create a new payment (DEPRECATED - Use JourneyPayments.service.js instead)
 exports.createPayment = async (
@@ -29,7 +30,8 @@ exports.createPayment = async (
     paymentStatusUniqueId,
     currentDate(),
   ];
-  const [result] = await pool.query(sql, values);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, values);
 
   return {
     message: "success",
@@ -48,7 +50,8 @@ exports.createPayment = async (
 // Get all payments (DEPRECATED - Use JourneyPayments.service.js instead)
 exports.getAllPayments = async () => {
   const sql = `SELECT * FROM JourneyPayments LIMIT 30`; // Retrieve only the last 30 entries
-  const [result] = await pool.query(sql);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql);
 
   return { message: "success", data: result };
 };
@@ -56,7 +59,8 @@ exports.getAllPayments = async () => {
 // Get a specific payment by ID (DEPRECATED - Use JourneyPayments.service.js instead)
 exports.getPaymentById = async (paymentId) => {
   const sql = `SELECT * FROM JourneyPayments WHERE paymentId = ?`;
-  const [result] = await pool.query(sql, [paymentId]);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, [paymentId]);
 
   if (result.length === 0) {
     throw new AppError("Payment not found", 404);
@@ -85,7 +89,8 @@ exports.getPaymentsByUserUniqueId = async (params, userUniqueId) => {
       LIMIT 10
     `;
     values = [userUniqueId];
-    result = (await pool.query(sql, values))?.[0];
+    const executor = transactionStorage.getStore() || pool;
+    result = (await executor.query(sql, values))?.[0];
   } else {
     sql = `
       SELECT jp.* 
@@ -96,7 +101,8 @@ exports.getPaymentsByUserUniqueId = async (params, userUniqueId) => {
       ORDER BY jp.paymentId DESC
     `;
     values = [userUniqueId, fromDate, toDate];
-    result = (await pool.query(sql, values))?.[0];
+    const executor = transactionStorage.getStore() || pool;
+    result = (await executor.query(sql, values))?.[0];
   }
 
   return { message: "success", data: result || [] };
@@ -118,7 +124,8 @@ exports.updatePayment = async (
     paymentTime,
     paymentId,
   ];
-  const [result] = await pool.query(sql, values);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, values);
 
   if (result.affectedRows === 0) {
     throw new AppError("Failed to update payment or payment not found", 404);
@@ -139,7 +146,8 @@ exports.updatePayment = async (
 // Delete a specific payment by ID (DEPRECATED - Use JourneyPayments.service.js instead)
 exports.deletePayment = async (paymentId) => {
   const sql = `DELETE FROM JourneyPayments WHERE paymentId = ?`;
-  const [result] = await pool.query(sql, [paymentId]);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, [paymentId]);
 
   if (result.affectedRows === 0) {
     throw new AppError("Failed to delete payment or payment not found", 404);

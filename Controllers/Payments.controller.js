@@ -1,5 +1,6 @@
 const paymentsService = require("../Services/Payments.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 // Create a new payment
 exports.createPayment = async (req, res, next) => {
@@ -11,13 +12,15 @@ exports.createPayment = async (req, res, next) => {
       paymentStatusUniqueId,
       paymentTime,
     } = req.body;
-    const result = await paymentsService.createPayment(
-      journeyId,
-      amount,
-      paymentMethodUniqueId,
-      paymentStatusUniqueId,
-      paymentTime,
-    );
+    const result = await executeInTransaction(async () => {
+      return await paymentsService.createPayment(
+        journeyId,
+        amount,
+        paymentMethodUniqueId,
+        paymentStatusUniqueId,
+        paymentTime,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -74,13 +77,15 @@ exports.updatePayment = async (req, res, next) => {
       paymentStatusUniqueId,
       paymentTime,
     } = req.body;
-    const result = await paymentsService.updatePayment(
-      id,
-      amount,
-      paymentMethodUniqueId,
-      paymentStatusUniqueId,
-      paymentTime,
-    );
+    const result = await executeInTransaction(async () => {
+      return await paymentsService.updatePayment(
+        id,
+        amount,
+        paymentMethodUniqueId,
+        paymentStatusUniqueId,
+        paymentTime,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -91,7 +96,9 @@ exports.updatePayment = async (req, res, next) => {
 exports.deletePayment = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await paymentsService.deletePayment(id);
+    const result = await executeInTransaction(async () => {
+      return await paymentsService.deletePayment(id);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

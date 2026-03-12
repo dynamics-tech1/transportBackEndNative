@@ -1,6 +1,7 @@
 const { pool } = require("../Middleware/Database.config");
 const AppError = require("../Utils/AppError");
 const { currentDate } = require("../Utils/CurrentDate");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 // Create a new rating
 exports.createRating = async ({
@@ -31,7 +32,8 @@ exports.createRating = async ({
       ratedBy,
       currentDate(),
     ];
-    const [result] = await pool.query(sql, values);
+    const executor = transactionStorage.getStore() || pool;
+    const [result] = await executor.query(sql, values);
 
     return {
       message: "success",
@@ -95,7 +97,8 @@ exports.getAllRatings = async ({
 
   // Get total count for pagination
   const countSql = `SELECT COUNT(*) as total FROM Ratings r ${joinClause} ${whereClause}`;
-  const [countResult] = await pool.query(countSql, params);
+  const executor = transactionStorage.getStore() || pool;
+  const [countResult] = await executor.query(countSql, params);
   const total = countResult[0].total;
 
   // Get paginated results - basic query without user columns first
@@ -118,7 +121,7 @@ exports.getAllRatings = async ({
     Number.parseInt(limit),
     Number.parseInt(offset),
   ];
-  const [result] = await pool.query(dataSql, dataParams);
+  const [result] = await executor.query(dataSql, dataParams);
 
   return {
     message: "success",
@@ -150,7 +153,8 @@ exports.getRatingById = async (ratingId) => {
     LEFT JOIN Users u ON r.ratedBy = u.userUniqueId
     WHERE r.ratingId = ?
   `;
-  const [result] = await pool.query(sql, [ratingId]);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, [ratingId]);
 
   if (result.length > 0) {
     return { message: "success", data: result[0] };
@@ -162,7 +166,8 @@ exports.getRatingById = async (ratingId) => {
 exports.updateRating = async (ratingId, rating, comment, updatedBy) => {
   const sql = `UPDATE Ratings SET rating = ?, comment = ?, ratingUpdatedBy = ?, ratingUpdatedAt = ? WHERE ratingId = ?`;
   const values = [rating, comment, updatedBy, currentDate(), ratingId];
-  const [result] = await pool.query(sql, values);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, values);
 
   if (result.affectedRows > 0) {
     return {
@@ -178,7 +183,8 @@ exports.updateRating = async (ratingId, rating, comment, updatedBy) => {
 exports.deleteRating = async (ratingId, deletedBy) => {
   const sql = `UPDATE Ratings SET isDeleted = 1, ratingDeletedBy = ?, ratingDeletedAt = ? WHERE ratingId = ?`;
   const values = [deletedBy, currentDate(), ratingId];
-  const [result] = await pool.query(sql, values);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, values);
 
   if (result.affectedRows > 0) {
     return {

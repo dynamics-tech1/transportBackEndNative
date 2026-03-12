@@ -3,6 +3,7 @@ const { pool } = require("../Middleware/Database.config");
 const { getData } = require("../CRUD/Read/ReadData");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 // Create a new payment status
 exports.createPaymentStatus = async ({ paymentStatus }) => {
@@ -18,7 +19,8 @@ exports.createPaymentStatus = async ({ paymentStatus }) => {
   const paymentStatusUniqueId = uuidv4();
   const sql = `INSERT INTO PaymentStatus (paymentStatusUniqueId, paymentStatus, paymentStatusCreatedAt) VALUES (?, ?, ?)`;
   const values = [paymentStatusUniqueId, paymentStatus, currentDate()];
-  await pool.query(sql, values);
+  const executor = transactionStorage.getStore() || pool;
+  await executor.query(sql, values);
 
   return {
     message: "success",
@@ -75,8 +77,9 @@ exports.getAllPaymentStatuses = async (filters = {}) => {
     ${whereClause}
   `;
 
-  const [rows] = await pool.query(dataSql, [...params, limit, offset]);
-  const [countRows] = await pool.query(countSql, params);
+  const executor = transactionStorage.getStore() || pool;
+  const [rows] = await executor.query(dataSql, [...params, limit, offset]);
+  const [countRows] = await executor.query(countSql, params);
   const total = countRows?.[0]?.total || 0;
 
   return {
@@ -97,7 +100,8 @@ exports.updatePaymentStatus = async (
   updateData = {},
 ) => {
   const userUniqueId = updateData.user?.userUniqueId;
-  const [existing] = await pool.query(
+  const executor = transactionStorage.getStore() || pool;
+  const [existing] = await executor.query(
     "SELECT paymentStatusUniqueId FROM PaymentStatus WHERE paymentStatusUniqueId = ? AND paymentStatusDeletedAt IS NULL",
     [paymentStatusUniqueId],
   );
@@ -126,7 +130,7 @@ exports.updatePaymentStatus = async (
 
   values.push(paymentStatusUniqueId);
   const sql = `UPDATE PaymentStatus SET ${setParts.join(", ")} WHERE paymentStatusUniqueId = ? AND paymentStatusDeletedAt IS NULL`;
-  const [result] = await pool.query(sql, values);
+  const [result] = await executor.query(sql, values);
 
   if (result.affectedRows === 0) {
     throw new AppError("Failed to update payment status", 500);
@@ -141,7 +145,8 @@ exports.updatePaymentStatus = async (
 // Soft delete a specific payment status by ID
 exports.deletePaymentStatus = async (paymentStatusUniqueId, user) => {
   const userUniqueId = user?.userUniqueId;
-  const [existing] = await pool.query(
+  const executor = transactionStorage.getStore() || pool;
+  const [existing] = await executor.query(
     "SELECT paymentStatusUniqueId, paymentStatusDeletedAt FROM PaymentStatus WHERE paymentStatusUniqueId = ?",
     [paymentStatusUniqueId],
   );
@@ -156,7 +161,7 @@ exports.deletePaymentStatus = async (paymentStatusUniqueId, user) => {
 
   const paymentStatusDeletedAt = currentDate();
   const sql = `UPDATE PaymentStatus SET paymentStatusDeletedAt = ?, paymentStatusDeletedBy = ? WHERE paymentStatusUniqueId = ? AND paymentStatusDeletedAt IS NULL`;
-  const [result] = await pool.query(sql, [
+  const [result] = await executor.query(sql, [
     paymentStatusDeletedAt,
     userUniqueId,
     paymentStatusUniqueId,
