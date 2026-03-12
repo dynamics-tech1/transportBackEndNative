@@ -4,6 +4,7 @@ const { deleteFile } = require("../Utils/FileUtils");
 const { getData } = require("../CRUD/Read/ReadData");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 const checkVehicleTypeDuplicate = async ({
   vehicleTypeName,
@@ -73,7 +74,8 @@ const createVehicleType = async (data) => {
     currentDate(), // East African Time timestamp
   ];
 
-  await pool.query(query, values);
+  const executor = transactionStorage.getStore() || pool;
+  await executor.query(query, values);
   return {
     message: "success",
     data: "Vehicle type created successfully",
@@ -171,8 +173,9 @@ const getAllVehicleTypes = async (filters = {}) => {
     ${whereClause}
   `;
 
-  const [dataRows] = await pool.query(dataSql, [...params, limit, offset]);
-  const [countRows] = await pool.query(countSql, params);
+  const executor = transactionStorage.getStore() || pool;
+  const [dataRows] = await executor.query(dataSql, [...params, limit, offset]);
+  const [countRows] = await executor.query(countSql, params);
   const total = countRows?.[0]?.total || 0;
 
   if (!dataRows || dataRows.length === 0) {
@@ -241,7 +244,8 @@ const updateVehicleType = async (vehicleTypeUniqueId, data, file) => {
   const query = `UPDATE VehicleTypes SET ${setParts.join(", ")} WHERE vehicleTypeUniqueId = ? AND vehicleTypeDeletedAt IS NULL`;
   values.push(vehicleTypeUniqueId);
 
-  const [result] = await pool.query(query, values);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(query, values);
   if (
     newIconFileName &&
     result.affectedRows > 0 &&
@@ -267,7 +271,8 @@ const deleteVehicleType = async (vehicleTypeUniqueId, deletedBy) => {
     WHERE vehicleTypeUniqueId = ? AND vehicleTypeDeletedAt IS NULL
   `;
 
-  const [result] = await pool.query(query, [
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(query, [
     currentDate(),
     deletedBy,
     vehicleTypeUniqueId,

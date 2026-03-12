@@ -7,6 +7,7 @@ const {
 const ServerResponder = require("../Utils/ServerResponder");
 const { usersRoles } = require("../Utils/ListOfSeedData");
 const AppError = require("../Utils/AppError");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 const createVehicleController = async (req, res, next) => {
   try {
@@ -30,7 +31,9 @@ const createVehicleController = async (req, res, next) => {
       }
     }
 
-    const response = await createVehicle(req.body, user, driverUserUniqueId);
+    const response = await executeInTransaction(async () => {
+      return await createVehicle(req.body, user, driverUserUniqueId);
+    });
     ServerResponder(res, response, 201);
   } catch (error) {
     next(error);
@@ -40,7 +43,9 @@ const createVehicleController = async (req, res, next) => {
 const updateVehicleController = async (req, res, next) => {
   try {
     const { vehicleUniqueId } = req.params;
-    const response = await updateVehicle(vehicleUniqueId, req.body, req.user);
+    const response = await executeInTransaction(async () => {
+      return await updateVehicle(vehicleUniqueId, req.body, req.user);
+    });
     ServerResponder(res, response);
   } catch (error) {
     next(error);
@@ -50,7 +55,9 @@ const updateVehicleController = async (req, res, next) => {
 const deleteVehicleController = async (req, res, next) => {
   try {
     const { vehicleUniqueId } = req.params;
-    const response = await deleteVehicle(vehicleUniqueId, req.user);
+    const response = await executeInTransaction(async () => {
+      return await deleteVehicle(vehicleUniqueId, req.user);
+    });
     ServerResponder(res, response);
   } catch (error) {
     next(error);

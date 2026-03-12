@@ -4,6 +4,7 @@ const vehicleTypeService = require("../Services/VehicleType.service");
 const ServerResponder = require("../Utils/ServerResponder");
 const { uploadToFTP } = require("../Utils/FTPHandler");
 const AppError = require("../Utils/AppError");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 exports.createVehicleType = async (req, res, next) => {
   try {
@@ -18,21 +19,22 @@ exports.createVehicleType = async (req, res, next) => {
     const uniqueFilename = `vehicle_${uuidv4()}${fileExtension}`;
     const fileUrl = `${process.env.FTP_BASE_URL}/uploads/vehicles/${uniqueFilename}`;
 
-    // 🔎 Check DB for duplicate name or icon
-    // Note: checkVehicleTypeDuplicate should now throw AppError if duplicate found
-    await vehicleTypeService.checkVehicleTypeDuplicate({
-      vehicleTypeName: req.body.vehicleTypeName,
-      vehicleTypeIconName: fileUrl,
+    const result = await executeInTransaction(async () => {
+      // 🔎 Check DB for duplicate name or icon
+      await vehicleTypeService.checkVehicleTypeDuplicate({
+        vehicleTypeName: req.body.vehicleTypeName,
+        vehicleTypeIconName: fileUrl,
+      });
+
+      // 📤 Upload after confirming
+      const uploadedUrl = await uploadToFTP(req.file.buffer, uniqueFilename);
+
+      const data = {
+        ...req.body,
+        vehicleTypeIconName: uploadedUrl,
+      };
+      return await vehicleTypeService.createVehicleType(data);
     });
-
-    // 📤 Upload after confirming
-    const uploadedUrl = await uploadToFTP(req.file.buffer, uniqueFilename);
-
-    const data = {
-      ...req.body,
-      vehicleTypeIconName: uploadedUrl,
-    };
-    const result = await vehicleTypeService.createVehicleType(data);
 
     return ServerResponder(res, result, 201);
   } catch (error) {
@@ -56,11 +58,13 @@ exports.updateVehicleType = async (req, res, next) => {
       vehicleTypeUpdatedBy: req?.user?.userUniqueId,
     };
 
-    const result = await vehicleTypeService.updateVehicleType(
-      req.params.vehicleTypeUniqueId,
-      data,
-      req.file || null,
-    );
+    const result = await executeInTransaction(async () => {
+      return await vehicleTypeService.updateVehicleType(
+        req.params.vehicleTypeUniqueId,
+        data,
+        req.file || null,
+      );
+    });
 
     ServerResponder(res, result);
   } catch (error) {
@@ -70,10 +74,12 @@ exports.updateVehicleType = async (req, res, next) => {
 
 exports.deleteVehicleType = async (req, res, next) => {
   try {
-    const result = await vehicleTypeService.deleteVehicleType(
-      req.params.vehicleTypeUniqueId,
-      req?.user?.userUniqueId,
-    );
+    const result = await executeInTransaction(async () => {
+      return await vehicleTypeService.deleteVehicleType(
+        req.params.vehicleTypeUniqueId,
+        req?.user?.userUniqueId,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

@@ -5,10 +5,13 @@ const {
   getVehicleOwnershipsByFilter,
 } = require("../Services/VehicleOwnership.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 const createVehicleOwnershipController = async (req, res, next) => {
   try {
-    const response = await createVehicleOwnership(req.body);
+    const response = await executeInTransaction(async () => {
+      return await createVehicleOwnership(req.body);
+    });
     ServerResponder(res, response);
   } catch (error) {
     next(error);
@@ -17,7 +20,9 @@ const createVehicleOwnershipController = async (req, res, next) => {
 
 const updateVehicleOwnershipController = async (req, res, next) => {
   try {
-    const response = await updateVehicleOwnership(req.query);
+    const response = await executeInTransaction(async () => {
+      return await updateVehicleOwnership(req.query);
+    });
     ServerResponder(res, response);
   } catch (error) {
     next(error);
@@ -26,7 +31,9 @@ const updateVehicleOwnershipController = async (req, res, next) => {
 
 const deleteVehicleOwnershipController = async (req, res, next) => {
   try {
-    const response = await deleteVehicleOwnership(req.params.ownershipId);
+    const response = await executeInTransaction(async () => {
+      return await deleteVehicleOwnership(req.params.ownershipId);
+    });
     ServerResponder(res, response);
   } catch (error) {
     next(error);

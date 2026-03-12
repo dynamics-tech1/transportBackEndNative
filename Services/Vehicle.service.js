@@ -11,120 +11,95 @@ const { usersRoles } = require("../Utils/ListOfSeedData");
 const { pool } = require("../Middleware/Database.config");
 const AppError = require("../Utils/AppError");
 const logger = require("../Utils/logger");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 // create vehicle and create ownership based on status of vehicle.
 const createVehicle = async (data, user, driverUserUniqueId) => {
-  const connection = await pool.getConnection();
-  await connection.beginTransaction();
 
-  try {
-    let vehicleTypeUniqueId = data?.vehicleTypeUniqueId,
-      licensePlate = data?.licensePlate,
-      color = data?.color;
+  let vehicleTypeUniqueId = data?.vehicleTypeUniqueId,
+    licensePlate = data?.licensePlate,
+    color = data?.color;
 
-    licensePlate = removeWhiteSpace(licensePlate);
-    if (!vehicleTypeUniqueId || !licensePlate || !color) {
-      throw new AppError("All fields are required", 400);
-    }
-
-    // Verify if VehicleType exists
-    const vehicleTypeExists = await getData({
-      tableName: "VehicleTypes",
-      conditions: { vehicleTypeUniqueId },
-      connection,
-    });
-
-    if (!vehicleTypeExists.length) {
-      throw new AppError("Vehicle type does not exist", 400);
-    }
-
-    // Check if vehicle with the same license plate exists
-    let vehicle = await getData({
-      tableName: "Vehicle",
-      conditions: { licensePlate },
-      connection,
-    });
-
-    if (!vehicle?.length) {
-      // Vehicle doesn't exist, create it
-      const vehicleUniqueId = uuidv4();
-      await insertData({
-        tableName: "Vehicle",
-        colAndVal: {
-          vehicleUniqueId,
-          vehicleTypeUniqueId,
-          licensePlate,
-          color,
-          vehicleCreatedBy: user?.userUniqueId,
-          vehicleCreatedAt: currentDate(),
-        },
-        connection,
-      });
-
-      // Register vehicle status as Active (VehicleStatusTypeId = 1)
-      await createVehicleStatus({
-        vehicleUniqueId,
-        VehicleStatusTypeId: 1,
-        vehicleStatusCreatedBy: user?.userUniqueId,
-        connection,
-      });
-
-      vehicle = [{ vehicleUniqueId }];
-    }
-
-    // check if this user has active vehicle
-    // Note: getVehicleDrivers currently reads from pooled connection implicitly if checking other drivers?
-    // Wait, getVehicleDrivers is complex read. For consistency, let's just check simplified using `getData` or ensure `getVehicleDrivers` supports connection if we modify it.
-    // Looking at previous step, `createVehicleDriver` was updated, but `getVehicleDrivers` (read) was NOT updated to accept connection.
-    // However, `getVehicleDrivers` just does a read. For strict serializable isolation, we should use the connection.
-    // For now, let's use the standard `getData` which SUPPORTS connection to check for active assignment for THIS user.
-    // or rely on `getVehicleDrivers` if we updated it.. I did NOT update `getVehicleDrivers` in the plan, only `createVehicleDriver`.
-    // Let's use `getData` here for safety and consistency within transaction.
-
-    // Check active assignment for this driver
-    const activeAssignments = await getData({
-      tableName: "VehicleDriver",
-      conditions: {
-        driverUserUniqueId,
-        assignmentStatus: "active",
-      },
-      connection,
-    });
-    logger.debug("@activeAssignments", activeAssignments);
-    if (activeAssignments?.length > 0) {
-      throw new AppError("Driver already has an active vehicle", 400);
-    }
-
-    const vehicleUniqueId = vehicle?.[0]?.vehicleUniqueId;
-
-    // Create vehicle ownership record
-    await createVehicleOwnership({
-      vehicleUniqueId,
-      userUniqueId: driverUserUniqueId,
-      roleId: usersRoles.vehicleOwnerRoleId,
-      ownershipStartDate: currentDate(),
-      vehicleOwnershipCreatedBy: user?.userUniqueId,
-      connection,
-    });
-
-    // Assign driver to vehicle
-    await createVehicleDriver({
-      vehicleUniqueId,
-      driverUserUniqueId: driverUserUniqueId,
-      assignmentStartDate: currentDate(),
-      assignmentStatus: "active",
-      vehicleDriverCreatedBy: user?.userUniqueId,
-      connection,
-    });
-
-    await connection.commit();
-    return { message: "success", data: { vehicleUniqueId } };
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
+  licensePlate = removeWhiteSpace(licensePlate);
+  if (!vehicleTypeUniqueId || !licensePlate || !color) {
+    throw new AppError("All fields are required", 400);
   }
+
+  // Verify if VehicleType exists
+  const vehicleTypeExists = await getData({
+    tableName: "VehicleTypes",
+    conditions: { vehicleTypeUniqueId },
+  });
+
+  if (!vehicleTypeExists.length) {
+    throw new AppError("Vehicle type does not exist", 400);
+  }
+
+  // Check if vehicle with the same license plate exists
+  let vehicle = await getData({
+    tableName: "Vehicle",
+    conditions: { licensePlate },
+  });
+
+  if (!vehicle?.length) {
+    // Vehicle doesn't exist, create it
+    const vehicleUniqueId = uuidv4();
+    await insertData({
+      tableName: "Vehicle",
+      colAndVal: {
+        vehicleUniqueId,
+        vehicleTypeUniqueId,
+        licensePlate,
+        color,
+        vehicleCreatedBy: user?.userUniqueId,
+        vehicleCreatedAt: currentDate(),
+      },
+    });
+
+    // Register vehicle status as Active (VehicleStatusTypeId = 1)
+    await createVehicleStatus({
+      vehicleUniqueId,
+      VehicleStatusTypeId: 1,
+      vehicleStatusCreatedBy: user?.userUniqueId,
+    });
+
+    vehicle = [{ vehicleUniqueId }];
+  }
+
+  // Check active assignment for this driver
+  const activeAssignments = await getData({
+    tableName: "VehicleDriver",
+    conditions: {
+      driverUserUniqueId,
+      assignmentStatus: "active",
+    },
+  });
+  logger.debug("@activeAssignments", activeAssignments);
+  if (activeAssignments?.length > 0) {
+    throw new AppError("Driver already has an active vehicle", 400);
+  }
+
+  const vehicleUniqueId = vehicle?.[0]?.vehicleUniqueId;
+
+  // Create vehicle ownership record
+  await createVehicleOwnership({
+    vehicleUniqueId,
+    userUniqueId: driverUserUniqueId,
+    roleId: usersRoles.vehicleOwnerRoleId,
+    ownershipStartDate: currentDate(),
+    vehicleOwnershipCreatedBy: user?.userUniqueId,
+  });
+
+  // Assign driver to vehicle
+  await createVehicleDriver({
+    vehicleUniqueId,
+    driverUserUniqueId: driverUserUniqueId,
+    assignmentStartDate: currentDate(),
+    assignmentStatus: "active",
+    vehicleDriverCreatedBy: user?.userUniqueId,
+  });
+
+  return { message: "success", data: { vehicleUniqueId } };
 };
 
 const updateVehicle = async (vehicleUniqueId, updateValues) => {
@@ -235,9 +210,9 @@ const getVehicles = async (query) => {
     LEFT JOIN VehicleDriver vd ON v.vehicleUniqueId = vd.vehicleUniqueId AND vd.assignmentStatus = 'active' AND vd.assignmentEndDate IS NULL
     ${whereClause}
   `;
-  logger.info("@getVehicles");
-  const [rows] = await pool.query(sql, [...params, parseInt(limit), offset]);
-  const [totalRows] = await pool.query(countSql, params);
+  const executor = transactionStorage.getStore() || pool;
+  const [rows] = await executor.query(sql, [...params, parseInt(limit), offset]);
+  const [totalRows] = await executor.query(countSql, params);
 
   const totalItems = totalRows[0].total;
   const totalPages = Math.ceil(totalItems / limit);

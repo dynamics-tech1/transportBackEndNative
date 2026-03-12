@@ -6,6 +6,7 @@ const { pool } = require("../Middleware/Database.config");
 const { v4: uuidv4 } = require("uuid");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 const createVehicleStatus = async (data) => {
   const {
@@ -120,11 +121,12 @@ const getVehicleStatuses = async ({ page = 1, limit = 10, search }) => {
 
   params.push(limitNum, offset);
 
-  const [[countRow]] = await pool.query(
+  const executor = transactionStorage.getStore() || pool;
+  const [[countRow]] = await executor.query(
     countSql,
     where ? params.slice(0, -2) : [],
   );
-  const [rows] = await pool.query(sql, params);
+  const [rows] = await executor.query(sql, params);
 
   return {
     message: "success",

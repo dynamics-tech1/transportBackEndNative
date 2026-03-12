@@ -8,6 +8,7 @@ const { insertData } = require("../CRUD/Create/CreateData");
 const { usersRoles, VEHICLE_STATUS_TYPES } = require("../Utils/ListOfSeedData");
 const AppError = require("../Utils/AppError");
 const { currentDate } = require("../Utils/CurrentDate");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 const createVehicleOwnership = async (body) => {
   const {
@@ -69,7 +70,7 @@ const createVehicleOwnership = async (body) => {
       )
     LIMIT 1
   `;
-  const queryExecutor = connection || pool;
+  const queryExecutor = transactionStorage.getStore() || connection || pool;
   const [overlaps] = await queryExecutor.query(overlapSql, [
     vehicleUniqueId,
     ownershipStartDate,
@@ -137,7 +138,8 @@ const updateVehicleOwnership = async (body) => {
                SET ${updates.join(", ")} 
                WHERE ownershipUniqueId = ?`;
 
-  const [result] = await pool.query(sql, values);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, values);
 
   if (result.affectedRows === 0) {
     throw new AppError("Vehicle ownership not found or update failed", 404);
@@ -155,7 +157,8 @@ const deleteVehicleOwnership = async (ownershipUniqueId) => {
   }
 
   const sql = `DELETE FROM VehicleOwnership WHERE ownershipUniqueId = ?`;
-  const [result] = await pool.query(sql, [ownershipUniqueId]);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, [ownershipUniqueId]);
 
   if (result.affectedRows === 0) {
     throw new AppError("Vehicle ownership not found", 404);
@@ -280,7 +283,8 @@ const getVehicleOwnershipsByFilter = async ({
         ${joinClause}
         ${where.length ? " WHERE " + where.join(" AND ") : ""}
       `;
-      const [countRows] = await pool.query(countSql, values);
+      const executor = transactionStorage.getStore() || pool;
+      const [countRows] = await executor.query(countSql, values);
       const total = countRows?.[0]?.total || 0;
       const totalPages = Math.ceil(total / pageSize);
       pagination = {
@@ -326,7 +330,8 @@ const getVehicleOwnershipsByFilter = async ({
     ${paginationClause}
   `;
 
-  const [rows] = await pool.query(sql, values);
+  const executor = transactionStorage.getStore() || pool;
+  const [rows] = await executor.query(sql, values);
 
   const formattedData = rows.map((row) => ({
     ownership: {

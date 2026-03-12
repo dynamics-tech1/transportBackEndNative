@@ -1,12 +1,15 @@
 const vehicleStatusTypeService = require("../Services/VehicleStatusType.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 // Create a new VehicleStatusType
 const createVehicleStatusType = async (req, res, next) => {
   try {
-    const result = await vehicleStatusTypeService.createVehicleStatusType(
-      req.body,
-    );
+    const result = await executeInTransaction(async () => {
+      return await vehicleStatusTypeService.createVehicleStatusType(
+        req.body,
+      );
+    });
     ServerResponder(res, result, 201);
   } catch (error) {
     next(error);
@@ -38,10 +41,12 @@ const getVehicleStatusTypeById = async (req, res, next) => {
 // Update VehicleStatusType by ID
 const updateVehicleStatusType = async (req, res, next) => {
   try {
-    const result = await vehicleStatusTypeService.updateVehicleStatusType(
-      req.params.id,
-      req.body,
-    );
+    const result = await executeInTransaction(async () => {
+      return await vehicleStatusTypeService.updateVehicleStatusType(
+        req.params.id,
+        req.body,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -51,9 +56,11 @@ const updateVehicleStatusType = async (req, res, next) => {
 // Delete VehicleStatusType by ID
 const deleteVehicleStatusType = async (req, res, next) => {
   try {
-    const result = await vehicleStatusTypeService.deleteVehicleStatusType(
-      req.params.id,
-    );
+    const result = await executeInTransaction(async () => {
+      return await vehicleStatusTypeService.deleteVehicleStatusType(
+        req.params.id,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
