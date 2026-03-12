@@ -8,6 +8,7 @@ const { journeyStatusMap } = require("../Utils/ListOfSeedData");
 const logger = require("../Utils/logger");
 const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 const AppError = require("../Utils/AppError");
+const transactionStorage = require("../Utils/TransactionContext");
 
 // Create a new journey status
 const createJourneyStatus = async (body, user) => {
@@ -268,7 +269,6 @@ const updateNegativeJourneyStatus = async ({
   driverRequestUniqueId,
   journeyDecisionUniqueId,
   newStatusId,
-  connection = null, // Optional: connection for transaction support
 }) => {
   try {
     logger.debug("@updateNegativeJourneyStatus", {
@@ -342,7 +342,7 @@ const updateNegativeJourneyStatus = async ({
         tableName: "DriverRequest",
         conditions: driverConditions,
         updateValues: driverUpdateValues,
-        connection, // Pass connection for transaction support
+        connection: null, // updateData will automatically use context if available
       }).then((result) => {
         results.driverRequest = result;
         return result;
@@ -378,7 +378,7 @@ const updateNegativeJourneyStatus = async ({
             journeyStatusId: allowedCurrentStatuses,
           },
           updateValues: journeyDecisionUpdateValues,
-          connection, // Pass connection for transaction support
+          connection: null,
         }).then((result) => {
           results.journeyDecision = result;
           return result;
@@ -398,7 +398,7 @@ const updateNegativeJourneyStatus = async ({
           updateValues: {
             journeyStatusId: newStatusId,
           },
-          connection, // Pass connection for transaction support
+          connection: null,
         }).then((result) => {
           results.journey = result;
           return result;
@@ -433,7 +433,7 @@ const updateJourneyStatus = async (body) => {
     shippingCostByDriver,
     shippingDateByDriver,
     deliveryDateByDriver,
-    connection = null, // Optional: connection for transaction support
+    connection = null,
   } = body;
 
   try {
@@ -459,12 +459,11 @@ const updateJourneyStatus = async (body) => {
     // If updating multiple tables and no connection provided, wrap in transaction
     // If connection provided, caller manages transaction
     // If only one table, no transaction needed
-    if (tableCount > 1 && !connection) {
+    if (tableCount > 1 && !transactionStorage.getStore()) {
       return await executeInTransaction(
-        async (transactionConnection) => {
+        async () => {
           return await updateJourneyStatus({
             ...body,
-            connection: transactionConnection,
           });
         },
         {
@@ -496,7 +495,7 @@ const updateJourneyStatus = async (body) => {
         tableName: "Journey",
         conditions: journeyConditions,
         updateValues,
-        connection, // Pass connection for transaction support
+        connection: null, // updateData will automatically use context if available
       }).then((result) => {
         logger.info("Journey table update result", {
           journeyUniqueId,
@@ -546,7 +545,7 @@ const updateJourneyStatus = async (body) => {
           tableName: "PassengerRequest",
           conditions: passengerConditions,
           updateValues: { journeyStatusId },
-          connection, // Pass connection for transaction support
+          connection: null, // Pass connection for transaction support
         }),
       );
     }
@@ -582,8 +581,8 @@ const updateJourneyStatus = async (body) => {
           tableName: "JourneyDecisions",
           conditions: journeyDecisionConditions,
           updateValues,
-          connection, // Pass connection for transaction support
-        }),
+          connection: null, // Pass connection for transaction support
+        }).then((result) => {}),
       );
     }
 
@@ -607,7 +606,7 @@ const updateJourneyStatus = async (body) => {
           tableName: "DriverRequest",
           conditions: driverConditions,
           updateValues: driverUpdateValues,
-          connection, // Pass connection for transaction support
+          connection: null, // Pass connection for transaction support
         }),
       );
     }

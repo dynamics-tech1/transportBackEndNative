@@ -22,29 +22,29 @@ const {
   getUserSubscriptionsWithFilters,
 } = require("../UserSubscription.service");
 
-const startJourney = async (body, connection = null) => {
-  try {
+const startJourney = async (body) => {
+  return await executeInTransaction(async (conn) => {
     const journeyUniqueId = uuidv4();
     const journeyDecisionUniqueId = body?.journeyDecisionUniqueId;
     const userUniqueId = body?.userUniqueId;
     const latitude = body?.latitude,
       longitude = body?.longitude;
 
-    // Validate that the userUniqueId from token matches the driver who owns the journey decision
     if (!userUniqueId) {
       throw new AppError("User authentication required", 401);
     }
     if (!latitude || !longitude) {
       throw new AppError("Latitude and longitude are required", 400);
     }
-    // Fetch journey decision with driver data to validate ownership
-    // Use explicit column selection to avoid userUniqueId collision
+
     const validateQuery = `
       SELECT 
         JourneyDecisions.*,
         DriverRequest.driverRequestUniqueId,
-        DriverRequest.userUniqueId as driverUserUniqueId,
-        Users.fullName as driverFullName
+        DriverRequest.userUniqueId,
+        Users.fullName,
+        Users.email,
+        Users.phoneNumber
       FROM JourneyDecisions
       JOIN DriverRequest ON JourneyDecisions.driverRequestId = DriverRequest.driverRequestId
       JOIN Users ON DriverRequest.userUniqueId = Users.userUniqueId
@@ -52,7 +52,7 @@ const startJourney = async (body, connection = null) => {
       LIMIT 1
     `;
 
-    const [journeyDecisionDriverData] = await (connection || pool).query(validateQuery, [
+    const [journeyDecisionDriverData] = await conn.query(validateQuery, [
       journeyDecisionUniqueId,
     ]);
 
@@ -62,90 +62,57 @@ const startJourney = async (body, connection = null) => {
 
     const combinedData = journeyDecisionDriverData[0];
 
-    // if journey status id is not equal to journeyStatusMap.acceptedByPassenger, return error
     if (combinedData.journeyStatusId !== journeyStatusMap.acceptedByPassenger) {
       throw new AppError("This journey is not accepted by passenger", 400);
     }
-    // Validate userUniqueId matches the driver who owns this journey decision
-    if (combinedData.driverUserUniqueId !== userUniqueId) {
+    if (combinedData.userUniqueId !== userUniqueId) {
       throw new AppError("Driver user does not match journey decision", 403);
     }
 
-    // Wrap Journey creation/route point and status updates in a single transaction
-    // This ensures atomicity - either all operations succeed or all fail
-    const runJourneyStartUpdates = async (conn) => {
-      // Check if Journey exists within transaction using connection for consistency
-      const checkJourneySql = `SELECT * FROM Journey WHERE journeyDecisionUniqueId = ? LIMIT 1`;
-      const [existingJourneyCheck] = await conn.query(checkJourneySql, [
-        journeyDecisionUniqueId,
-      ]);
+    const checkJourneySql = `SELECT * FROM Journey WHERE journeyDecisionUniqueId = ? LIMIT 1`;
+    const [existingJourneyCheck] = await conn.query(checkJourneySql, [
+      journeyDecisionUniqueId,
+    ]);
 
-      let finalJourneyUniqueId = journeyUniqueId;
+    let finalJourneyUniqueId = journeyUniqueId;
 
-      // Create Journey if it doesn't exist (within transaction)
-      if (
-        !existingJourneyCheck?.length ||
-        existingJourneyCheck.length === 0
-      ) {
-        await insertData({
-          tableName: "Journey",
-          colAndVal: {
-            journeyUniqueId,
-            journeyDecisionUniqueId: body.journeyDecisionUniqueId,
-            journeyStatusId: body.journeyStatusId,
-            startTime: currentDate(),
-            journeyCreatedBy: userUniqueId,
-            journeyCreatedAt: currentDate(),
-          },
-          connection: conn, // Pass connection for transaction support
-        });
-
-        // Create initial JourneyRoutePoint with correct parameter (within transaction)
-        // Fixed: Use journeyDecisionUniqueId instead of journeyUniqueId
-        await createJourneyRoutePoint(
-          {
-            journeyDecisionUniqueId: body.journeyDecisionUniqueId,
-            latitude,
-            longitude,
-            userUniqueId,
-          },
-          conn, // Pass connection for transaction support
-        );
-      } else {
-        // Journey already exists, use its journeyUniqueId for status update
-        finalJourneyUniqueId = existingJourneyCheck[0].journeyUniqueId;
-      }
-
-      // Update journey status to journeyStarted (within transaction)
-      // Include journeyUniqueId so updateJourneyStatus can update Journey table too
-      // Set shippingDateByDriver when driver starts journey
-      await updateJourneyStatus({
-        ...body,
-        journeyUniqueId: finalJourneyUniqueId, // Add journeyUniqueId to update Journey table
-        shippingDateByDriver: currentDate(),
-        connection: conn, // Pass connection for transaction support
+    if (!existingJourneyCheck?.length || existingJourneyCheck.length === 0) {
+      await insertData({
+        tableName: "Journey",
+        colAndVal: {
+          journeyUniqueId,
+          journeyDecisionUniqueId: body.journeyDecisionUniqueId,
+          journeyStatusId: body.journeyStatusId,
+          startTime: currentDate(),
+          journeyCreatedBy: userUniqueId,
+          journeyCreatedAt: currentDate(),
+        },
       });
-    };
 
-    if (connection) {
-      await runJourneyStartUpdates(connection);
+      await createJourneyRoutePoint({
+        journeyDecisionUniqueId: body.journeyDecisionUniqueId,
+        latitude,
+        longitude,
+        userUniqueId,
+      });
     } else {
-      await executeInTransaction(runJourneyStartUpdates, {
-        timeout: 15000, // 15 second timeout for journey start operations
-        logging: true,
-      });
+      finalJourneyUniqueId = existingJourneyCheck[0].journeyUniqueId;
     }
 
-    // Import here to avoid circular dependency
-    const {
-      sendPassengerNotification,
-    } = require("../PassengerRequest/statusVerification.service");
+    await updateJourneyStatus({
+      journeyDecisionUniqueId,
+      passengerRequestUniqueId: combinedData.passengerRequestId,
+      driverRequestUniqueId: combinedData.driverRequestUniqueId,
+      journeyStatusId: body.journeyStatusId,
+      journeyUniqueId: finalJourneyUniqueId,
+      shippingDateByDriver: currentDate(),
+    });
 
-    // Fetch all journey notification data using helper function
-    // Pass journeyDecisionDriverData[0] (combinedData) as driverRequest to avoid re-fetching
-    // The join query already includes DriverRequest + Users + JourneyDecisions data
-    // Extract journey decision data from join result for optimization
-    // IMPORTANT: Use updated journeyStatusId (journeyStarted) instead of old status from combinedData
+    return { combinedData, finalJourneyUniqueId };
+  }, { timeout: 15000 }).then(async ({ combinedData, finalJourneyUniqueId }) => {
+    // Notifications after transaction
+    const { sendPassengerNotification } = require("../PassengerRequest/statusVerification.service");
+    
     const journeyDecisionFromJoin = {
       journeyDecisionUniqueId: combinedData.journeyDecisionUniqueId,
       passengerRequestId: combinedData.passengerRequestId,
@@ -157,19 +124,28 @@ const startJourney = async (body, connection = null) => {
       shippingDateByDriver: combinedData.shippingDateByDriver,
       deliveryDateByDriver: combinedData.deliveryDateByDriver,
     };
+
+    // Filter combinedData into driverRequest formal structure
+    const driverRequestData = {
+      driverRequestUniqueId: combinedData.driverRequestUniqueId,
+      userUniqueId: combinedData.userUniqueId,
+      fullName: combinedData.fullName,
+      email: combinedData.email,
+      phoneNumber: combinedData.phoneNumber,
+    };
+
     const {
       passengerRequest,
       journeyDecision: journeyDecisionData,
       driverInfo,
       journeyData,
     } = await fetchJourneyNotificationData(
-      journeyDecisionUniqueId,
-      [combinedData], // Pass already-fetched driver request data from join query (includes Users join)
-      null, // No vehicle data available
-      [journeyDecisionFromJoin], // Pass journey decision data extracted from join query (array format)
+      body.journeyDecisionUniqueId,
+      [driverRequestData],
+      null,
+      [journeyDecisionFromJoin],
     );
 
-    // Send notification directly if data is available
     if (passengerRequest && journeyDecisionData && driverInfo) {
       await sendPassengerNotification({
         passengerRequest,
@@ -179,33 +155,28 @@ const startJourney = async (body, connection = null) => {
         messageType: messageTypes.driver_started_journey,
         status: journeyStatusMap.journeyStarted,
       });
+
+      if (passengerRequest?.userUniqueId) {
+        sendFCMNotificationToUser({
+          userUniqueId: passengerRequest.userUniqueId,
+          roleId: 1,
+          notification: {
+            title: messageTypes.driver_started_journey.message,
+            body: messageTypes.driver_started_journey.details,
+          },
+        });
+      }
     }
 
-    // Send FCM notification to passenger if driver has an active journey request
-    if (passengerRequest?.userUniqueId) {
-      sendFCMNotificationToUser({
-        userUniqueId: passengerRequest.userUniqueId,
-        roleId: 1,
-        notification: {
-          title: messageTypes.driver_started_journey.message,
-          body: messageTypes.driver_started_journey.details,
-        },
-      });
-    }
-
-    // Build response structure matching verifyDriverJourneyStatus/handleExistingJourney format
-    // Use data we already have instead of calling verifyDriverJourneyStatus
-    const uniqueIds = {
-      driverRequestUniqueId: driverInfo?.driver?.driverRequestUniqueId,
-      passengerRequestUniqueId: passengerRequest?.passengerRequestUniqueId,
-      journeyDecisionUniqueId: journeyDecisionData?.journeyDecisionUniqueId,
-      journeyUniqueId: journeyData?.journeyUniqueId || journeyUniqueId,
-    };
-
-    const response = {
+    return {
       message: "success",
       status: journeyStatusMap.journeyStarted,
-      uniqueIds,
+      uniqueIds: {
+        driverRequestUniqueId: driverInfo?.driver?.driverRequestUniqueId,
+        passengerRequestUniqueId: passengerRequest?.passengerRequestUniqueId,
+        journeyDecisionUniqueId: journeyDecisionData?.journeyDecisionUniqueId,
+        journeyUniqueId: journeyData?.journeyUniqueId || finalJourneyUniqueId,
+      },
       driver: {
         driver: driverInfo?.driver || null,
         vehicle: driverInfo?.vehicleOfDriver || null,
@@ -214,21 +185,12 @@ const startJourney = async (body, connection = null) => {
       journey: journeyData || null,
       decision: journeyDecisionData || null,
     };
-
-    return response;
-  } catch (error) {
-    console.error("Error starting journey:", {
-      error: error.message,
-    });
-    throw new AppError(
-      error.message || "Unable to start journey",
-      error.statusCode || 500,
-    );
-  }
+  });
 };
+
 //collect scervice charge from journey completion by commision or allow user to do by subscription if it has an active subscription
-const completeJourney = async (body, connection = null) => {
-  try {
+const completeJourney = async (body) => {
+  return await executeInTransaction(async (conn) => {
     const {
       journeyDecisionUniqueId,
       userUniqueId,
@@ -237,32 +199,19 @@ const completeJourney = async (body, connection = null) => {
       driverRequestUniqueId,
     } = body;
 
-    // 1. Validate all UUIDs in one optimized query
-    if (!journeyDecisionUniqueId) {
-      throw new AppError("Journey decision unique id is required", 400);
+    if (!journeyDecisionUniqueId || !passengerRequestUniqueId || !driverRequestUniqueId || !journeyUniqueId || !userUniqueId) {
+      throw new AppError("Missing required unique IDs", 400);
     }
-    if (!passengerRequestUniqueId) {
-      throw new AppError("Passenger request unique id is required", 400);
-    }
-    if (!driverRequestUniqueId) {
-      throw new AppError("Driver request unique id is required", 400);
-    }
-    if (!journeyUniqueId) {
-      throw new AppError("Journey unique id is required", 400);
-    }
-    if (!userUniqueId) {
-      throw new AppError("User unique id is required", 400);
-    }
-    // Use explicit column selection to avoid userUniqueId collision between DriverRequest and PassengerRequest
+
     const validateQuery = `
       SELECT JourneyDecisions.*, DriverRequest.driverRequestUniqueId,
-        DriverRequest.userUniqueId as driverUserUniqueId,
+        DriverRequest.userUniqueId,
         PassengerRequest.passengerRequestUniqueId,
         PassengerRequest.userUniqueId as passengerUserUniqueId,
         Journey.journeyUniqueId,
         Journey.startTime, Journey.endTime,
-        Users.fullName as driverFullName,
-        Users.phoneNumber as driverPhoneNumber FROM JourneyDecisions
+        Users.fullName,
+        Users.phoneNumber FROM JourneyDecisions
       JOIN DriverRequest ON JourneyDecisions.driverRequestId = DriverRequest.driverRequestId
       JOIN PassengerRequest ON JourneyDecisions.passengerRequestId = PassengerRequest.passengerRequestId
       JOIN Journey ON Journey.journeyDecisionUniqueId = JourneyDecisions.journeyDecisionUniqueId
@@ -274,107 +223,66 @@ const completeJourney = async (body, connection = null) => {
       LIMIT 1
     `;
 
-    const [journeyDecisionDriverData] = await (connection || pool).query(
-      validateQuery,
-      [
-        journeyDecisionUniqueId,
-        passengerRequestUniqueId,
-        driverRequestUniqueId,
-        journeyUniqueId,
-      ],
-    );
+    const [journeyDecisionDriverData] = await conn.query(validateQuery, [
+      journeyDecisionUniqueId,
+      passengerRequestUniqueId,
+      driverRequestUniqueId,
+      journeyUniqueId,
+    ]);
 
-    // If no data returned, one or more UUIDs don't match or don't exist
     if (!journeyDecisionDriverData?.length) {
-      throw new AppError(
-        "Journey data not found or UUIDs mismatch. Please verify journeyDecisionUniqueId, passengerRequestUniqueId, driverRequestUniqueId, and journeyUniqueId are correct.",
-        404,
-      );
+      throw new AppError("Journey data not found or UUIDs mismatch", 404);
     }
 
-    const combinedData = journeyDecisionDriverData?.[0];
-    // Validate driver identity (userUniqueId from token must match driver in database)
-    // Skip validation if user is admin or super admin (they can complete journeys on behalf of drivers)
-    const isAdmin =
-      body.roleId === usersRoles?.adminRoleId ||
-      body.roleId === usersRoles?.supperAdminRoleId;
-    if (!isAdmin && combinedData?.driverUserUniqueId !== userUniqueId) {
+    const combinedData = journeyDecisionDriverData[0];
+    const isAdmin = body.roleId === usersRoles?.adminRoleId || body.roleId === usersRoles?.supperAdminRoleId;
+    if (!isAdmin && combinedData?.userUniqueId !== userUniqueId) {
       throw new AppError("Driver user does not match journey decision", 403);
     }
 
-    //check if driver has subscription to do by subscription
-    const subscriptionInfo = await getUserSubscriptionsWithFilters(
-      {
-        driverUniqueId: userUniqueId,
-        page: 1,
-        limit: 1,
-        isActive: true,
-      },
-      connection,
-    );
+    const subscriptionInfo = await getUserSubscriptionsWithFilters({
+      driverUniqueId: userUniqueId,
+      page: 1,
+      limit: 1,
+      isActive: true,
+    });
+
     const subscriptionData = subscriptionInfo?.data?.[0] || null;
-    console.log("@completeJourney subscriptionInfo", subscriptionInfo);
-    logger.debug("@completeJourney subscriptionData", subscriptionData);
-    // 2. Run journey status update (and related updates) in one transaction.
-    // When connection is passed from the controller, use it so the whole flow is in the same transaction.
-    // When not passed (e.g. direct service call), start a new transaction here.
-    const runJourneyCompletionUpdates = async (conn) => {
-      await updateJourneyStatus({
-        ...body,
-        deliveryDateByDriver: currentDate(),
-        connection: conn,
-      });
 
-      const paymentAmount = combinedData?.shippingCostByDriver;
+    await updateJourneyStatus({
+      journeyDecisionUniqueId,
+      passengerRequestUniqueId,
+      driverRequestUniqueId,
+      journeyUniqueId,
+      journeyStatusId: body.journeyStatusId,
+      deliveryDateByDriver: currentDate(),
+    });
 
-      if (!subscriptionData) {
-        if (!paymentAmount || paymentAmount <= 0) {
-          throw new AppError(
-            "Invalid payment amount from journey decision",
-            400,
-          );
-        }
-        const commissionResult = await createCommission({
-          journeyDecisionUniqueId: body?.journeyDecisionUniqueId,
-          paymentAmount,
-          commissionCreatedBy: userUniqueId,
-          connection: conn,
-        });
-        console.log("@completeJourney commissionResult", commissionResult);
-        if (commissionResult.message === "error") {
-          throw new AppError(commissionResult.message, 400);
-        }
+    const paymentAmount = combinedData?.shippingCostByDriver;
+
+    if (!subscriptionData) {
+      if (!paymentAmount || paymentAmount <= 0) {
+        throw new AppError("Invalid payment amount from journey decision", 400);
       }
-
-      await createJourneyRoutePoint(
-        {
-          journeyDecisionUniqueId: body?.journeyDecisionUniqueId,
-          latitude: body?.latitude,
-          longitude: body?.longitude,
-          userUniqueId,
-        },
-        conn,
-      );
-    };
-
-    if (connection) {
-      await runJourneyCompletionUpdates(connection);
-    } else {
-      await executeInTransaction(runJourneyCompletionUpdates, {
-        timeout: 20000,
-        logging: true,
+      await createCommission({
+        journeyDecisionUniqueId: body?.journeyDecisionUniqueId,
+        paymentAmount,
+        commissionCreatedBy: userUniqueId,
       });
     }
 
-    // After successful transaction commit, handle notifications
-    // Import here to avoid circular dependency
-    const {
-      sendPassengerNotification,
-    } = require("../PassengerRequest/statusVerification.service");
+    await createJourneyRoutePoint({
+      journeyDecisionUniqueId: body?.journeyDecisionUniqueId,
+      latitude: body?.latitude,
+      longitude: body?.longitude,
+      userUniqueId,
+    });
 
-    // Fetch all journey notification data using helper function (after successful transaction)
-    // Pass combinedData as driverRequest and extract journey decision data to avoid re-fetching
-    // The join query already includes JourneyDecisions + DriverRequest + Users data
+    return combinedData;
+  }, { timeout: 20000 }).then(async (combinedData) => {
+    // Notifications after successful transaction commit
+    const { sendPassengerNotification } = require("../PassengerRequest/statusVerification.service");
+    
     const journeyDecisionFromJoin = {
       journeyDecisionUniqueId: combinedData.journeyDecisionUniqueId,
       passengerRequestId: combinedData.passengerRequestId,
@@ -386,21 +294,24 @@ const completeJourney = async (body, connection = null) => {
       shippingDateByDriver: combinedData.shippingDateByDriver,
       deliveryDateByDriver: combinedData.deliveryDateByDriver,
     };
-    const notificationDataResult = await fetchJourneyNotificationData(
-      journeyDecisionUniqueId,
-      [combinedData], // Pass already-fetched driver request data from join query (includes Users join)
-      null, // No vehicle data available
-      [journeyDecisionFromJoin], // Pass journey decision data extracted from join query (array format)
-    );
-    const {
-      passengerRequest,
-      journeyDecision: journeyDecisionData,
-      driverInfo,
-      journeyData,
-    } = notificationDataResult;
 
-    // Send notifications only after successful transaction commit
-    // This ensures notifications are only sent if all database updates succeeded
+    // Filter combinedData into driverRequest formal structure
+    const driverRequestData = {
+      driverRequestUniqueId: combinedData.driverRequestUniqueId,
+      userUniqueId: combinedData.userUniqueId,
+      fullName: combinedData.fullName,
+      phoneNumber: combinedData.phoneNumber,
+    };
+
+    const notificationDataResult = await fetchJourneyNotificationData(
+      body.journeyDecisionUniqueId,
+      [driverRequestData],
+      null,
+      [journeyDecisionFromJoin],
+    );
+
+    const { passengerRequest, journeyDecision: journeyDecisionData, driverInfo, journeyData } = notificationDataResult;
+
     if (passengerRequest && journeyDecisionData && driverInfo) {
       await sendPassengerNotification({
         passengerRequest,
@@ -412,7 +323,6 @@ const completeJourney = async (body, connection = null) => {
         data: "Journey completed successfully",
       });
 
-      // Send FCM notification (after successful transaction commit)
       if (passengerRequest?.userUniqueId) {
         sendFCMNotificationToUser({
           userUniqueId: passengerRequest.userUniqueId,
@@ -425,19 +335,15 @@ const completeJourney = async (body, connection = null) => {
       }
     }
 
-    // Build response structure matching verifyDriverJourneyStatus/handleExistingJourney format
-    // Use data we already have instead of calling verifyDriverJourneyStatus
-    const uniqueIds = {
-      driverRequestUniqueId: driverInfo?.driver?.driverRequestUniqueId,
-      passengerRequestUniqueId: passengerRequest?.passengerRequestUniqueId,
-      journeyDecisionUniqueId: journeyDecisionData?.journeyDecisionUniqueId,
-      journeyUniqueId: journeyData?.journeyUniqueId || journeyUniqueId,
-    };
-
-    const response = {
+    return {
       message: "success",
       status: journeyStatusMap.journeyCompleted,
-      uniqueIds,
+      uniqueIds: {
+        driverRequestUniqueId: driverInfo?.driver?.driverRequestUniqueId,
+        passengerRequestUniqueId: passengerRequest?.passengerRequestUniqueId,
+        journeyDecisionUniqueId: journeyDecisionData?.journeyDecisionUniqueId,
+        journeyUniqueId: journeyData?.journeyUniqueId || body.journeyUniqueId,
+      },
       driver: {
         driver: driverInfo?.driver || null,
         vehicle: driverInfo?.vehicleOfDriver || null,
@@ -446,19 +352,9 @@ const completeJourney = async (body, connection = null) => {
       journey: journeyData || null,
       decision: journeyDecisionData || null,
     };
-
-    return response;
-  } catch (error) {
-    logger.error("Unable to complete journey", {
-      error: error.message,
-      stack: error.stack,
-    });
-    throw new AppError(
-      error.message || "Unable to complete journey",
-      error.statusCode || 500,
-    );
-  }
+  });
 };
+
 const sendUpdatedLocation = async (body) => {
   try {
     const { journeyDecisionUniqueId, latitude, longitude, userUniqueId } = body;

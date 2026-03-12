@@ -1,6 +1,7 @@
 const { pool } = require("../Middleware/Database.config");
 const { currentDate } = require("./CurrentDate");
 const logger = require("./logger");
+const transactionStorage = require("./TransactionContext");
 
 /**
  * Execute a callback within a database transaction
@@ -52,6 +53,15 @@ const logger = require("./logger");
 const executeInTransaction = async (callback, options = {}) => {
   const { timeout = 30000, logging = true } = options;
 
+  // Check if we are already in an active transaction context
+  const existingConnection = transactionStorage.getStore();
+  if (existingConnection) {
+    if (logging) {
+      logger.debug("Using existing transaction connection");
+    }
+    return await callback(existingConnection);
+  }
+
   const connection = await pool.getConnection();
   const startTime = currentDate();
   let transactionId = null;
@@ -85,8 +95,11 @@ const executeInTransaction = async (callback, options = {}) => {
       }, timeout);
     });
 
-    // Execute the callback with the connection and enforce timeout
-    const result = await Promise.race([callback(connection), timeoutPromise]);
+    // Run the callback inside the AsyncLocalStorage context
+    const result = await transactionStorage.run(connection, async () => {
+      // Execute the callback and enforce timeout
+      return await Promise.race([callback(connection), timeoutPromise]);
+    });
 
     // Commit transaction
     await connection.commit();

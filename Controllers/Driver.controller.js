@@ -170,8 +170,8 @@ const startJourney = async (req, res, next) => {
     req.body.previousStatusId = journeyStatusMap.acceptedByPassenger;
     req.body.userUniqueId = userUniqueId;
 
-    const result = await executeInTransaction(async (connection) => {
-      return await services.startJourney(req.body, connection);
+    const result = await executeInTransaction(async () => {
+      return await services.startJourney(req.body);
     });
     ServerResponder(res, result);
   } catch (error) {
@@ -198,8 +198,8 @@ const completeJourney = async (req, res, next) => {
     req.body.journeyStatusId = journeyStatusMap.journeyCompleted;
     req.body.previousStatusId = journeyStatusMap.journeyStarted;
 
-    const result = await executeInTransaction(async (connection) => {
-      return await services.completeJourney(req.body, connection);
+    const result = await executeInTransaction(async () => {
+      return await services.completeJourney(req.body);
     });
 
     ServerResponder(res, result);

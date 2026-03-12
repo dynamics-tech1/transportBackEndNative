@@ -11,6 +11,7 @@ const {
   getCommissionRateData,
   getCommissionStatusPaidId,
 } = require("./FixedData.service");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 const allowedSortFields = {
   commissionId: "c.commissionId",
@@ -21,27 +22,7 @@ const allowedSortFields = {
   commissionStatus: "cs.statusName",
 };
 
-async function executeInTransaction(callback) {
-  const connection = await pool.getConnection();
-  const startTime = currentDate();
-  try {
-    await connection.beginTransaction();
-    const result = await callback(connection);
-    await connection.commit();
 
-    // Log successful transaction
-    logger.debug("Transaction committed", {
-      duration: `${currentDate() - startTime}ms`,
-    });
-
-    return result;
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
-}
 
 function validateCommissionData(data) {
   if (!data.commissionAmount) {
@@ -62,7 +43,6 @@ async function createCommission({
   journeyDecisionUniqueId,
   paymentAmount,
   commissionCreatedBy,
-  connection, // Optional: use existing connection if provided
 }) {
   validateCommissionData({ commissionAmount: paymentAmount }); // Basic validation on payment amount
 
@@ -77,26 +57,16 @@ async function createCommission({
   const { commissionRateUniqueId, commissionRateValue } =
     await getCommissionRateData();
 
-  // If connection provided, use it directly; otherwise create transaction
-  if (connection) {
-    return await createCommissionInConnection(connection, {
+  // Wrap in transaction. executeInTransaction handles nesting via AsyncLocalStorage.
+  return await executeInTransaction(async (conn) => {
+    return await createCommissionInConnection(conn, {
       journeyDecisionUniqueId,
       paymentAmount,
       commissionCreatedBy,
       commissionRateUniqueId,
       commissionRateValue,
     });
-  } else {
-    return executeInTransaction(async (conn) => {
-      return await createCommissionInConnection(conn, {
-        journeyDecisionUniqueId,
-        paymentAmount,
-        commissionCreatedBy,
-        commissionRateUniqueId,
-        commissionRateValue,
-      });
-    });
-  }
+  });
 }
 
 // Helper function to create commission using provided connection
@@ -457,60 +427,60 @@ async function updateCommission(id, data, updatedBy) {
   // If amount or driver (journey) changes, get current commission for UserBalance reversal
   let oldAmount = null;
   let oldDriverUniqueId = null;
-  if (amountOrDriverChanged) {
-    const [oldRows] = await pool.query(
-      `SELECT c.commissionAmount, dr.userUniqueId AS driverUniqueId
-       FROM Commission c
-       JOIN JourneyDecisions jd ON c.journeyDecisionUniqueId = jd.journeyDecisionUniqueId
-       JOIN DriverRequest dr ON jd.driverRequestId = dr.driverRequestId
-       WHERE c.commissionUniqueId = ? AND c.commissionDeletedAt IS NULL`,
-      [id],
-    );
-    if (oldRows.length > 0) {
-      oldAmount = oldRows[0].commissionAmount;
-      oldDriverUniqueId = oldRows[0].driverUniqueId;
-    }
-  }
-
-  fields.push("commissionUpdatedBy = ?");
-  values.push(updatedBy);
-
-  // Add ID for WHERE clause
-  values.push(id);
-
-  const sql = `
-     UPDATE Commission
-     SET ${fields.join(", ")}
-     WHERE commissionUniqueId = ? AND commissionDeletedAt IS NULL
-   `;
 
   try {
-    const [result] = await pool.query(sql, values);
+    return await executeInTransaction(async (conn) => {
+      if (amountOrDriverChanged) {
+        const [oldRows] = await conn.query(
+          `SELECT c.commissionAmount, dr.userUniqueId AS driverUniqueId
+           FROM Commission c
+           JOIN JourneyDecisions jd ON c.journeyDecisionUniqueId = jd.journeyDecisionUniqueId
+           JOIN DriverRequest dr ON jd.driverRequestId = dr.driverRequestId
+           WHERE c.commissionUniqueId = ? AND c.commissionDeletedAt IS NULL`,
+          [id],
+        );
+        if (oldRows.length > 0) {
+          oldAmount = oldRows[0].commissionAmount;
+          oldDriverUniqueId = oldRows[0].driverUniqueId;
+        }
+      }
 
-    if (result.affectedRows === 0) {
-      throw new AppError("Commission not found or could not be updated", 404);
-    }
+      fields.push("commissionUpdatedBy = ?");
+      values.push(updatedBy);
 
-    // Reconcile UserBalance when amount or driver changes: reverse old, deduct new
-    if (
-      amountOrDriverChanged &&
-      oldAmount != null &&
-      oldDriverUniqueId != null
-    ) {
-      const [newRows] = await pool.query(
-        `SELECT c.commissionAmount, dr.userUniqueId AS driverUniqueId
-         FROM Commission c
-         JOIN JourneyDecisions jd ON c.journeyDecisionUniqueId = jd.journeyDecisionUniqueId
-         JOIN DriverRequest dr ON jd.driverRequestId = dr.driverRequestId
-         WHERE c.commissionUniqueId = ? AND c.commissionDeletedAt IS NULL`,
-        [id],
-      );
-      if (newRows.length > 0) {
-        const newAmount = newRows[0].commissionAmount;
-        const newDriverUniqueId = newRows[0].driverUniqueId;
-        try {
+      // Add ID for WHERE clause
+      values.push(id);
+
+      const sql = `
+         UPDATE Commission
+         SET ${fields.join(", ")}
+         WHERE commissionUniqueId = ? AND commissionDeletedAt IS NULL
+       `;
+
+      const [updateResult] = await conn.query(sql, values);
+
+      if (updateResult.affectedRows === 0) {
+        throw new AppError("Commission not found or could not be updated", 404);
+      }
+
+      // Reconcile UserBalance when amount or driver changes: reverse old, deduct new
+      if (
+        amountOrDriverChanged &&
+        oldAmount != null &&
+        oldDriverUniqueId != null
+      ) {
+        const [newRows] = await conn.query(
+          `SELECT c.commissionAmount, dr.userUniqueId AS driverUniqueId
+           FROM Commission c
+           JOIN JourneyDecisions jd ON c.journeyDecisionUniqueId = jd.journeyDecisionUniqueId
+           JOIN DriverRequest dr ON jd.driverRequestId = dr.driverRequestId
+           WHERE c.commissionUniqueId = ? AND c.commissionDeletedAt IS NULL`,
+          [id],
+        );
+        if (newRows.length > 0) {
+          const newAmount = newRows[0].commissionAmount;
+          const newDriverUniqueId = newRows[0].driverUniqueId;
           // Reversal: add back old amount (undo original deduction). Adjustment: deduct new amount.
-          // Net effect: e.g. 500→5000 gives +500−5000 = −4500, so total commission effect = 5000 ✓
           await prepareAndCreateNewBalance({
             addOrDeduct: "add",
             amount: oldAmount,
@@ -529,32 +499,23 @@ async function updateCommission(id, data, updatedBy) {
             userBalanceAdjustmentType: "adjustment",
             userBalanceCreatedBy: updatedBy,
           });
-        } catch (balanceError) {
-          logger.application.databaseError(
-            balanceError,
-            "prepareAndCreateNewBalance on commission update",
-            { commissionId: id },
-          );
-          throw new AppError(
-            "Commission updated but balance reconciliation failed",
-            500,
-          );
         }
       }
-    }
 
-    logger.info("Commission Updated", {
-      commissionId: id,
-      updatedBy,
-      updates: data,
+      logger.info("Commission Updated", {
+        commissionId: id,
+        updatedBy,
+        updates: data,
+      });
+
+      return {
+        message: "Commission record updated successfully",
+        data: updateResult,
+      };
     });
-    return {
-      message: "Commission record updated successfully",
-      data: result,
-    };
   } catch (error) {
     if (error instanceof AppError) throw error;
-    logger.application.databaseError(error, sql, values);
+    logger.application.databaseError(error, "Commission update failed", { id });
     throw error;
   }
 }
@@ -583,18 +544,13 @@ async function deleteCommission(id, deletedBy) {
     WHERE commissionUniqueId = ? AND commissionDeletedAt IS NULL
   `;
   try {
-    const [result] = await pool.query(updateSql, [
-      currentDate(),
-      deletedBy,
-      id,
-    ]);
+    await executeInTransaction(async (conn) => {
+      const [result] = await conn.query(updateSql, [currentDate(), deletedBy, id]);
 
-    if (result.affectedRows === 0) {
-      throw new AppError("Commission not found or already deleted", 404);
-    }
+      if (result.affectedRows === 0) {
+        throw new AppError("Commission not found or already deleted", 404);
+      }
 
-    // 3. Create reversing UserBalance entry so driver balance is restored
-    try {
       await prepareAndCreateNewBalance({
         addOrDeduct: "add",
         amount: commissionAmount,
@@ -604,22 +560,8 @@ async function deleteCommission(id, deletedBy) {
         userBalanceAdjustmentType: "reversal",
         userBalanceCreatedBy: deletedBy,
       });
-    } catch (reversalError) {
-      // Roll back commission soft-delete so commission and balance stay in sync
-      await pool.query(
-        `UPDATE Commission SET commissionDeletedAt = NULL, commissionDeletedBy = NULL WHERE commissionUniqueId = ?`,
-        [id],
-      );
-      logger.application.databaseError(
-        reversalError,
-        "prepareAndCreateNewBalance",
-        { commissionId: id },
-      );
-      throw new AppError(
-        "Failed to reverse balance for deleted commission",
-        500,
-      );
-    }
+      return result;
+    });
 
     logger.info("Commission Deleted", { commissionId: id, deletedBy });
 

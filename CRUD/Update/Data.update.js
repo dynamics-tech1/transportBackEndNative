@@ -1,4 +1,5 @@
 const { pool } = require("../../Middleware/Database.config");
+const transactionStorage = require("../../Utils/TransactionContext");
 
 const updateData = async ({
   tableName,
@@ -36,8 +37,8 @@ const updateData = async ({
   const sqlQuery = `UPDATE ${tableName} SET ${setClause} WHERE ${whereClause}`;
 
   try {
-    // Use connection if provided (for transactions), otherwise use pool
-    const queryExecutor = connection || pool;
+    // Use context connection first, then provided connection, or fall back to pool
+    const queryExecutor = transactionStorage.getStore() || connection || pool;
     const [result] = await queryExecutor.query(sqlQuery, [
       ...setValues,
       ...conditionValues,

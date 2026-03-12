@@ -1,6 +1,7 @@
 const { v4: uuidv4 } = require("uuid");
 const { pool } = require("../../Middleware/Database.config");
 const { getData } = require("../Read/ReadData");
+const transactionStorage = require("../../Utils/TransactionContext");
 const formatDateToReadable = require("../../Utils/FormatDateToReadable");
 const {
   journeyStatusMap,
@@ -25,8 +26,8 @@ const insertData = async ({ tableName, colAndVal, connection = null }) => {
   const sqlQuery = `INSERT INTO ${tableName} (${columnsString}) VALUES (${placeholders})`;
 
   try {
-    // Use provided connection for transaction support, or fall back to pool
-    const queryExecutor = connection || pool;
+    // Use context connection first, then provided connection, or fall back to pool
+    const queryExecutor = transactionStorage.getStore() || connection || pool;
     const [result] = await queryExecutor.query(sqlQuery, values);
     return result;
   } catch (error) {
@@ -136,8 +137,8 @@ const createDriverRequest = async (
       throw new Error("Invalid input parameters to create driver request");
     }
 
-    // Use provided connection for transaction support, or fall back to pool
-    const queryExecutor = connection || pool;
+    // Use context connection first, then provided connection, or fall back to pool
+    const queryExecutor = transactionStorage.getStore() || connection || pool;
 
     const sqlToCheckActiveRequest = `
   SELECT * FROM DriverRequest 

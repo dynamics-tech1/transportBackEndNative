@@ -1,5 +1,6 @@
 const { v4: uuidv4 } = require("uuid");
 const { pool } = require("../../Middleware/Database.config");
+const transactionStorage = require("../../Utils/TransactionContext");
 const { currentDate } = require("../../Utils/CurrentDate");
 const AppError = require("../../Utils/AppError");
 const logger = require("../../Utils/logger");
@@ -12,7 +13,7 @@ const getDriverLastBalance = async (driverUniqueId, connection = null) => {
     ORDER BY transactionTime DESC
     LIMIT 1
   `;
-  const executor = connection || pool;
+  const executor = transactionStorage.getStore() || connection || pool;
   const [result] = await executor.query(sql, [driverUniqueId]);
 
   if (result.length === 0) {
@@ -78,7 +79,7 @@ const prepareAndCreateNewBalance = async ({
 };
 
 const createUserBalance = async (data, connection = null) => {
-  const executor = connection || pool;
+  const executor = transactionStorage.getStore() || connection || pool;
   // Verify existence of data transactionUniqueId in userBalance
   const transactionTime = currentDate();
   const sqlToGetData = `
