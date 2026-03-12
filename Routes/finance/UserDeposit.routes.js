@@ -33,7 +33,7 @@ router.get(
 router.put(
   "/:userDepositUniqueId",
   verifyTokenOfAxios,
-  verifyIfUserIsAdminOrSupperAdmin,
+  // verifyIfUserIsAdminOrSupperAdmin,
   validator(depositParams, "params"),
   validator(updateUserDeposit),
   controller.updateUserDepositByUniqueId,
@@ -43,7 +43,7 @@ router.put(
 router.delete(
   "/:userDepositUniqueId",
   verifyTokenOfAxios,
-  verifyIfUserIsAdminOrSupperAdmin,
+  // verifyIfUserIsAdminOrSupperAdmin,
   validator(depositParams, "params"),
   controller.deleteUserDepositByUniqueId,
 );

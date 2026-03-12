@@ -226,6 +226,7 @@ const startJourney = async (body) => {
     );
   }
 };
+//collect scervice charge from journey completion by commision or allow user to do by subscription if it has an active subscription
 const completeJourney = async (body, connection = null) => {
   try {
     const {
