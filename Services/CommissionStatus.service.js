@@ -3,6 +3,7 @@ const { pool } = require("../Middleware/Database.config");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
 const logger = require("../Utils/logger");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 const createCommissionStatus = async ({
   statusName,
@@ -11,50 +12,46 @@ const createCommissionStatus = async ({
   effectiveTo,
   user,
 }) => {
-  const connection = await pool.getConnection();
-  try {
-    const commissionStatusUniqueId = uuidv4();
-    const createdBy = user?.userUniqueId || commissionStatusUniqueId;
+  const executor = transactionStorage.getStore() || pool;
+  const commissionStatusUniqueId = uuidv4();
+  const createdBy = user?.userUniqueId || commissionStatusUniqueId;
 
-    // Check if exists by name
-    const [existing] = await connection.query(
-      "SELECT commissionStatusId FROM CommissionStatus WHERE statusName = ?",
-      [statusName],
+  // Check if exists by name
+  const [existing] = await executor.query(
+    "SELECT commissionStatusId FROM CommissionStatus WHERE statusName = ?",
+    [statusName],
+  );
+
+  if (existing.length > 0) {
+    throw new AppError(
+      "Commission status with this name already exists",
+      400,
     );
-
-    if (existing.length > 0) {
-      throw new AppError(
-        "Commission status with this name already exists",
-        400,
-      );
-    }
-
-    const insertQuery = `
-      INSERT INTO CommissionStatus 
-      (commissionStatusUniqueId, statusName, description, effectiveFrom, effectiveTo, commissionStatusCreatedBy, commissionStatusCreatedAt) 
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    await connection.query(insertQuery, [
-      commissionStatusUniqueId,
-      statusName,
-      description,
-      effectiveFrom,
-      effectiveTo,
-      createdBy,
-      currentDate(),
-    ]);
-
-    return {
-      commissionStatusUniqueId,
-      statusName,
-      description,
-      effectiveFrom,
-      effectiveTo,
-    };
-  } finally {
-    connection.release();
   }
+
+  const insertQuery = `
+    INSERT INTO CommissionStatus 
+    (commissionStatusUniqueId, statusName, description, effectiveFrom, effectiveTo, commissionStatusCreatedBy, commissionStatusCreatedAt) 
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  await executor.query(insertQuery, [
+    commissionStatusUniqueId,
+    statusName,
+    description,
+    effectiveFrom,
+    effectiveTo,
+    createdBy,
+    currentDate(),
+  ]);
+
+  return {
+    commissionStatusUniqueId,
+    statusName,
+    description,
+    effectiveFrom,
+    effectiveTo,
+  };
 };
 
 const getAllCommissionStatuses = async (filters = {}) => {
@@ -171,7 +168,8 @@ const updateCommissionStatus = async (id, data) => {
   )} WHERE commissionStatusUniqueId = ?`;
 
   try {
-    const [result] = await pool.query(query, values);
+    const executor = transactionStorage.getStore() || pool;
+    const [result] = await executor.query(query, values);
     if (result.affectedRows === 0) {
       throw new AppError("Commission status not found", 404);
     }
@@ -192,7 +190,8 @@ const deleteCommissionStatus = async (id, deletedBy) => {
     // For soft delete, we might still allow it, but let's keep the safeguard for now
     // or relax it. The user usually wants to "remove" it from lists.
     // Let's check if it's used in *active* commissions not deleted ones.
-    const [referencing] = await pool.query(
+    const executor = transactionStorage.getStore() || pool;
+    const [referencing] = await executor.query(
       "SELECT commissionId FROM Commission WHERE commissionStatusUniqueId = ? AND commissionDeletedAt IS NULL LIMIT 1",
       [id],
     );
@@ -208,7 +207,7 @@ const deleteCommissionStatus = async (id, deletedBy) => {
       SET deletedAt = ?, deletedBy = ? 
       WHERE commissionStatusUniqueId = ? AND deletedAt IS NULL
     `;
-    const [result] = await pool.query(query, [currentDate(), deletedBy, id]);
+    const [result] = await executor.query(query, [currentDate(), deletedBy, id]);
 
     if (result.affectedRows === 0) {
       throw new AppError("Commission status not found or already deleted", 404);

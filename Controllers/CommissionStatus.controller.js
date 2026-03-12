@@ -1,11 +1,14 @@
 const commissionStatusService = require("../Services/CommissionStatus.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 exports.createCommissionStatus = async (req, res, next) => {
   try {
-    const result = await commissionStatusService.createCommissionStatus({
-      ...req.body,
-      user: req.user,
+    const result = await executeInTransaction(async () => {
+      return await commissionStatusService.createCommissionStatus({
+        ...req.body,
+        user: req.user,
+      });
     });
     ServerResponder(res, result, 201);
   } catch (error) {

@@ -1,9 +1,12 @@
 const Services = require("../Services/Cancellation.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 const updateCancellationReasons = async (req, res, next) => {
   try {
-    const result = await Services.updateCancellationReason(req, res);
+    const result = await executeInTransaction(async () => {
+      return await Services.updateCancellationReason(req, res);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -11,7 +14,9 @@ const updateCancellationReasons = async (req, res, next) => {
 };
 const deleteCancellationReasons = async (req, res, next) => {
   try {
-    const result = await Services.deleteCancellationReason(req, res);
+    const result = await executeInTransaction(async () => {
+      return await Services.deleteCancellationReason(req, res);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -19,7 +24,9 @@ const deleteCancellationReasons = async (req, res, next) => {
 };
 const addCancellationReasons = async (req, res, next) => {
   try {
-    const result = await Services.addCancellationReason(req.body, req.user);
+    const result = await executeInTransaction(async () => {
+      return await Services.addCancellationReason(req.body, req.user);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

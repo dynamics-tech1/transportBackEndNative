@@ -1,11 +1,13 @@
-const DatabaseService = require("../Services/Database.service");
+const databaseService = require("../Services/Database.service");
 const ServerResponder = require("../Utils/ServerResponder");
-const AppError = require("../Utils/AppError");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 const createTableController = async (req, res, next) => {
   try {
-    const response = await DatabaseService.createTable();
-    ServerResponder(res, response);
+    const result = await executeInTransaction(async () => {
+      return await databaseService.createTable();
+    });
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }
@@ -13,7 +15,7 @@ const createTableController = async (req, res, next) => {
 
 const getAllTablesController = async (req, res, next) => {
   try {
-    const response = await DatabaseService.getAllTables();
+    const response = await databaseService.getAllTables();
     ServerResponder(res, response);
   } catch (error) {
     next(error);
@@ -22,31 +24,14 @@ const getAllTablesController = async (req, res, next) => {
 
 const dropTableController = async (req, res, next) => {
   try {
-    const { tables } = req.body;
-
-    if (!Array.isArray(tables) || tables.length === 0) {
-      return next(new AppError("No tables provided in request body", 400));
+    const tableName = req.query.tableName;
+    if (!tableName) {
+      return res.status(400).json({ message: "Table name is required" });
     }
-
-    const results = [];
-
-    for (const tableName of tables) {
-      try {
-        const result = await DatabaseService.dropTable(tableName);
-        results.push({ tableName, ...result });
-      } catch (error) {
-        results.push({
-          tableName,
-          status: "error",
-          error: error.message || `Failed to drop table ${tableName}`,
-        });
-      }
-    }
-
-    ServerResponder(res, {
-      message: "completed",
-      data: results,
+    const result = await executeInTransaction(async () => {
+      return await databaseService.dropTable(tableName);
     });
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }
@@ -54,8 +39,10 @@ const dropTableController = async (req, res, next) => {
 
 const dropAllTablesController = async (req, res, next) => {
   try {
-    const response = await DatabaseService.dropAllTables();
-    ServerResponder(res, response);
+    const result = await executeInTransaction(async () => {
+      return await databaseService.dropAllTables();
+    });
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }
@@ -63,11 +50,13 @@ const dropAllTablesController = async (req, res, next) => {
 
 const updateTableController = async (req, res, next) => {
   try {
-    const response = await DatabaseService.updateTable(
-      req.params.tableName,
-      req.body,
-    );
-    ServerResponder(res, response);
+    const result = await executeInTransaction(async () => {
+      return await databaseService.updateTable(
+        req.params.tableName,
+        req.body,
+      );
+    });
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }
@@ -76,11 +65,13 @@ const updateTableController = async (req, res, next) => {
 const changeColumnPropertyController = async (req, res, next) => {
   try {
     const { tableName } = req.params;
-    const response = await DatabaseService.changeColumnProperty(
-      tableName,
-      req.body,
-    );
-    ServerResponder(res, response);
+    const result = await executeInTransaction(async () => {
+      return await databaseService.changeColumnProperty(
+        tableName,
+        req.body,
+      );
+    });
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }
@@ -89,8 +80,10 @@ const changeColumnPropertyController = async (req, res, next) => {
 const dropColumnController = async (req, res, next) => {
   try {
     const { tableName, columnName } = req.params;
-    const response = await DatabaseService.dropColumn(tableName, columnName);
-    ServerResponder(res, response);
+    const result = await executeInTransaction(async () => {
+      return await databaseService.dropColumn(tableName, columnName);
+    });
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }
@@ -98,7 +91,7 @@ const dropColumnController = async (req, res, next) => {
 
 const getTableColumnsController = async (req, res, next) => {
   try {
-    const response = await DatabaseService.getTableColumns(
+    const response = await databaseService.getTableColumns(
       req.params.tableName,
     );
     ServerResponder(res, response);
@@ -109,8 +102,10 @@ const getTableColumnsController = async (req, res, next) => {
 
 const installPreDefinedDataController = async (req, res, next) => {
   try {
-    const response = await DatabaseService.installPreDefinedData(req);
-    ServerResponder(res, response);
+    const result = await executeInTransaction(async () => {
+      return await databaseService.installPreDefinedData(req);
+    });
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }

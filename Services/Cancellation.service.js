@@ -4,6 +4,7 @@ const logger = require("../Utils/logger");
 const { getData } = require("../CRUD/Read/ReadData");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 // Function to add a cancellation reason
 const addCancellationReason = async (body, user) => {
   try {
@@ -35,7 +36,8 @@ const addCancellationReason = async (body, user) => {
       currentDate(),
     ];
 
-    const [registerResult] = await pool.query(sqlToAddReason, reasonValues);
+    const executor = transactionStorage.getStore() || pool;
+    const [registerResult] = await executor.query(sqlToAddReason, reasonValues);
     if (registerResult.affectedRows > 0) {
       return {
         message: "success",
@@ -62,7 +64,8 @@ const deleteCancellationReason = async (req) => {
     req.params.cancellationReasonTypeUniqueId;
   const userUniqueId = req.user?.userUniqueId;
 
-  const [existing] = await pool.query(
+  const executor = transactionStorage.getStore() || pool;
+  const [existing] = await executor.query(
     "SELECT cancellationReasonTypeUniqueId FROM CancellationReasonsType WHERE cancellationReasonTypeUniqueId = ?",
     [cancellationReasonTypeUniqueId],
   );
@@ -71,7 +74,7 @@ const deleteCancellationReason = async (req) => {
   }
 
   const sqlToDeleteReason = `UPDATE CancellationReasonsType SET cancellationReasonTypeDeletedAt = ?, cancellationReasonTypeDeletedBy = ? WHERE cancellationReasonTypeUniqueId = ?`;
-  const [result] = await pool.query(sqlToDeleteReason, [
+  const [result] = await executor.query(sqlToDeleteReason, [
     currentDate(),
     userUniqueId,
     cancellationReasonTypeUniqueId,
@@ -92,7 +95,8 @@ const updateCancellationReason = async (req) => {
     req.params.cancellationReasonTypeUniqueId;
   const userUniqueId = req.user?.userUniqueId;
 
-  const [existing] = await pool.query(
+  const executor = transactionStorage.getStore() || pool;
+  const [existing] = await executor.query(
     "SELECT cancellationReasonTypeUniqueId FROM CancellationReasonsType WHERE cancellationReasonTypeUniqueId = ?",
     [cancellationReasonTypeUniqueId],
   );
@@ -126,7 +130,7 @@ const updateCancellationReason = async (req) => {
   const sqlToUpdateReason = `UPDATE CancellationReasonsType SET ${setParts.join(", ")} WHERE cancellationReasonTypeUniqueId = ?`;
   values.push(cancellationReasonTypeUniqueId);
 
-  const [result] = await pool.query(sqlToUpdateReason, values);
+  const [result] = await executor.query(sqlToUpdateReason, values);
   if (result.affectedRows > 0) {
     return {
       message: "success",

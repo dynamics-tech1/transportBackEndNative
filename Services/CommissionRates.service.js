@@ -1,6 +1,7 @@
 const { pool } = require("../Middleware/Database.config");
+const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
-
+const { transactionStorage } = require("../Utils/TransactionContext");
 // Create a commission rate
 const createCommissionRate = async ({
   commissionRateUniqueId,
@@ -8,12 +9,13 @@ const createCommissionRate = async ({
   commissionRateEffectiveDate,
   commissionRateCreatedBy,
 }) => {
+  const executor = transactionStorage.getStore() || pool;
   // Check if commission rate with same unique ID already exists
   const sqlCheckUniqueId = `
     SELECT * FROM CommissionRates 
     WHERE commissionRateUniqueId = ?
   `;
-  const [existingById] = await pool.query(sqlCheckUniqueId, [
+  const [existingById] = await executor.query(sqlCheckUniqueId, [
     commissionRateUniqueId,
   ]);
 
@@ -28,7 +30,7 @@ const createCommissionRate = async ({
     AND commissionRateDeletedAt IS NULL
     AND commissionRateEffectiveDate = ?
   `;
-  const [existingRate] = await pool.query(sqlCheckDuplicate, [
+  const [existingRate] = await executor.query(sqlCheckDuplicate, [
     commissionRate,
     commissionRateEffectiveDate,
   ]);
@@ -41,14 +43,13 @@ const createCommissionRate = async ({
   }
 
   // Insert new commission rate
-  const commissionRateExpirationDate = "2028-10-10";
-  const sqlQueryToInsert = `
+  const sqlInsert = `
     INSERT INTO CommissionRates (
       commissionRateUniqueId,
       commissionRate,
       commissionRateEffectiveDate,
       commissionRateCreatedBy,
-      commissionRateExpirationDate
+      commissionRateCreatedAt
     ) VALUES (?, ?, ?, ?, ?)
   `;
 
@@ -57,10 +58,10 @@ const createCommissionRate = async ({
     commissionRate,
     commissionRateEffectiveDate,
     commissionRateCreatedBy,
-    commissionRateExpirationDate,
+    currentDate(),
   ];
 
-  await pool.query(sqlQueryToInsert, values);
+  await executor.query(sqlInsert, values);
 
   return {
     message: "success",
@@ -68,7 +69,6 @@ const createCommissionRate = async ({
       commissionRateUniqueId,
       commissionRate,
       commissionRateEffectiveDate,
-      commissionRateExpirationDate,
     },
   };
 };
@@ -226,7 +226,8 @@ const updateCommissionRateByUniqueId = async ({
   commissionRateExpirationDate,
   commissionRateUpdatedBy,
 }) => {
-  const [existingRows] = await pool.query(
+  const executor = transactionStorage.getStore() || pool;
+  const [existingRows] = await executor.query(
     "SELECT commissionRateUniqueId, commissionRateDeletedAt FROM CommissionRates WHERE commissionRateUniqueId = ?",
     [commissionRateUniqueId],
   );
@@ -268,7 +269,7 @@ const updateCommissionRateByUniqueId = async ({
   const sqlQuery = `UPDATE CommissionRates SET ${setParts.join(", ")} WHERE commissionRateUniqueId = ? AND commissionRateDeletedAt IS NULL`;
   values.push(commissionRateUniqueId);
 
-  const [result] = await pool.query(sqlQuery, values);
+  const [result] = await executor.query(sqlQuery, values);
   if (result.affectedRows === 0) {
     throw new AppError("Commission rate update failed", 500);
   }
@@ -281,7 +282,8 @@ const deleteCommissionRateByUniqueId = async ({
   commissionRateUniqueId,
   commissionRateDeletedBy,
 }) => {
-  const [existingRows] = await pool.query(
+  const executor = transactionStorage.getStore() || pool;
+  const [existingRows] = await executor.query(
     "SELECT commissionRateUniqueId, commissionRateDeletedAt FROM CommissionRates WHERE commissionRateUniqueId = ?",
     [commissionRateUniqueId],
   );
@@ -292,17 +294,17 @@ const deleteCommissionRateByUniqueId = async ({
     throw new AppError("Commission rate already deleted", 400);
   }
 
-  const sqlQuery = `
+  const sqlDelete = `
     UPDATE CommissionRates 
     SET 
-      commissionRateDeletedAt = CURRENT_TIMESTAMP,
+      commissionRateDeletedAt = ?,
       commissionRateDeletedBy = ?
     WHERE commissionRateUniqueId = ? AND commissionRateDeletedAt IS NULL
   `;
 
-  const values = [commissionRateDeletedBy, commissionRateUniqueId];
+  const values = [currentDate(), commissionRateDeletedBy, commissionRateUniqueId];
 
-  const [result] = await pool.query(sqlQuery, values);
+  const [result] = await executor.query(sqlDelete, values);
   if (result.affectedRows === 0) {
     throw new AppError("Commission rate delete failed", 500);
   }

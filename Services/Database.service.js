@@ -5,6 +5,7 @@ const AppError = require("../Utils/AppError");
 const logger = require("../Utils/logger");
 const mysql = require("mysql2/promise");
 const { v4: uuidv4 } = require("uuid");
+const { transactionStorage } = require("../Utils/TransactionContext");
 const {
   vehicleTypes,
   driversDocumentRequirement,
@@ -177,10 +178,11 @@ const dropTable = async (tableName) => {
   const disableForeignKeyChecks = `SET FOREIGN_KEY_CHECKS = 0;`;
   const enableForeignKeyChecks = `SET FOREIGN_KEY_CHECKS = 1;`;
   const sqlQuery = `DROP TABLE IF EXISTS \`${tableName}\`;`;
+  const executor = transactionStorage.getStore() || pool;
 
   try {
-    await pool.query(disableForeignKeyChecks);
-    await pool.query(sqlQuery);
+    await executor.query(disableForeignKeyChecks);
+    await executor.query(sqlQuery);
 
     const tableExists = await checkTableExists(tableName);
     if (tableExists) {
@@ -193,7 +195,7 @@ const dropTable = async (tableName) => {
       data: `Table ${tableName} dropped successfully`,
     };
   } finally {
-    await pool.query(enableForeignKeyChecks);
+    await executor.query(enableForeignKeyChecks);
   }
 };
 
@@ -201,12 +203,13 @@ const dropAllTables = async () => {
   const disableForeignKeyChecks = `SET FOREIGN_KEY_CHECKS = 0;`;
   const enableForeignKeyChecks = `SET FOREIGN_KEY_CHECKS = 1;`;
   const maxRetries = 3;
+  const executor = transactionStorage.getStore() || pool;
 
   try {
-    await pool.query(disableForeignKeyChecks);
+    await executor.query(disableForeignKeyChecks);
 
     const sqlQuery = `SHOW TABLES`;
-    const [tables] = await pool.query(sqlQuery);
+    const [tables] = await executor.query(sqlQuery);
     const tableNames = tables.map((table) => Object.values(table)[0]);
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -215,7 +218,7 @@ const dropAllTables = async () => {
       for (const tableName of tableNames) {
         const sqlToDropTable = `DROP TABLE IF EXISTS \`${tableName}\``;
         try {
-          await pool.query(sqlToDropTable);
+          await executor.query(sqlToDropTable);
         } catch (error) {
           if (error.code === "ER_ROW_IS_REFERENCED_2") {
             remainingTables.push(tableName);
@@ -239,15 +242,16 @@ const dropAllTables = async () => {
 
     return { message: "success", data: "All tables dropped successfully" };
   } finally {
-    await pool.query(enableForeignKeyChecks);
+    await executor.query(enableForeignKeyChecks);
   }
 };
 
 const updateTable = async (tableName, updateData) => {
   const { columnName, columnType, defaultValue } = updateData;
   const sqlQuery = `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnType} DEFAULT ${defaultValue}`;
+  const executor = transactionStorage.getStore() || pool;
 
-  await pool.query(sqlQuery);
+  await executor.query(sqlQuery);
   return {
     message: "success",
     data: `Table ${tableName} updated successfully`,
@@ -259,8 +263,9 @@ const changeColumnProperty = async (
   { oldColumnName, newColumnName, newColumnType },
 ) => {
   const sqlQuery = `ALTER TABLE ${tableName} CHANGE ${oldColumnName} ${newColumnName} ${newColumnType}`;
+  const executor = transactionStorage.getStore() || pool;
 
-  await pool.query(sqlQuery);
+  await executor.query(sqlQuery);
   return {
     message: "success",
     data: `Column ${oldColumnName} changed to ${newColumnName} with type ${newColumnType}`,
@@ -269,8 +274,9 @@ const changeColumnProperty = async (
 
 const dropColumn = async (tableName, columnName) => {
   const sqlQuery = `ALTER TABLE ${tableName} DROP COLUMN ${columnName}`;
+  const executor = transactionStorage.getStore() || pool;
 
-  await pool.query(sqlQuery);
+  await executor.query(sqlQuery);
   return {
     message: "success",
     data: `Column ${columnName} dropped from table ${tableName}`,
