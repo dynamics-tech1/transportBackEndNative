@@ -1,5 +1,6 @@
 const service = require("../Services/UserBalanceTransfer.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 exports.createTransfer = async (req, res, next) => {
   try {
@@ -12,13 +13,15 @@ exports.createTransfer = async (req, res, next) => {
       transferredBy = userUniqueId;
     }
 
-    const result = await service.createTransfer(
-      fromDriverUniqueId,
-      toDriverUniqueId,
-      transferredAmount,
-      reason,
-      transferredBy,
-    );
+    const result = await executeInTransaction(async () => {
+      return await service.createTransfer(
+        fromDriverUniqueId,
+        toDriverUniqueId,
+        transferredAmount,
+        reason,
+        transferredBy,
+      );
+    });
 
     ServerResponder(res, result);
   } catch (error) {
@@ -98,11 +101,13 @@ exports.updateTransferByUniqueId = async (req, res, next) => {
     const user = req.user;
     const userUniqueId = user?.userUniqueId;
 
-    const result = await service.updateTransferByUniqueId(
-      depositTransferUniqueId,
-      updateData,
-      userUniqueId,
-    );
+    const result = await executeInTransaction(async () => {
+      return await service.updateTransferByUniqueId(
+        depositTransferUniqueId,
+        updateData,
+        userUniqueId,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -112,9 +117,11 @@ exports.updateTransferByUniqueId = async (req, res, next) => {
 exports.deleteTransferByUniqueId = async (req, res, next) => {
   try {
     const { depositTransferUniqueId } = req.params;
-    const result = await service.deleteTransferByUniqueId(
-      depositTransferUniqueId,
-    );
+    const result = await executeInTransaction(async () => {
+      return await service.deleteTransferByUniqueId(
+        depositTransferUniqueId,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

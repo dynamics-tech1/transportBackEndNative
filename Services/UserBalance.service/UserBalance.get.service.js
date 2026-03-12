@@ -176,7 +176,7 @@ const getDriverLastBalanceByUserUniqueId = async (userUniqueId) => {
       }
     } else if (record.transactionType === "Refund") {
       // Direct SQL query to avoid circular dependency
-      const [refundResult] = await pool.query(
+      const [refundResult] = await (transactionStorage.getStore() || pool).query(
         "SELECT * FROM UserRefund WHERE userRefundUniqueId = ?",
         [transactionUniqueId],
       );

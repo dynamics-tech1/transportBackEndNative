@@ -6,7 +6,6 @@ const {
 } = require("./UserBalance.service/UserBalance.post.service");
 
 const { getPricingWithFilters } = require("./SubscriptionPlanPricing.service");
-const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 const AppError = require("../Utils/AppError");
 const logger = require("../Utils/logger");
 const { transactionStorage } = require("../Utils/TransactionContext");
@@ -38,7 +37,6 @@ const createUserSubscription = async ({
     subscriptionPlanPricingUniqueId,
     isActive: true,
   });
-  console.log("@createUserSubscription activePricing", activePricing);
   const activePricingData = activePricing?.data?.[0];
   logger.debug("@activePricingData", {
     activePricingData,
@@ -100,52 +98,52 @@ const createUserSubscription = async ({
     savedStartDate = savedEndDate;
   }
 
-  const result = await executeInTransaction(async (connection) => {
-    // 1. Deduct/add balance for subscription
-    // Note: prepareAndCreateNewBalance now throws AppError
-    const balanceResult = await prepareAndCreateNewBalance({
-      addOrDeduct: activePricingData?.isFree ? "add" : "deduct",
-      amount: price,
-      driverUniqueId,
-      transactionUniqueId: userSubscriptionUniqueId,
-      transactionType: "Subscription",
-      isFree,
-      userBalanceCreatedBy: driverUniqueId,
-    });
-    logger.debug("@balanceResult", balanceResult);
+  const executor = transactionStorage.getStore() || pool;
 
-    // 2. Insert subscription record
-    const nextDate = addDays(
-      savedEndDate ? savedEndDate : today,
-      durationInDays,
-    );
-    const sql = `
-      INSERT INTO UserSubscription 
-      (userSubscriptionUniqueId, driverUniqueId, subscriptionPlanPricingUniqueId, startDate, endDate, userSubscriptionCreatedBy, userSubscriptionCreatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `;
-    const values = [
-      userSubscriptionUniqueId,
-      driverUniqueId,
-      subscriptionPlanPricingUniqueId,
-      savedStartDate ? savedStartDate : today,
-      nextDate,
-      userSubscriptionCreatedBy || driverUniqueId,
-      currentDate(),
-    ];
-
-    const [insertResult] = await connection.query(sql, values);
-
-    if (insertResult.affectedRows === 0) {
-      throw new AppError("Failed to create subscription", 500);
-    }
-
-    return {
-      userSubscriptionUniqueId,
-      driverUniqueId,
-      subscriptionPlanPricingUniqueId,
-    };
+  // 1. Deduct/add balance for subscription
+  // Note: prepareAndCreateNewBalance now throws AppError
+  const balanceResult = await prepareAndCreateNewBalance({
+    addOrDeduct: activePricingData?.isFree ? "add" : "deduct",
+    amount: price,
+    driverUniqueId,
+    transactionUniqueId: userSubscriptionUniqueId,
+    transactionType: "Subscription",
+    isFree,
+    userBalanceCreatedBy: driverUniqueId,
   });
+  logger.debug("@balanceResult", balanceResult);
+
+  // 2. Insert subscription record
+  const nextDate = addDays(
+    savedEndDate ? savedEndDate : today,
+    durationInDays,
+  );
+  const sql = `
+    INSERT INTO UserSubscription 
+    (userSubscriptionUniqueId, driverUniqueId, subscriptionPlanPricingUniqueId, startDate, endDate, userSubscriptionCreatedBy, userSubscriptionCreatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `;
+  const values = [
+    userSubscriptionUniqueId,
+    driverUniqueId,
+    subscriptionPlanPricingUniqueId,
+    savedStartDate ? savedStartDate : today,
+    nextDate,
+    userSubscriptionCreatedBy || driverUniqueId,
+    currentDate(),
+  ];
+
+  const [insertResult] = await executor.query(sql, values);
+
+  if (insertResult.affectedRows === 0) {
+    throw new AppError("Failed to create subscription", 500);
+  }
+
+  const result = {
+    userSubscriptionUniqueId,
+    driverUniqueId,
+    subscriptionPlanPricingUniqueId,
+  };
 
   // Fetch the newly created subscription with full plan details
   const newSubscription = await getUserSubscriptionsWithFilters({

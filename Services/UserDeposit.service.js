@@ -7,9 +7,9 @@ const {
 const { sendSocketIONotificationToAdmin } = require("../Utils/Notifications");
 
 const { getData } = require("../CRUD/Read/ReadData");
-const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 const AppError = require("../Utils/AppError");
 const logger = require("../Utils/logger");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 // Create
 const createUserDeposit = async (data) => {
@@ -117,7 +117,8 @@ const createUserDeposit = async (data) => {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
-  const [insertResult] = await pool.query(sql, [
+  const executor = transactionStorage.getStore() || pool;
+  const [insertResult] = await executor.query(sql, [
     userDepositUniqueId,
     driverUniqueId,
     depositAmount,
@@ -202,8 +203,8 @@ const getUserDeposit = async (filters = {}) => {
     const statusArray = Array.isArray(depositStatus)
       ? depositStatus
       : String(depositStatus || "")
-          .split(",")
-          .filter(Boolean);
+        .split(",")
+        .filter(Boolean);
 
     const hasStatuses = statusArray.length > 0;
     if (includeNullStatus && hasStatuses) {
@@ -355,12 +356,13 @@ const getUserDeposit = async (filters = {}) => {
     ${whereClause}
   `;
 
-  const [data] = await pool.query(sql, [
+  const executor = transactionStorage.getStore() || pool;
+  const [data] = await executor.query(sql, [
     ...params,
     Number(numLimit),
     Number(offset),
   ]);
-  const [countResult] = await pool.query(countSql, params);
+  const [countResult] = await executor.query(countSql, params);
 
   const total = countResult[0].total;
   const totalPages = Math.ceil(total / numLimit);
@@ -449,23 +451,21 @@ const updateUserDepositByUniqueId = async (userDepositUniqueId, data) => {
   if (isApproving && depositStatus !== "approved") {
     // When approving, use new amount from payload if provided so we add balance once with the final amount (avoids add old then deduct old + add new)
     const amountToAdd =
-      data.depositAmount != null ? data.depositAmount : oldDepositAmount;
-    // Use transaction to ensure atomicity
-    await executeInTransaction(async (connection) => {
-      // 1. Add balance for approved deposit (single operation with correct amount)
-      await prepareAndCreateNewBalance({
-        addOrDeduct: "add",
-        amount: amountToAdd,
-        driverUniqueId,
-        transactionType: "Deposit",
-        transactionUniqueId: userDepositUniqueId,
-        userBalanceCreatedBy: userDepositCreatedOrUpdatedBy,
-      });
-      // 2. Update deposit with provided data
-      await applyDepositUpdate(connection, data, userDepositUniqueId);
-    });
+      data.depositAmount !== null ? data.depositAmount : oldDepositAmount;
 
-    // Fetch updated deposit data after successful transaction
+    // 1. Add balance for approved deposit (single operation with correct amount)
+    await prepareAndCreateNewBalance({
+      addOrDeduct: "add",
+      amount: amountToAdd,
+      driverUniqueId,
+      transactionType: "Deposit",
+      transactionUniqueId: userDepositUniqueId,
+      userBalanceCreatedBy: userDepositCreatedOrUpdatedBy,
+    });
+    // 2. Update deposit with provided data
+    await applyDepositUpdate(transactionStorage.getStore() || pool, data, userDepositUniqueId);
+
+    // Fetch updated deposit data
     const updatedDepositFetch = await getUserDeposit({
       userDepositUniqueId,
       limit: 1,
@@ -477,7 +477,7 @@ const updateUserDepositByUniqueId = async (userDepositUniqueId, data) => {
   }
 
   // Not approving, just do regular update
-  await applyDepositUpdate(pool, data, userDepositUniqueId);
+  await applyDepositUpdate(transactionStorage.getStore() || pool, data, userDepositUniqueId);
 
   //if depositAmount is changed, update the balance, by deduct the old amount and add the new amount
   const newDepositAmount = data.depositAmount;
@@ -527,7 +527,8 @@ const deleteUserDepositByUniqueId = async (
   const oldDepositAmount = Number(depositAmount);
   //use soft delete to delete the deposit
   const sql = `update UserDeposit SET userDepositDeletedAt = ?, userDepositDeletedBy = ?  WHERE userDepositUniqueId = ?`;
-  const [result] = await pool.query(sql, [
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, [
     currentDate(),
     userDepositDeletedBy,
     userDepositUniqueId,
@@ -633,7 +634,7 @@ async function fetchDepositData(userDepositUniqueId) {
   const depositData = Array.isArray(depositFetch?.data)
     ? depositFetch.data[0]
     : depositFetch?.data;
-  if (!depositData) throw new AppError("Deposit not found", 404);
+  if (!depositData) {throw new AppError("Deposit not found", 404);}
   return depositData;
 }
 
@@ -651,7 +652,7 @@ function getUpdateFields(data) {
     (key) => !excludedFields.includes(key),
   );
   if (allowedFields.length === 0)
-    throw new AppError("No valid fields to update", 400);
+  {throw new AppError("No valid fields to update", 400);}
   const setClause = allowedFields.map((field) => `${field} = ?`).join(", ");
   const values = allowedFields.map((field) => data[field]);
   return { setClause, values };
@@ -674,72 +675,68 @@ const updateUserDepositStatusService = async (userDepositUniqueId, data) => {
   const userDepositCreatedOrUpdatedBy = data.userDepositCreatedOrUpdatedBy;
   const { setClause, values } = getUpdateFields(data);
 
-  return executeInTransaction(async (connection) => {
-    logger.info("Updating deposit", {
-      userDepositUniqueId,
-      oldAmount: oldDepositAmount,
-      newAmount: data.depositAmount,
-      status: data.depositStatus,
-      isApproving,
-    });
-
-    const updateSql = `UPDATE UserDeposit SET ${setClause}, userDepositUpdatedAt = ? WHERE userDepositUniqueId = ?`;
-    const [updateResult] = await connection.query(updateSql, [
-      ...values,
-      currentDate(),
-      userDepositUniqueId,
-    ]);
-    if (updateResult.affectedRows === 0) {
-      throw new AppError("Deposit not found or update failed", 404);
-    }
-
-    const newDepositAmount = Number(data.depositAmount);
-    if (isApproving) {
-      const amountToAdd =
-        newDepositAmount != null ? newDepositAmount : oldDepositAmount;
-      await prepareAndCreateNewBalance({
-        addOrDeduct: "add",
-        amount: amountToAdd,
-        driverUniqueId,
-        transactionType: "Deposit",
-        transactionUniqueId: userDepositUniqueId,
-        userBalanceCreatedBy: userDepositCreatedOrUpdatedBy,
-        connection,
-      });
-      // update oldDepositStatus to approved
-      oldDepositStatus = "approved";
-    }
-    //if there is a given depositAmount and it is changed, update the balance, by deduct the old amount and add the new amount
-    else if (
-      newDepositAmount !== undefined &&
-      newDepositAmount !== oldDepositAmount &&
-      oldDepositStatus === "approved"
-    ) {
-      await prepareAndCreateNewBalance({
-        addOrDeduct: "deduct",
-        amount: oldDepositAmount,
-        driverUniqueId,
-        transactionType: "Deposit",
-        transactionUniqueId: userDepositUniqueId,
-        userBalanceAdjustmentType: "reversal",
-        userBalanceCreatedBy: userDepositCreatedOrUpdatedBy,
-        connection,
-      });
-      await prepareAndCreateNewBalance({
-        addOrDeduct: "add",
-        amount: newDepositAmount,
-        driverUniqueId,
-        transactionType: "Deposit",
-        transactionUniqueId: userDepositUniqueId,
-        userBalanceAdjustmentType: "adjustment",
-        userBalanceCreatedBy: userDepositCreatedOrUpdatedBy,
-        connection,
-      });
-    }
-
-    const updatedData = await fetchDepositData(userDepositUniqueId);
-    return { message: "success", data: updatedData };
+  const executor = transactionStorage.getStore() || pool;
+  logger.info("Updating deposit", {
+    userDepositUniqueId,
+    oldAmount: oldDepositAmount,
+    newAmount: data.depositAmount,
+    status: data.depositStatus,
+    isApproving,
   });
+
+  const updateSql = `UPDATE UserDeposit SET ${setClause}, userDepositUpdatedAt = ? WHERE userDepositUniqueId = ?`;
+  const [updateResult] = await executor.query(updateSql, [
+    ...values,
+    currentDate(),
+    userDepositUniqueId,
+  ]);
+  if (updateResult.affectedRows === 0) {
+    throw new AppError("Deposit not found or update failed", 404);
+  }
+
+  const newDepositAmount = Number(data.depositAmount);
+  if (isApproving) {
+    const amountToAdd =
+      newDepositAmount !== null ? newDepositAmount : oldDepositAmount;
+    await prepareAndCreateNewBalance({
+      addOrDeduct: "add",
+      amount: amountToAdd,
+      driverUniqueId,
+      transactionType: "Deposit",
+      transactionUniqueId: userDepositUniqueId,
+      userBalanceCreatedBy: userDepositCreatedOrUpdatedBy,
+    });
+    // update oldDepositStatus to approved
+    oldDepositStatus = "approved";
+  }
+  //if there is a given depositAmount and it is changed, update the balance, by deduct the old amount and add the new amount
+  else if (
+    newDepositAmount !== undefined &&
+    newDepositAmount !== oldDepositAmount &&
+    oldDepositStatus === "approved"
+  ) {
+    await prepareAndCreateNewBalance({
+      addOrDeduct: "deduct",
+      amount: oldDepositAmount,
+      driverUniqueId,
+      transactionType: "Deposit",
+      transactionUniqueId: userDepositUniqueId,
+      userBalanceAdjustmentType: "reversal",
+      userBalanceCreatedBy: userDepositCreatedOrUpdatedBy,
+    });
+    await prepareAndCreateNewBalance({
+      addOrDeduct: "add",
+      amount: newDepositAmount,
+      driverUniqueId,
+      transactionType: "Deposit",
+      transactionUniqueId: userDepositUniqueId,
+      userBalanceAdjustmentType: "adjustment",
+      userBalanceCreatedBy: userDepositCreatedOrUpdatedBy,
+    });
+  }
+
+  const updatedData = await fetchDepositData(userDepositUniqueId);
+  return { message: "success", data: updatedData };
 };
 const initiateSantimPayPaymentService = async ({
   driverUniqueId,
@@ -833,18 +830,18 @@ const handleSantimPayWebhookService = async ({ webhookData }) => {
 
   let newStatus;
   switch (Status.toUpperCase()) {
-    case "COMPLETED":
-      newStatus = "COMPLETED";
-      break;
-    case "FAILED":
-    case "DECLINED":
-      newStatus = "FAILED";
-      break;
-    case "PENDING":
-      newStatus = "PENDING";
-      break;
-    default:
-      newStatus = "PENDING";
+  case "COMPLETED":
+    newStatus = "COMPLETED";
+    break;
+  case "FAILED":
+  case "DECLINED":
+    newStatus = "FAILED";
+    break;
+  case "PENDING":
+    newStatus = "PENDING";
+    break;
+  default:
+    newStatus = "PENDING";
   }
 
   const depositTime = currentDate();

@@ -3,9 +3,13 @@ const { v4: uuidv4 } = require("uuid");
 const logger = require("../Utils/logger");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 const query = async (sql, values = []) => {
-  const [result] = await pool.query(sql, values);
+  const [result] = await (transactionStorage.getStore() || pool).query(
+    sql,
+    values,
+  );
   return result;
 };
 const createUserDelinquency = async (data) => {
@@ -39,7 +43,7 @@ const createUserDelinquency = async (data) => {
     FROM Users 
     WHERE userUniqueId = ?
   `;
-  const [userResult] = await pool.query(userCheckQuery, [userUniqueId]);
+  const [userResult] = await (transactionStorage.getStore() || pool).query(userCheckQuery, [userUniqueId]);
 
   if (userResult.length === 0) {
     throw new AppError(
@@ -54,7 +58,7 @@ const createUserDelinquency = async (data) => {
     FROM DelinquencyTypes 
     WHERE delinquencyTypeUniqueId = ? AND isActive = TRUE
   `;
-  const [typeResult] = await pool.query(typeQuery, [delinquencyTypeUniqueId]);
+  const [typeResult] = await (transactionStorage.getStore() || pool).query(typeQuery, [delinquencyTypeUniqueId]);
   if (typeResult.length === 0) {
     throw new AppError("Invalid delinquency type", 404);
   }
@@ -98,7 +102,7 @@ const createUserDelinquency = async (data) => {
     // Use Promise.all to check for duplicates and get delinquency type
     const [duplicateCheckResult] = await Promise.all([
       getUserDelinquencies(duplicateFilters),
-      pool.query(typeQuery, [delinquencyTypeUniqueId]),
+      (transactionStorage.getStore() || pool).query(typeQuery, [delinquencyTypeUniqueId]),
     ]);
 
     if (
@@ -151,7 +155,7 @@ const createUserDelinquency = async (data) => {
       FROM JourneyDecisions 
       WHERE journeyDecisionUniqueId = ?
     `;
-    const [journeyResult] = await pool.query(journeyCheckQuery, [
+    const [journeyResult] = await (transactionStorage.getStore() || pool).query(journeyCheckQuery, [
       journeyDecisionUniqueId,
     ]);
 
@@ -234,7 +238,7 @@ const checkAndApplyAutomaticBan = async (
     AND roleId = ?
     AND delinquencyCreatedAt >= DATE_SUB(?, INTERVAL 30 DAY)
   `;
-  const [pointsResult] = await pool.query(pointsQuery, [
+  const [pointsResult] = await (transactionStorage.getStore() || pool).query(pointsQuery, [
     userUniqueId,
     roleId,
     currentDate(),
@@ -248,7 +252,7 @@ const checkAndApplyAutomaticBan = async (
     INNER JOIN Roles r ON r.roleId = ?
     WHERE u.userUniqueId = ?
   `;
-  const [userInfo] = await pool.query(userQuery, [roleId, userUniqueId]);
+  const [userInfo] = await (transactionStorage.getStore() || pool).query(userQuery, [roleId, userUniqueId]);
 
   if (userInfo.length === 0) {
     return { action: "none", reason: "User not found" };
@@ -275,7 +279,7 @@ const checkAndApplyAutomaticBan = async (
     AND roleId = ?
     AND isActive = TRUE
   `;
-  const [activeBans] = await pool.query(activeBanQuery, [userUniqueId, roleId]);
+  const [activeBans] = await (transactionStorage.getStore() || pool).query(activeBanQuery, [userUniqueId, roleId]);
 
   if (activeBans.length > 0) {
     return {
@@ -410,7 +414,7 @@ const getUserDelinquencies = async (filters = {}) => {
 
   if (stat) {
     const countQuery = `SELECT COUNT(*) as total ${joins} WHERE ${whereClause}`;
-    const [countResult] = await pool.query(countQuery, queryParams);
+    const [countResult] = await (transactionStorage.getStore() || pool).query(countQuery, queryParams);
     return {
       message: "success",
       data: { totalUserDelinquencies: countResult[0].total },
@@ -458,7 +462,7 @@ const getUserDelinquencies = async (filters = {}) => {
 
   // If limit is not provided (for duplicate check), don't add limit/offset
   if (limit === undefined) {
-    const [results] = await pool.query(
+    const [results] = await (transactionStorage.getStore() || pool).query(
       dataQuery.replace(/LIMIT \? OFFSET \?/, ""),
       queryParams,
     );
@@ -467,10 +471,10 @@ const getUserDelinquencies = async (filters = {}) => {
       data: results,
     };
   } else {
-    const [results] = await pool.query(dataQuery, dataQueryParams);
+    const [results] = await (transactionStorage.getStore() || pool).query(dataQuery, dataQueryParams);
 
     const countQuery = `SELECT COUNT(*) as total ${joins} WHERE ${whereClause}`;
-    const [countResult] = await pool.query(countQuery, queryParams);
+    const [countResult] = await (transactionStorage.getStore() || pool).query(countQuery, queryParams);
     const total = countResult[0].total;
     const totalPages = Math.ceil(total / limit);
 
@@ -494,7 +498,7 @@ const deleteUserDelinquency = async (userDelinquencyUniqueId) => {
   // Check if this delinquency is linked to any banned users
   const checkSql =
     "SELECT COUNT(*) as count FROM BannedUsers WHERE userDelinquencyUniqueId = ?";
-  const [checkResult] = await pool.query(checkSql, [userDelinquencyUniqueId]);
+  const [checkResult] = await (transactionStorage.getStore() || pool).query(checkSql, [userDelinquencyUniqueId]);
 
   if (checkResult[0].count > 0) {
     throw new AppError(
@@ -504,7 +508,7 @@ const deleteUserDelinquency = async (userDelinquencyUniqueId) => {
   }
 
   const sql = "DELETE FROM UserDelinquency WHERE userDelinquencyUniqueId = ?";
-  const [result] = await pool.query(sql, [userDelinquencyUniqueId]);
+  const [result] = await (transactionStorage.getStore() || pool).query(sql, [userDelinquencyUniqueId]);
   if (result.affectedRows > 0) {
     return {
       message: "success",
@@ -531,7 +535,7 @@ const _getUserDelinquencySummary = async (userUniqueId, roleId) => {
     GROUP BY ud.userUniqueId, ud.roleId, u.fullName, r.roleName
   `;
 
-  const [summary] = await pool.query(summaryQuery, [userUniqueId, roleId]);
+  const [summary] = await (transactionStorage.getStore() || pool).query(summaryQuery, [userUniqueId, roleId]);
 
   // Get recent delinquencies
   const recentQuery = `
@@ -542,7 +546,7 @@ const _getUserDelinquencySummary = async (userUniqueId, roleId) => {
     ORDER BY ud.delinquencyCreatedAt DESC 
     LIMIT 5
   `;
-  const [recentDelinquencies] = await pool.query(recentQuery, [
+  const [recentDelinquencies] = await (transactionStorage.getStore() || pool).query(recentQuery, [
     userUniqueId,
     roleId,
   ]);
@@ -554,7 +558,7 @@ const _getUserDelinquencySummary = async (userUniqueId, roleId) => {
     AND roleId = ?
     AND isActive = TRUE
   `;
-  const [banStatus] = await pool.query(banQuery, [userUniqueId, roleId]);
+  const [banStatus] = await (transactionStorage.getStore() || pool).query(banQuery, [userUniqueId, roleId]);
 
   return {
     message: "success",
@@ -583,7 +587,7 @@ const updateUserDelinquency = async (userDelinquencyUniqueId, data) => {
   updateData.delinquencyUpdatedAt = currentDate();
 
   // Update the UserDelinquency record and get the result
-  const [result] = await pool.query(
+  const [result] = await (transactionStorage.getStore() || pool).query(
     "UPDATE UserDelinquency SET ? WHERE userDelinquencyUniqueId = ?",
     [updateData, userDelinquencyUniqueId],
   );
@@ -603,7 +607,7 @@ const checkAutomaticBan = async (userUniqueId, roleId) => {
     AND roleId = ?
     AND delinquencyCreatedAt >= DATE_SUB(?, INTERVAL 30 DAY)
   `;
-  const [results] = await pool.query(sql, [
+  const [results] = await (transactionStorage.getStore() || pool).query(sql, [
     userUniqueId,
     roleId,
     currentDate(),

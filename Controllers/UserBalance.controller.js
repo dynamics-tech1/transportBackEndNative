@@ -1,4 +1,5 @@
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 const {
   getAlluserBalances,
   getuserBalanceById,
@@ -18,9 +19,11 @@ const prepareAndCreateNewBalance = require("../Services/UserBalance.service/User
 exports.createUserBalance = async (req, res, next) => {
   try {
     const user = req?.user;
-    const result = await prepareAndCreateNewBalance.createUserBalance({
-      ...req.body,
-      ...user,
+    const result = await executeInTransaction(async () => {
+      return await prepareAndCreateNewBalance.createUserBalance({
+        ...req.body,
+        ...user,
+      });
     });
     ServerResponder(res, result);
   } catch (error) {
@@ -58,10 +61,12 @@ exports.updateUserBalance = async (req, res, next) => {
 
       userBalanceCreatedOrUpdatedBy: userUniqueId,
     };
-    const result = await updateUserBalance(
-      req.params.userBalanceUniqueId,
-      body,
-    );
+    const result = await executeInTransaction(async () => {
+      return await updateUserBalance(
+        req.params.userBalanceUniqueId,
+        body,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -71,7 +76,9 @@ exports.updateUserBalance = async (req, res, next) => {
 // Delete a driver balance record by ID
 exports.deleteUserBalance = async (req, res, next) => {
   try {
-    const result = await deleteUserBalance(req.params.userBalanceUniqueId);
+    const result = await executeInTransaction(async () => {
+      return await deleteUserBalance(req.params.userBalanceUniqueId);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

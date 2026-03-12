@@ -3,6 +3,7 @@ const { currentDate } = require("../Utils/CurrentDate");
 const { pool } = require("../Middleware/Database.config");
 const { getData } = require("../CRUD/Read/ReadData");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 // Create a new tariff rate
 exports.createTariffRate = async (data) => {
@@ -62,21 +63,21 @@ exports.createTariffRate = async (data) => {
     userUniqueId,
     currentDate(),
   ];
-  await pool.query(sql, values);
+  const [result] = await (transactionStorage.getStore() || pool).query(sql, values);
   return { message: "success", data: "Tariff rate created successfully" };
 };
 
 // Get all tariff rates
 exports.getAllTariffRates = async () => {
   const sql = `SELECT * FROM TariffRate`;
-  const [result] = await pool.query(sql);
+  const [result] = await (transactionStorage.getStore() || pool).query(sql);
   return { message: "success", data: result };
 };
 
 // Get a tariff rate by ID
 exports.getTariffRateById = async (tariffRateUniqueId) => {
   const sql = `SELECT * FROM TariffRate WHERE tariffRateUniqueId = ?`;
-  const [result] = await pool.query(sql, [tariffRateUniqueId]);
+  const [result] = await (transactionStorage.getStore() || pool).query(sql, [tariffRateUniqueId]);
   if (!result[0]) {
     throw new AppError("Tariff rate not found", 404);
   }
@@ -133,7 +134,7 @@ exports.updateTariffRate = async (tariffRateUniqueId, data) => {
   values.push(tariffRateUniqueId);
   const sql = `UPDATE TariffRate SET ${setParts.join(", ")} WHERE tariffRateUniqueId = ? AND tariffRateDeletedAt IS NULL`;
 
-  const [result] = await pool.query(sql, values);
+  const [result] = await (transactionStorage.getStore() || pool).query(sql, values);
   if (result.affectedRows === 0) {
     throw new AppError("Tariff rate not found or update failed", 404);
   }
@@ -144,7 +145,7 @@ exports.updateTariffRate = async (tariffRateUniqueId, data) => {
 exports.deleteTariffRate = async (id, user) => {
   const userUniqueId = user?.userUniqueId;
   const sql = `UPDATE TariffRate SET tariffRateDeletedAt = ?, tariffRateDeletedBy = ? WHERE tariffRateId = ?`;
-  const [result] = await pool.query(sql, [currentDate(), userUniqueId, id]);
+  const [result] = await (transactionStorage.getStore() || pool).query(sql, [currentDate(), userUniqueId, id]);
   if (result.affectedRows === 0) {
     throw new AppError("Tariff rate not found or delete failed", 404);
   }

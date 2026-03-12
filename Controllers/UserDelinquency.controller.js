@@ -1,5 +1,6 @@
 const userDelinquencyService = require("../Services/UserDelinquency.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 const logger = require("../Utils/logger");
 
 const createUserDelinquency = async (req, res, next) => {
@@ -10,7 +11,9 @@ const createUserDelinquency = async (req, res, next) => {
       delinquencyCreatedBy: user.userUniqueId,
     };
     logger.debug("@vbvbv", data);
-    const result = await userDelinquencyService.createUserDelinquency(data);
+    const result = await executeInTransaction(async () => {
+      return await userDelinquencyService.createUserDelinquency(data);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -31,10 +34,12 @@ const updateUserDelinquency = async (req, res, next) => {
   try {
     const { userDelinquencyUniqueId } = req.params;
     const data = req.body;
-    const result = await userDelinquencyService.updateUserDelinquency(
-      userDelinquencyUniqueId,
-      data,
-    );
+    const result = await executeInTransaction(async () => {
+      return await userDelinquencyService.updateUserDelinquency(
+        userDelinquencyUniqueId,
+        data,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -44,9 +49,11 @@ const updateUserDelinquency = async (req, res, next) => {
 const deleteUserDelinquency = async (req, res, next) => {
   try {
     const { userDelinquencyUniqueId } = req.params;
-    const result = await userDelinquencyService.deleteUserDelinquency(
-      userDelinquencyUniqueId,
-    );
+    const result = await executeInTransaction(async () => {
+      return await userDelinquencyService.deleteUserDelinquency(
+        userDelinquencyUniqueId,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

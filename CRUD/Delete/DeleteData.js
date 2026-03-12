@@ -1,4 +1,5 @@
 const { pool } = require("../../Middleware/Database.config");
+const { transactionStorage } = require("../../Utils/TransactionContext");
 
 const deleteData = async ({ tableName, conditions, operator = "AND" }) => {
   // Validate the operator
@@ -16,7 +17,8 @@ const deleteData = async ({ tableName, conditions, operator = "AND" }) => {
   const sqlQuery = `DELETE FROM ${tableName} WHERE ${whereClause}`;
 
   try {
-    const [result] = await pool.query(sqlQuery, values);
+    const queryExecutor = transactionStorage.getStore() || pool;
+    const [result] = await queryExecutor.query(sqlQuery, values);
     return result; // Return the result object containing affectedRows, etc.
   } catch (error) {
     throw error;

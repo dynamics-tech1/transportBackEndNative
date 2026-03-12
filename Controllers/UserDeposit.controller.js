@@ -1,16 +1,17 @@
-const service = require("../Services/UserDeposit.service");
-const { currentDate } = require("../Utils/CurrentDate");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 // Create
 exports.createUserDeposit = async (req, res, next) => {
   try {
-    const driverUniqueId = req?.user?.userUniqueId;
-    req.body.driverUniqueId = driverUniqueId;
-    req.body.userDepositCreatedBy = driverUniqueId;
-    const depositTime = currentDate();
-    req.body.depositTime = depositTime;
-    const result = await service.createUserDeposit(req.body);
+    const result = await executeInTransaction(async () => {
+      const driverUniqueId = req?.user?.userUniqueId;
+      req.body.driverUniqueId = driverUniqueId;
+      req.body.userDepositCreatedBy = driverUniqueId;
+      const depositTime = currentDate();
+      req.body.depositTime = depositTime;
+      return await service.createUserDeposit(req.body);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -47,14 +48,16 @@ exports.getUserDeposit = async (req, res, next) => {
 // Update
 exports.updateUserDepositByUniqueId = async (req, res, next) => {
   try {
-    const user = req?.user;
-    const userUniqueId = user?.userUniqueId;
-    const body = { ...req.body, userDepositCreatedOrUpdatedBy: userUniqueId };
-    const { userDepositUniqueId } = req.params;
-    const result = await service.updateUserDepositByUniqueId(
-      userDepositUniqueId,
-      body,
-    );
+    const result = await executeInTransaction(async () => {
+      const user = req?.user;
+      const userUniqueId = user?.userUniqueId;
+      const body = { ...req.body, userDepositCreatedOrUpdatedBy: userUniqueId };
+      const { userDepositUniqueId } = req.params;
+      return await service.updateUserDepositByUniqueId(
+        userDepositUniqueId,
+        body,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -64,13 +67,15 @@ exports.updateUserDepositByUniqueId = async (req, res, next) => {
 // Delete
 exports.deleteUserDepositByUniqueId = async (req, res, next) => {
   try {
-    const user = req?.user;
-    const userDepositDeletedBy = user?.userUniqueId;
-    const { userDepositUniqueId } = req.params;
-    const result = await service.deleteUserDepositByUniqueId(
-      userDepositUniqueId,
-      userDepositDeletedBy,
-    );
+    const result = await executeInTransaction(async () => {
+      const user = req?.user;
+      const userDepositDeletedBy = user?.userUniqueId;
+      const { userDepositUniqueId } = req.params;
+      return await service.deleteUserDepositByUniqueId(
+        userDepositUniqueId,
+        userDepositDeletedBy,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -79,27 +84,29 @@ exports.deleteUserDepositByUniqueId = async (req, res, next) => {
 
 exports.initiateSantimPayPayment = async (req, res, next) => {
   try {
-    const driverUniqueId = req?.user?.userUniqueId;
-    const phoneNumber = req?.user?.phoneNumber;
-    const { depositAmount } = req.body;
+    const result = await executeInTransaction(async () => {
+      const driverUniqueId = req?.user?.userUniqueId;
+      const phoneNumber = req?.user?.phoneNumber;
+      const { depositAmount } = req.body;
 
-    if (!depositAmount || depositAmount <= 0) {
-      const AppError = require("../Utils/AppError");
-      throw new AppError("Valid deposit amount is required", 400);
-    }
+      if (!depositAmount || depositAmount <= 0) {
+        const AppError = require("../Utils/AppError");
+        throw new AppError("Valid deposit amount is required", 400);
+      }
 
-    if (!phoneNumber) {
-      const AppError = require("../Utils/AppError");
-      throw new AppError(
-        "Phone number not found in user profile. Please update your profile.",
-        400,
-      );
-    }
+      if (!phoneNumber) {
+        const AppError = require("../Utils/AppError");
+        throw new AppError(
+          "Phone number not found in user profile. Please update your profile.",
+          400,
+        );
+      }
 
-    const result = await service.initiateSantimPayPaymentService({
-      driverUniqueId,
-      depositAmount,
-      phoneNumber: phoneNumber || "",
+      return await service.initiateSantimPayPaymentService({
+        driverUniqueId,
+        depositAmount,
+        phoneNumber: phoneNumber || "",
+      });
     });
 
     ServerResponder(res, result);
@@ -110,13 +117,15 @@ exports.initiateSantimPayPayment = async (req, res, next) => {
 
 exports.handleSantimPayWebhook = async (req, res) => {
   try {
-    const webhookData = req.body;
-    const signedToken =
-      req.headers["signed-token"] || req.headers["Signed-Token"];
+    const result = await executeInTransaction(async () => {
+      const webhookData = req.body;
+      const signedToken =
+        req.headers["signed-token"] || req.headers["Signed-Token"];
 
-    const result = await service.handleSantimPayWebhookService({
-      webhookData,
-      signedToken,
+      return await service.handleSantimPayWebhookService({
+        webhookData,
+        signedToken,
+      });
     });
 
     // Always return 200 to SantimPay to acknowledge receipt

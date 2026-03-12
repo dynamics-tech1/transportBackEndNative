@@ -14,7 +14,9 @@ const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 const createUser = async (req, res, next) => {
   try {
-    const response = await services.createUser(req?.body);
+    const response = await executeInTransaction(async () => {
+      return await services.createUser(req?.body);
+    });
     ServerResponder(res, response);
   } catch (error) {
     next(error);
@@ -38,7 +40,10 @@ const loginUser = async (req, res, next) => {
 
 const verifyUserByOTP = async (req, res, next) => {
   try {
-    ServerResponder(res, await services.verifyUserByOTP(req));
+    const result = await executeInTransaction(async () => {
+      return await services.verifyUserByOTP(req);
+    });
+    ServerResponder(res, result);
   } catch (error) {
     next(error);
   }
@@ -64,10 +69,12 @@ const deleteUser = async (req, res, next) => {
     }
 
     const retainFiles = req.query?.retainFiles !== "false" && req.query?.retainFiles !== false;
-    const response = await services.deleteUser({
-      userUniqueId,
-      deletedBy,
-      retainFiles,
+    const response = await executeInTransaction(async () => {
+      return await services.deleteUser({
+        userUniqueId,
+        deletedBy,
+        retainFiles,
+      });
     });
     ServerResponder(res, response);
   } catch (error) {
@@ -167,9 +174,11 @@ const updateUser = async (req, res, next) => {
 
 const createUserByAdminOrSuperAdmin = async (req, res, next) => {
   try {
-    const response = await services.createUserByAdminOrSuperAdmin({
-      body: req.body,
-      userUniqueId: req?.user?.userUniqueId,
+    const response = await executeInTransaction(async () => {
+      return await services.createUserByAdminOrSuperAdmin({
+        body: req.body,
+        userUniqueId: req?.user?.userUniqueId,
+      });
     });
     ServerResponder(res, response);
   } catch (error) {

@@ -1,12 +1,15 @@
 const tariffRateService = require("../Services/TariffRate.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 // Create a new tariff rate
 exports.createTariffRate = async (req, res, next) => {
   try {
     const user = req.user;
     req.body.user = user;
-    const result = await tariffRateService.createTariffRate(req.body);
+    const result = await executeInTransaction(async () => {
+      return await tariffRateService.createTariffRate(req.body);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -41,7 +44,9 @@ exports.updateTariffRate = async (req, res, next) => {
     const { id } = req.params;
     const user = req.user;
     req.body.user = user;
-    const result = await tariffRateService.updateTariffRate(id, req.body);
+    const result = await executeInTransaction(async () => {
+      return await tariffRateService.updateTariffRate(id, req.body);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -53,7 +58,9 @@ exports.deleteTariffRate = async (req, res, next) => {
   try {
     const { id } = req.params;
     const user = req.user;
-    const result = await tariffRateService.deleteTariffRate(id, user);
+    const result = await executeInTransaction(async () => {
+      return await tariffRateService.deleteTariffRate(id, user);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

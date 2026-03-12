@@ -1,11 +1,5 @@
-const { insertData } = require("../CRUD/Create/CreateData");
-const deleteData = require("../CRUD/Delete/DeleteData");
-const { getData } = require("../CRUD/Read/ReadData");
-const { updateData } = require("../CRUD/Update/Data.update");
-const { pool } = require("../Middleware/Database.config");
-const { v4: uuidv4 } = require("uuid");
-const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 // Service to create UserRole
 const createUserRole = async (body, user) => {
@@ -115,7 +109,8 @@ const getUserRoleListByFilter = async ({
 
   // Count total for pagination
   const countSql = `SELECT COUNT(*) AS total FROM UserRole ur LEFT JOIN Users u ON ur.userUniqueId = u.userUniqueId ${whereSQL}`;
-  const [countRows] = await pool.query(countSql, params);
+  const executor = transactionStorage.getStore() || pool;
+  const [countRows] = await executor.query(countSql, params);
   const total = countRows?.[0]?.total || 0;
 
   // Fetch paginated rows
@@ -128,7 +123,7 @@ const getUserRoleListByFilter = async ({
     LIMIT ? OFFSET ?
   `;
   const dataParams = [...params, pageSize, offset];
-  const [rows] = await pool.query(dataSql, dataParams);
+  const [rows] = await executor.query(dataSql, dataParams);
 
   if (rows.length === 0 && pageNum > 1) {
     throw new AppError("No data found for this page", 404);

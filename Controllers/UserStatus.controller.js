@@ -1,9 +1,12 @@
 const userStatusesService = require("../Services/UserStatus.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 const createUserStatus = async (req, res, next) => {
   try {
-    const result = await userStatusesService.createUserStatus(req.body);
+    const result = await executeInTransaction(async () => {
+      return await userStatusesService.createUserStatus(req.body);
+    });
     ServerResponder(res, result, 201); // Respond with 201 Created
   } catch (error) {
     next(error);
@@ -32,10 +35,12 @@ const getUserStatusById = async (req, res, next) => {
 
 const updateUserStatus = async (req, res, next) => {
   try {
-    const result = await userStatusesService.updateUserStatus(
-      req.params.userStatusUniqueId,
-      req.body,
-    );
+    const result = await executeInTransaction(async () => {
+      return await userStatusesService.updateUserStatus(
+        req.params.userStatusUniqueId,
+        req.body,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -44,9 +49,11 @@ const updateUserStatus = async (req, res, next) => {
 
 const deleteUserStatus = async (req, res, next) => {
   try {
-    const result = await userStatusesService.deleteUserStatus(
-      req.params.userStatusUniqueId,
-    );
+    const result = await executeInTransaction(async () => {
+      return await userStatusesService.deleteUserStatus(
+        req.params.userStatusUniqueId,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

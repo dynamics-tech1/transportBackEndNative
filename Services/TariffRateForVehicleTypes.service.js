@@ -2,6 +2,7 @@ const { v4: uuidv4 } = require("uuid");
 const { pool } = require("../Middleware/Database.config");
 const { getData, performJoinSelect } = require("../CRUD/Read/ReadData");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 // Create a new tariff rate for a vehicle type
 exports.createTariffRateForVehicleType = async (data) => {
@@ -25,7 +26,7 @@ exports.createTariffRateForVehicleType = async (data) => {
     ) VALUES (?, ?, ?)
   `;
   const values = [uuidv4(), data.vehicleTypeUniqueId, data.tariffRateUniqueId];
-  await pool.query(sql, values);
+  await (transactionStorage.getStore() || pool).query(sql, values);
 
   return {
     message: "success",
@@ -120,7 +121,7 @@ exports.updateTariffRateForVehicleType = async (
     tariffRateForVehicleTypeUniqueId,
   ];
 
-  const [result] = await pool.query(sql, values);
+  const [result] = await (transactionStorage.getStore() || pool).query(sql, values);
 
   if (result.affectedRows === 0) {
     throw new AppError(
@@ -140,7 +141,7 @@ exports.deleteTariffRateForVehicleType = async (
   tariffRateForVehicleTypeUniqueId,
 ) => {
   const sql = `DELETE FROM TariffRateForVehicleTypes WHERE tariffRateForVehicleTypeUniqueId = ?`;
-  const [result] = await pool.query(sql, [tariffRateForVehicleTypeUniqueId]);
+  const [result] = await (transactionStorage.getStore() || pool).query(sql, [tariffRateForVehicleTypeUniqueId]);
 
   if (result.affectedRows === 0) {
     throw new AppError("Tariff rate for vehicle type not found", 404);

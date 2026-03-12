@@ -1,5 +1,6 @@
 const service = require("../Services/UserSubscription.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 // Create
 exports.createUserSubscription = async (req, res, next) => {
@@ -12,12 +13,14 @@ exports.createUserSubscription = async (req, res, next) => {
       driverUniqueId = user?.userUniqueId;
     }
 
-    const result = await service.createUserSubscription({
-      driverUniqueId,
-      subscriptionPlanPricingUniqueId,
-      startDate,
-      endDate,
-      userSubscriptionCreatedBy: user?.userUniqueId,
+    const result = await executeInTransaction(async () => {
+      return await service.createUserSubscription({
+        driverUniqueId,
+        subscriptionPlanPricingUniqueId,
+        startDate,
+        endDate,
+        userSubscriptionCreatedBy: user?.userUniqueId,
+      });
     });
     ServerResponder(res, result);
   } catch (error) {
@@ -31,10 +34,12 @@ exports.updateUserSubscriptionByUniqueId = async (req, res, next) => {
     const { userSubscriptionUniqueId } = req.params;
     const updateData = req.body;
 
-    const result = await service.updateUserSubscriptionByUniqueId(
-      userSubscriptionUniqueId,
-      updateData,
-    );
+    const result = await executeInTransaction(async () => {
+      return await service.updateUserSubscriptionByUniqueId(
+        userSubscriptionUniqueId,
+        updateData,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -48,10 +53,12 @@ exports.deleteUserSubscriptionByUniqueId = async (req, res, next) => {
     const user = req.user;
     const userUniqueId = user?.userUniqueId;
 
-    const result = await service.deleteUserSubscriptionByUniqueId(
-      userSubscriptionUniqueId,
-      userUniqueId,
-    );
+    const result = await executeInTransaction(async () => {
+      return await service.deleteUserSubscriptionByUniqueId(
+        userSubscriptionUniqueId,
+        userUniqueId,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

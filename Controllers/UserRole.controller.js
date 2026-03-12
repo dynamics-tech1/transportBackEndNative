@@ -1,9 +1,12 @@
 const userRoleService = require("../Services/UserRole.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 const createUserRole = async (req, res, next) => {
   try {
-    const result = await userRoleService.createUserRole(req.body, req.user);
+    const result = await executeInTransaction(async () => {
+      return await userRoleService.createUserRole(req.body, req.user);
+    });
     ServerResponder(res, result); // Respond with 201 Created
   } catch (error) {
     next(error);
@@ -44,11 +47,12 @@ const getUserRoleListByFilter = async (req, res, next) => {
 };
 const updateUserRole = async (req, res, next) => {
   try {
-    const result = await userRoleService.updateUserRole(
-      req.params.userRoleUniqueId,
-      req.body,
-    );
-    ServerResponder(res, result);
+    const result = await executeInTransaction(async () => {
+      return await userRoleService.updateUserRole(
+        req.params.userRoleUniqueId,
+        req.body,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -57,10 +61,11 @@ const updateUserRole = async (req, res, next) => {
 
 const deleteUserRole = async (req, res, next) => {
   try {
-    const result = await userRoleService.deleteUserRole(
-      req.params.userRoleUniqueId,
-    );
-    ServerResponder(res, result);
+    const result = await executeInTransaction(async () => {
+      return await userRoleService.deleteUserRole(
+        req.params.userRoleUniqueId,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

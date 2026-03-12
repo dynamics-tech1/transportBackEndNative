@@ -2,10 +2,13 @@ const userRoleStatusService = require("../Services/UserRoleStatus.service");
 const { usersRoles } = require("../Utils/ListOfSeedData");
 const ServerResponder = require("../Utils/ServerResponder"); // Helper to handle responses
 const AppError = require("../Utils/AppError");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 const createUserRoleStatus = async (req, res, next) => {
   try {
-    const result = await userRoleStatusService.createUserRoleStatus(req.body);
+    const result = await executeInTransaction(async () => {
+      return await userRoleStatusService.createUserRoleStatus(req.body);
+    });
     ServerResponder(res, result, 201);
   } catch (error) {
     next(error);
@@ -42,10 +45,12 @@ const getUserRoleStatusCurrent = async (req, res, next) => {
 
 const updateUserRoleStatus = async (req, res, next) => {
   try {
-    const user = req?.user;
-    req.body.user = user;
+    const result = await executeInTransaction(async () => {
+      const user = req?.user;
+      req.body.user = user;
 
-    const result = await userRoleStatusService.updateUserRoleStatus(req.body);
+      return await userRoleStatusService.updateUserRoleStatus(req.body);
+    });
     ServerResponder(res, result, 200);
   } catch (error) {
     next(error);
@@ -55,9 +60,11 @@ const updateUserRoleStatus = async (req, res, next) => {
 const deleteUserRoleStatus = async (req, res, next) => {
   try {
     const { userRoleStatusUniqueId } = req.params;
-    const result = await userRoleStatusService.deleteUserRoleStatus(
-      userRoleStatusUniqueId,
-    );
+    const result = await executeInTransaction(async () => {
+      return await userRoleStatusService.deleteUserRoleStatus(
+        userRoleStatusUniqueId,
+      );
+    });
     ServerResponder(res, result, 200);
   } catch (error) {
     next(error);

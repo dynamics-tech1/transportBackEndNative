@@ -1,5 +1,6 @@
 const service = require("../Services/UserRefund.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 exports.createUserRefund = async (req, res, next) => {
   try {
@@ -13,11 +14,13 @@ exports.createUserRefund = async (req, res, next) => {
     }
 
     const { refundAmount, refundReason, accountUniqueId } = req.body;
-    const result = await service.createUserRefund({
-      refundAmount,
-      refundReason,
-      userUniqueId,
-      accountUniqueId,
+    const result = await executeInTransaction(async () => {
+      return await service.createUserRefund({
+        refundAmount,
+        refundReason,
+        userUniqueId,
+        accountUniqueId,
+      });
     });
     ServerResponder(res, result);
   } catch (error) {
@@ -72,7 +75,9 @@ exports.getUserRefunds = async (req, res, next) => {
 exports.deleteRefundByUniqueId = async (req, res, next) => {
   try {
     const { userRefundUniqueId } = req.params;
-    const result = await service.deleteRefundByUniqueId(userRefundUniqueId);
+    const result = await executeInTransaction(async () => {
+      return await service.deleteRefundByUniqueId(userRefundUniqueId);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -82,10 +87,12 @@ exports.deleteRefundByUniqueId = async (req, res, next) => {
 exports.updateUserRefundByUniqueId = async (req, res, next) => {
   try {
     const { userRefundUniqueId } = req.params;
-    const result = await service.updateUserRefundByUniqueId(
-      userRefundUniqueId,
-      req.body,
-    );
+    const result = await executeInTransaction(async () => {
+      return await service.updateUserRefundByUniqueId(
+        userRefundUniqueId,
+        req.body,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

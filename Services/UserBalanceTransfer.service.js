@@ -1,5 +1,6 @@
 const { pool } = require("../Middleware/Database.config");
 const { v4: uuidv4 } = require("uuid");
+const { transactionStorage } = require("../Utils/TransactionContext");
 const {
   prepareAndCreateNewBalance,
 } = require("./UserBalance.service/UserBalance.post.service");
@@ -103,7 +104,7 @@ const getAllTransfers = async ({
 
   // Count total
   const countSql = `SELECT COUNT(*) as total FROM UserBalanceTransfer ${whereClause}`;
-  const [countResult] = await pool.query(countSql, params);
+  const [countResult] = await (transactionStorage.getStore() || pool).query(countSql, params);
   const total = countResult[0]?.total || 0;
 
   // Calculate pagination
@@ -112,7 +113,7 @@ const getAllTransfers = async ({
 
   // Get data
   const dataSql = `SELECT * FROM UserBalanceTransfer ${whereClause} ORDER BY ${sortBy} ${sortOrder} LIMIT ? OFFSET ?`;
-  const [dataResult] = await pool.query(dataSql, [
+  const [dataResult] = await (transactionStorage.getStore() || pool).query(dataSql, [
     ...params,
     Number(limit),
     Number(offset),
@@ -141,7 +142,7 @@ const getAllTransfers = async ({
 // Get by UUID
 const getTransferByUniqueId = async (depositTransferUniqueId) => {
   const sql = `SELECT * FROM UserBalanceTransfer WHERE depositTransferUniqueId = ?`;
-  const [result] = await pool.query(sql, [depositTransferUniqueId]);
+  const [result] = await (transactionStorage.getStore() || pool).query(sql, [depositTransferUniqueId]);
 
   if (result.length === 0) {
     throw new AppError("Transfer not found", 404);
@@ -225,7 +226,7 @@ const updateTransferByUniqueId = async (
   `;
 
   const finalValues = [...updateValues, depositTransferUniqueId];
-  const [result] = await pool.query(sql, finalValues);
+  const [result] = await (transactionStorage.getStore() || pool).query(sql, finalValues);
 
   if (result.affectedRows === 0) {
     throw new AppError("Failed to update transfer", 500);
@@ -238,7 +239,7 @@ const updateTransferByUniqueId = async (
 // Delete
 const deleteTransferByUniqueId = async (depositTransferUniqueId) => {
   const sql = `DELETE FROM UserBalanceTransfer WHERE depositTransferUniqueId = ?`;
-  const [result] = await pool.query(sql, [depositTransferUniqueId]);
+  const [result] = await (transactionStorage.getStore() || pool).query(sql, [depositTransferUniqueId]);
 
   if (result.affectedRows === 0) {
     throw new AppError("Failed to delete transfer", 404);
