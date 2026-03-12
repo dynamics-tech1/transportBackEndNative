@@ -2,6 +2,7 @@ const { pool } = require("../Middleware/Database.config");
 const { v4: uuidv4 } = require("uuid");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 // Create
 const createFinancialInstitutionAccount = async (data) => {
@@ -16,8 +17,9 @@ const createFinancialInstitutionAccount = async (data) => {
   } = data;
 
   // Check existence
+  const executor = transactionStorage.getStore() || pool;
   const checkSql = `SELECT count(*) as count FROM FinancialInstitutionAccounts WHERE institutionName = ? AND accountNumber = ?`;
-  const [checkResult] = await pool.query(checkSql, [
+  const [checkResult] = await executor.query(checkSql, [
     institutionName,
     accountNumber,
   ]);
@@ -39,7 +41,7 @@ const createFinancialInstitutionAccount = async (data) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-  await pool.query(sql, [
+  await executor.query(sql, [
     accountUniqueId,
     institutionName,
     accountHolderName,
@@ -93,7 +95,8 @@ const getFinancialInstitutionAccounts = async (filters = {}) => {
 
   // Count total for pagination
   const countSql = `SELECT COUNT(*) as total FROM (${sql}) as subquery`;
-  const [countResult] = await pool.query(countSql, params);
+  const executor = transactionStorage.getStore() || pool;
+  const [countResult] = await executor.query(countSql, params);
   const total = countResult[0].total;
 
   // Pagination
@@ -101,7 +104,7 @@ const getFinancialInstitutionAccounts = async (filters = {}) => {
   sql += ` ORDER BY financialInstitutionAccountsCreatedAt DESC LIMIT ? OFFSET ?`;
   params.push(parseInt(pageSize), parseInt(offset));
 
-  const [result] = await pool.query(sql, params);
+  const [result] = await executor.query(sql, params);
 
   return {
     message: "success",
@@ -163,7 +166,8 @@ const updateFinancialInstitutionAccountByUniqueId = async (
   values.push(accountUniqueId);
   const sql = `UPDATE FinancialInstitutionAccounts SET ${setParts.join(", ")} WHERE accountUniqueId = ? AND financialInstitutionAccountDeletedAt IS NULL`;
 
-  const [result] = await pool.query(sql, values);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, values);
 
   if (result.affectedRows === 0) {
     throw new AppError("Update failed or account not found", 404);
@@ -174,8 +178,9 @@ const updateFinancialInstitutionAccountByUniqueId = async (
 
 // Delete
 const deleteFinancialInstitutionAccountByUniqueId = async (accountUniqueId) => {
+  const executor = transactionStorage.getStore() || pool;
   const sql = `DELETE FROM FinancialInstitutionAccounts WHERE accountUniqueId = ?`;
-  const [result] = await pool.query(sql, [accountUniqueId]);
+  const [result] = await executor.query(sql, [accountUniqueId]);
 
   if (result.affectedRows === 0) {
     throw new AppError("Deletion failed or account not found", 404);

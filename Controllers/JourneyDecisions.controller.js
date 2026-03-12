@@ -1,6 +1,7 @@
 const journeyDecisionsService = require("../Services/JourneyDecisions.service");
 const ServerResponder = require("../Utils/ServerResponder");
 const AppError = require("../Utils/AppError");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 // Create a new journey decision
 exports.createJourneyDecision = async (req, res, next) => {
@@ -15,17 +16,18 @@ exports.createJourneyDecision = async (req, res, next) => {
       deliveryDateByDriver,
       shippingCostByDriver,
     } = req.body;
-    const result = await journeyDecisionsService.createJourneyDecision({
-      passengerRequestId,
-      driverRequestId,
-      journeyStatusId,
-      decisionTime,
-      decisionBy,
-      shippingDateByDriver,
-      deliveryDateByDriver,
-      shippingCostByDriver,
+    const result = await executeInTransaction(async () => {
+      return await journeyDecisionsService.createJourneyDecision({
+        passengerRequestId,
+        driverRequestId,
+        journeyStatusId,
+        decisionTime,
+        decisionBy,
+        shippingDateByDriver,
+        deliveryDateByDriver,
+        shippingCostByDriver,
+      });
     });
-    ServerResponder(res, result);
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -131,7 +133,6 @@ exports.getJourneyDecision4AllOrSingleUser = async (req, res, next) => {
         data,
       });
     ServerResponder(res, result);
-    ServerResponder(res, result);
   } catch (error) {
     next(error);
   }
@@ -196,12 +197,13 @@ exports.updateJourneyDecision = async (req, res, next) => {
       return next(new AppError("Update values are required", 400));
     }
 
-    const result = await journeyDecisionsService.updateJourneyDecision({
-      conditions: whereConditions,
-      updateValues: updateData,
-      userUniqueId, // Pass userUniqueId for validation when updating isNotSelectedSeenByDriver
+    const result = await executeInTransaction(async () => {
+      return await journeyDecisionsService.updateJourneyDecision({
+        conditions: whereConditions,
+        updateValues: updateData,
+        userUniqueId, // Pass userUniqueId for validation when updating isNotSelectedSeenByDriver
+      });
     });
-    ServerResponder(res, result);
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -212,8 +214,9 @@ exports.updateJourneyDecision = async (req, res, next) => {
 exports.deleteJourneyDecision = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await journeyDecisionsService.deleteJourneyDecision(id);
-    ServerResponder(res, result);
+    const result = await executeInTransaction(async () => {
+      return await journeyDecisionsService.deleteJourneyDecision(id);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

@@ -1,5 +1,6 @@
 const { v4: uuidv4 } = require("uuid");
 const { pool } = require("../Middleware/Database.config");
+const { transactionStorage } = require("../Utils/TransactionContext");
 const { getData } = require("../CRUD/Read/ReadData");
 const logger = require("../Utils/logger");
 const AppError = require("../Utils/AppError");
@@ -31,8 +32,8 @@ exports.createJourneyDecision = async (data, connection = null) => {
       400,
     );
   }
-  // Use provided connection for transaction support, or fall back to pool
-  const queryExecutor = connection || pool;
+  // Use transaction storage for transaction support, or fall back to provided connection or pool
+  const queryExecutor = transactionStorage.getStore() || connection || pool;
 
   // first check if journey decision is already exists
   const sqlToCheck = `SELECT * FROM JourneyDecisions WHERE passengerRequestId = ? and driverRequestId = ?`;
@@ -95,12 +96,14 @@ exports.createJourneyDecision = async (data, connection = null) => {
 // Get all journey decisions
 exports.getAllJourneyDecisions = async () => {
   const sql = `SELECT * FROM JourneyDecisions`;
-  const [result] = await pool.query(sql);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql);
 
   return { message: "success", data: result };
 };
 
 exports.getJourneyDecision4AllOrSingleUser = async ({ data }) => {
+  const executor = transactionStorage.getStore() || pool;
   try {
     const {
       userUniqueId,
@@ -320,7 +323,7 @@ exports.getJourneyDecision4AllOrSingleUser = async ({ data }) => {
       LIMIT ? OFFSET ?
     `;
     queryParams.push(parseInt(limit), offset);
-    const [decisions] = await pool.query(sqlToGetDecisions, queryParams);
+    const [decisions] = await executor.query(sqlToGetDecisions, queryParams);
 
     // Get total count
     const sqlCount = `
@@ -331,7 +334,7 @@ exports.getJourneyDecision4AllOrSingleUser = async ({ data }) => {
       ${whereClause}
     `;
 
-    const [countResult] = await pool.query(sqlCount, countParams);
+    const [countResult] = await executor.query(sqlCount, countParams);
     const total = countResult[0]?.total || 0;
     const totalPages = Math.ceil(total / limit);
 
@@ -365,8 +368,9 @@ exports.getJourneyDecision4AllOrSingleUser = async ({ data }) => {
 exports.getJourneyDecisionByJourneyDecisionUniqueId = async (
   journeyDecisionUniqueId,
 ) => {
+  const executor = transactionStorage.getStore() || pool;
   const sql = `SELECT * FROM JourneyDecisions WHERE journeyDecisionUniqueId = ?`;
-  const [result] = await pool.query(sql, [journeyDecisionUniqueId]);
+  const [result] = await executor.query(sql, [journeyDecisionUniqueId]);
 
   if (result.length === 0) {
     throw new AppError("Journey decision not found", 404);
@@ -378,8 +382,9 @@ exports.getJourneyDecisionByJourneyDecisionUniqueId = async (
 exports.getJourneyDecisionByJDriverRequestUniqueId = async (
   driverRequestUniqueId,
 ) => {
+  const executor = transactionStorage.getStore() || pool;
   const sql = `SELECT * FROM JourneyDecisions,DriverRequest WHERE driverRequestUniqueId = ? and DriverRequest.driverRequestId=JourneyDecisions.driverRequestId`;
-  const [result] = await pool.query(sql, [driverRequestUniqueId]);
+  const [result] = await executor.query(sql, [driverRequestUniqueId]);
 
   if (result.length === 0) {
     throw new AppError("Journey decision not found", 404);
@@ -391,8 +396,9 @@ exports.getJourneyDecisionByJDriverRequestUniqueId = async (
 exports.getJourneyDecisionByPassengerRequestUniqueId = async (
   passengerRequestUniqueId,
 ) => {
+  const executor = transactionStorage.getStore() || pool;
   const sql = `SELECT * FROM JourneyDecisions, PassengerRequest WHERE passengerRequestUniqueId = ? and JourneyDecisions.passengerRequestId=PassengerRequest.passengerRequestId `;
-  const [result] = await pool.query(sql, [passengerRequestUniqueId]);
+  const [result] = await executor.query(sql, [passengerRequestUniqueId]);
 
   if (result.length === 0) {
     throw new AppError("Journey decision not found", 404);
@@ -513,7 +519,8 @@ exports.updateJourneyDecision = async ({
     const whereClause = conditionClauses.join(" AND ");
     const sqlQuery = `UPDATE JourneyDecisions SET ${setClause} WHERE ${whereClause}`;
 
-    const [result] = await pool.query(sqlQuery, [
+    const executor = transactionStorage.getStore() || pool;
+    const [result] = await executor.query(sqlQuery, [
       ...setValues,
       ...conditionValues,
     ]);
@@ -540,8 +547,9 @@ exports.updateJourneyDecision = async ({
 
 // Delete a specific journey decision by ID
 exports.deleteJourneyDecision = async (journeyDecisionId) => {
+  const executor = transactionStorage.getStore() || pool;
   const sql = `DELETE FROM JourneyDecisions WHERE journeyDecisionId = ?`;
-  const [result] = await pool.query(sql, [journeyDecisionId]);
+  const [result] = await executor.query(sql, [journeyDecisionId]);
 
   if (result.affectedRows > 0) {
     return {

@@ -2,9 +2,11 @@ const { pool } = require("../Middleware/Database.config");
 const { v4: uuidv4 } = require("uuid");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 const query = async (sql, values = []) => {
-  const [result] = await pool.query(sql, values);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, values);
   return result;
 };
 
@@ -31,8 +33,10 @@ const createDelinquencyType = async (data) => {
   let applicableRoleUniqueId = applicableRoles;
   const uuidLike =
     /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+  const executor = transactionStorage.getStore() || pool;
+  
   if (!uuidLike.test(applicableRoles)) {
-    const [roleRows] = await pool.query(
+    const [roleRows] = await executor.query(
       "SELECT roleUniqueId FROM Roles WHERE LOWER(roleName) = LOWER(?) LIMIT 1",
       [applicableRoles],
     );
@@ -48,7 +52,7 @@ const createDelinquencyType = async (data) => {
   // idempotent existence check to avoid duplicate inserts
   // If schema enforces uniqueness on name only, name check is sufficient.
   // If later extended to (name, applicableRoles), the WHERE includes both.
-  const [existing] = await pool.query(
+  const [existing] = await executor.query(
     `SELECT delinquencyTypeUniqueId FROM DelinquencyTypes 
      WHERE delinquencyTypeName = ?`,
     [delinquencyTypeName],
@@ -175,8 +179,9 @@ const getDelinquencyTypes = async (filters = {}) => {
     WHERE ${whereClause}
   `;
 
-  const [rows] = await pool.query(dataSql, [...params, limit, offset]);
-  const [countRows] = await pool.query(countSql, params);
+  const executor = transactionStorage.getStore() || pool;
+  const [rows] = await executor.query(dataSql, [...params, limit, offset]);
+  const [countRows] = await executor.query(countSql, params);
   const total = countRows?.[0]?.total || 0;
 
   if (!rows || rows.length === 0) {
@@ -208,7 +213,9 @@ const updateDelinquencyType = async (delinquencyTypeUniqueId, data) => {
   const userUniqueId = data.user?.userUniqueId;
   const { applicableRoles } = data;
   let applicableRoleUniqueId = applicableRoles;
-  const [existing] = await pool.query(
+  const executor = transactionStorage.getStore() || pool;
+  
+  const [existing] = await executor.query(
     "SELECT delinquencyTypeUniqueId FROM DelinquencyTypes WHERE delinquencyTypeUniqueId = ?",
     [delinquencyTypeUniqueId],
   );
@@ -221,7 +228,7 @@ const updateDelinquencyType = async (delinquencyTypeUniqueId, data) => {
     const uuidLike =
       /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
     if (uuidLike.test(applicableRoles)) {
-      const [roleRows] = await pool.query(
+      const [roleRows] = await executor.query(
         "SELECT roleUniqueId FROM Roles WHERE roleUniqueId = ? LIMIT 1",
         [applicableRoles],
       );
@@ -233,7 +240,7 @@ const updateDelinquencyType = async (delinquencyTypeUniqueId, data) => {
       }
       applicableRoleUniqueId = roleRows[0].roleUniqueId;
     } else {
-      const [roleRows] = await pool.query(
+      const [roleRows] = await executor.query(
         "SELECT roleUniqueId FROM Roles WHERE LOWER(roleName) = LOWER(?) LIMIT 1",
         [applicableRoles],
       );
@@ -302,7 +309,9 @@ const updateDelinquencyType = async (delinquencyTypeUniqueId, data) => {
 
 const deleteDelinquencyType = async (delinquencyTypeUniqueId, user) => {
   const userUniqueId = user?.userUniqueId;
-  const [existing] = await pool.query(
+  const executor = transactionStorage.getStore() || pool;
+  
+  const [existing] = await executor.query(
     "SELECT delinquencyTypeUniqueId FROM DelinquencyTypes WHERE delinquencyTypeUniqueId = ?",
     [delinquencyTypeUniqueId],
   );
@@ -312,7 +321,7 @@ const deleteDelinquencyType = async (delinquencyTypeUniqueId, user) => {
 
   const checkSql =
     "SELECT COUNT(*) as count FROM UserDelinquency WHERE delinquencyTypeUniqueId = ?";
-  const [checkResult] = await pool.query(checkSql, [delinquencyTypeUniqueId]);
+  const [checkResult] = await executor.query(checkSql, [delinquencyTypeUniqueId]);
 
   if (checkResult[0].count > 0) {
     throw new AppError(
@@ -353,8 +362,9 @@ const getDelinquencyTypesByRole = async (roleUniqueId, pagination = {}) => {
     LIMIT ? OFFSET ?
   `;
 
-  const [results] = await pool.query(sql, [roleUniqueId, limit, offset]);
-  const [totalCountResult] = await pool.query("SELECT FOUND_ROWS() as total");
+  const executor = transactionStorage.getStore() || pool;
+  const [results] = await executor.query(sql, [roleUniqueId, limit, offset]);
+  const [totalCountResult] = await executor.query("SELECT FOUND_ROWS() as total");
   const totalCount = totalCountResult[0].total;
   const totalPages = Math.ceil(totalCount / limit);
 

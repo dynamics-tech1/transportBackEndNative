@@ -1,4 +1,5 @@
 const { v4: uuidv4 } = require("uuid");
+const { pool } = require("../Middleware/Database.config");
 const { getData } = require("../CRUD/Read/ReadData");
 const { updateData } = require("../CRUD/Update/Data.update");
 const deleteData = require("../CRUD/Delete/DeleteData");
@@ -79,11 +80,7 @@ const updateJourneyStatusByUniqueId = async (
     throw new AppError("No fields provided to update", 400);
   }
 
-  // Add audit columns
-  updateValues.journeyStatusUpdatedBy = userUniqueId;
-  updateValues.journeyStatusUpdatedAt = currentDate();
   // Execute pure SQL update to avoid NULL handling issues in updateData
-  const { pool } = require("../Middleware/Database.config");
   const sql = `
     UPDATE JourneyStatus
     SET journeyStatusName = ?, journeyStatusDescription = ?, journeyStatusUpdatedBy = ?, journeyStatusUpdatedAt = ?
@@ -96,7 +93,8 @@ const updateJourneyStatusByUniqueId = async (
     updateValues.journeyStatusUpdatedAt,
     journeyStatusUniqueId,
   ];
-  const [result] = await pool.query(sql, values);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, values);
   if (result.affectedRows > 0) {
     return { message: "success", data: "Journey status updated successfully" };
   }
@@ -119,14 +117,14 @@ const deleteJourneyStatusByUniqueId = async (journeyStatusUniqueId, user) => {
   }
 
   // Execute pure SQL soft delete to avoid NULL handling issues in updateData
-  const { pool } = require("../Middleware/Database.config");
   const sql = `
     UPDATE JourneyStatus
     SET journeyStatusDeletedAt = ?, journeyStatusDeletedBy = ?
     WHERE journeyStatusUniqueId = ?
   `;
   const values = [currentDate(), userUniqueId, journeyStatusUniqueId];
-  const [result] = await pool.query(sql, values);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, values);
 
   if (result.affectedRows > 0) {
     return { message: "success", data: "Journey status deleted successfully" };
@@ -191,9 +189,9 @@ const getAllJourneyStatuses = async (filters = {}) => {
     ${whereClause}
   `;
 
-  const { pool } = require("../Middleware/Database.config");
-  const [rows] = await pool.query(dataSql, [...params, limit, offset]);
-  const [countRows] = await pool.query(countSql, params);
+  const executor = transactionStorage.getStore() || pool;
+  const [rows] = await executor.query(dataSql, [...params, limit, offset]);
+  const [countRows] = await executor.query(countSql, params);
   const total = countRows?.[0]?.total || 0;
 
   if (!rows || rows.length === 0) {

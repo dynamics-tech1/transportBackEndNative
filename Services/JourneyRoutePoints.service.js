@@ -1,4 +1,5 @@
 const { pool } = require("../Middleware/Database.config");
+const { transactionStorage } = require("../Utils/TransactionContext");
 const { v4: uuidv4 } = require("uuid");
 const {
   sendSocketIONotificationToPassenger,
@@ -55,8 +56,8 @@ exports.createJourneyRoutePoint = async (body, connection = null) => {
       throw new AppError("Invalid coordinates provided", 400);
     }
 
-    // Use provided connection for transaction support, or fall back to pool
-    const queryExecutor = connection || pool;
+    // Use transaction storage for transaction support, or fall back to provided connection or pool
+    const queryExecutor = transactionStorage.getStore() || connection || pool;
 
     const journeyRoutePointsUniqueId = uuidv4();
     const sql = `INSERT INTO JourneyRoutePoints (journeyRoutePointsUniqueId, journeyDecisionUniqueId, latitude, longitude, journeyRoutePointsCreatedBy, journeyRoutePointsCreatedAt) VALUES (?, ?, ?, ?, ?, ?)`;
@@ -117,8 +118,9 @@ exports.createJourneyRoutePoint = async (body, connection = null) => {
 // Get all route points for a specific journey
 exports.getJourneyRoutePoints = async (journeyDecisionUniqueId) => {
   try {
+    const executor = transactionStorage.getStore() || pool;
     const sql = `SELECT * FROM JourneyRoutePoints WHERE journeyDecisionUniqueId = ? ORDER BY timestamp`;
-    const [result] = await pool.query(sql, [journeyDecisionUniqueId]);
+    const [result] = await executor.query(sql, [journeyDecisionUniqueId]);
 
     return { message: "success", data: result };
   } catch (error) {
@@ -134,7 +136,8 @@ exports.updateJourneyRoutePoint = async (pointId, latitude, longitude) => {
   try {
     const sql = `UPDATE JourneyRoutePoints SET latitude = ?, longitude = ? WHERE pointId = ?`;
     const values = [latitude, longitude, pointId];
-    const [result] = await pool.query(sql, values);
+    const executor = transactionStorage.getStore() || pool;
+    const [result] = await executor.query(sql, values);
 
     if (result.affectedRows > 0) {
       return { message: "success", data: { pointId, latitude, longitude } };
@@ -152,8 +155,9 @@ exports.updateJourneyRoutePoint = async (pointId, latitude, longitude) => {
 // Delete a specific journey route point by pointId
 exports.deleteJourneyRoutePoint = async (pointId) => {
   try {
+    const executor = transactionStorage.getStore() || pool;
     const sql = `DELETE FROM JourneyRoutePoints WHERE pointId = ?`;
-    const [result] = await pool.query(sql, [pointId]);
+    const [result] = await executor.query(sql, [pointId]);
 
     if (result.affectedRows > 0) {
       return {

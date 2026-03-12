@@ -1,5 +1,6 @@
 const journeyPaymentsService = require("../Services/JourneyPayments.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 // Create a new journey payment
 exports.createJourneyPayment = async (req, res, next) => {
@@ -11,11 +12,13 @@ exports.createJourneyPayment = async (req, res, next) => {
       paymentStatusUniqueId,
     } = req.body;
 
-    const result = await journeyPaymentsService.createJourneyPayment({
-      journeyDecisionUniqueId,
-      amount,
-      paymentMethodUniqueId,
-      paymentStatusUniqueId,
+    const result = await executeInTransaction(async () => {
+      return await journeyPaymentsService.createJourneyPayment({
+        journeyDecisionUniqueId,
+        amount,
+        paymentMethodUniqueId,
+        paymentStatusUniqueId,
+      });
     });
 
     ServerResponder(res, result);
@@ -85,11 +88,14 @@ exports.updateJourneyPayment = async (req, res, next) => {
     const { paymentUniqueId } = req.params;
     const { amount, paymentMethodUniqueId, paymentStatusUniqueId } = req.body;
 
-    const result = await journeyPaymentsService.updateJourneyPayment({
-      paymentUniqueId,
-      amount,
-      paymentMethodUniqueId,
-      paymentStatusUniqueId,
+    const result = await executeInTransaction(async () => {
+      return await journeyPaymentsService.updateJourneyPayment({
+        paymentUniqueId,
+        amount,
+        paymentMethodUniqueId,
+        paymentStatusUniqueId,
+        user: req.user,
+      });
     });
 
     ServerResponder(res, result);
@@ -103,8 +109,9 @@ exports.deleteJourneyPayment = async (req, res, next) => {
   try {
     const { paymentUniqueId } = req.params;
 
-    const result =
-      await journeyPaymentsService.deleteJourneyPayment(paymentUniqueId);
+    const result = await executeInTransaction(async () => {
+      return await journeyPaymentsService.deleteJourneyPayment(paymentUniqueId);
+    });
 
     ServerResponder(res, result);
   } catch (error) {

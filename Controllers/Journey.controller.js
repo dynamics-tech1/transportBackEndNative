@@ -3,6 +3,7 @@ const { validatePagination } = require("../Utils/paginationUtils");
 const ServerResponder = require("../Utils/ServerResponder");
 const AppError = require("../Utils/AppError");
 const { usersRolesList } = require("../Utils/ListOfSeedData");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 const handleServiceResponse = async (serviceCall, res, next) => {
   try {
@@ -16,7 +17,9 @@ const handleServiceResponse = async (serviceCall, res, next) => {
 // Create a new journey
 exports.createJourney = async (req, res, next) => {
   await handleServiceResponse(
-    journeyService.createJourney(req.body),
+    executeInTransaction(async () => {
+      return await journeyService.createJourney(req.body);
+    }),
     res,
     next,
   );
@@ -52,7 +55,9 @@ exports.updateJourney = async (req, res, next) => {
   const { id } = req.params;
   const { endTime, fare, journeyStatusId } = req.body;
   await handleServiceResponse(
-    journeyService.updateJourney(id, endTime, fare, journeyStatusId),
+    executeInTransaction(async () => {
+      return await journeyService.updateJourney(id, endTime, fare, journeyStatusId);
+    }),
     res,
     next,
   );
@@ -61,7 +66,13 @@ exports.updateJourney = async (req, res, next) => {
 // Delete a specific journey by ID
 exports.deleteJourney = async (req, res, next) => {
   const { id } = req.params;
-  await handleServiceResponse(journeyService.deleteJourney(id), res, next);
+  await handleServiceResponse(
+    executeInTransaction(async () => {
+      return await journeyService.deleteJourney(id);
+    }),
+    res,
+    next,
+  );
 };
 
 exports.getCompletedJourneyCountsByDate = async (req, res, next) => {

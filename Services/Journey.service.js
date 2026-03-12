@@ -1,5 +1,6 @@
 const { v4: uuidv4 } = require("uuid");
 const { pool } = require("../Middleware/Database.config");
+const { transactionStorage } = require("../Utils/TransactionContext");
 const { performJoinSelect } = require("../CRUD/Read/ReadData");
 const AppError = require("../Utils/AppError");
 const { getUserByFilterDetailed } = require("./User.service");
@@ -9,7 +10,7 @@ const { currentDate, toDateOnly } = require("../Utils/CurrentDate");
 
 // Helper function for database queries (uses pool by default, connection if provided)
 const query = async (sql, values = [], connection = null) => {
-  const queryExecutor = connection || pool;
+  const queryExecutor = transactionStorage.getStore() || connection || pool;
   const [result] = await queryExecutor.query(sql, values);
   return result;
 };
@@ -27,8 +28,8 @@ const createJourney = async (data, connection = null) => {
     journeyCreatedBy,
   } = data;
 
-  // Use provided connection for transaction support, or fall back to pool
-  const queryExecutor = connection || pool;
+  // Use transaction storage for transaction support, or fall back to provided connection or pool
+  const queryExecutor = transactionStorage.getStore() || connection || pool;
 
   // Check if journey already exists
   const checkSql = `SELECT * FROM Journey WHERE journeyDecisionUniqueId = ?`;
@@ -95,7 +96,8 @@ const getAllJourneys = async (page = 1, limit = 10) => {
     FROM Journey
     JOIN JourneyDecisions ON Journey.journeyDecisionUniqueId = JourneyDecisions.journeyDecisionUniqueId
   `;
-  const [countRows] = await pool.query(countSql);
+  const executor = transactionStorage.getStore() || pool;
+  const [countRows] = await executor.query(countSql);
   const totalCount = countRows[0]?.total || 0;
   const totalPages = Math.ceil(totalCount / safeLimit);
 
@@ -331,7 +333,8 @@ const getCompletedJourneyCountsByDate = async (filters = {}) => {
       ORDER BY journeyDate
     `;
 
-    const [countRows] = await pool.query(countSql, queryParams);
+    const executor = transactionStorage.getStore() || pool;
+    const [countRows] = await executor.query(countSql, queryParams);
 
     // Transform results into the desired format { date: count, ... }
     const dateCounts = {};
@@ -429,7 +432,8 @@ const searchCompletedJourneyByUserData = async (
         AND Journey.journeyStatusId = ?
     `;
     const countValues = [...userIds, journeyStatusMap.journeyCompleted];
-    const [countRows] = await pool.query(countSql, countValues);
+    const executor = transactionStorage.getStore() || pool;
+    const [countRows] = await executor.query(countSql, countValues);
     const totalCount = countRows[0]?.total || 0;
     const totalPages = Math.ceil(totalCount / safeLimit);
 
@@ -470,6 +474,7 @@ const searchCompletedJourneyByUserData = async (
 
 // Get ongoing journey with pagination
 const getOngoingJourney = async ({ page = 1, limit = 10, filters = {} }) => {
+  const executor = transactionStorage.getStore() || pool;
   try {
     const { fullName, phone, email, search, roleId, ownerUserUniqueId } =
       filters || {};
@@ -551,7 +556,7 @@ const getOngoingJourney = async ({ page = 1, limit = 10, filters = {} }) => {
     // push limit and offset
     queryParams.push(safeLimit, offset);
 
-    const [rows] = await pool.query(sql, queryParams);
+    const [rows] = await executor.query(sql, queryParams);
     const ongoingJourneys = rows;
 
     // Count query (mirror filters and joins used above)
@@ -589,7 +594,7 @@ const getOngoingJourney = async ({ page = 1, limit = 10, filters = {} }) => {
       JOIN Users ON ${joinTable}.userUniqueId = Users.userUniqueId
       WHERE ${countWhereParts.join(" AND ")}
     `;
-    const [countRows] = await pool.query(countSql, countParams);
+    const [countRows] = await executor.query(countSql, countParams);
     const totalCount = countRows[0]?.total || 0;
     const totalPages = Math.ceil(totalCount / safeLimit);
 
@@ -638,6 +643,7 @@ const getOngoingJourney = async ({ page = 1, limit = 10, filters = {} }) => {
 
 // Get all completed journeys with pagination (OPTIMIZED)
 const getAllCompletedJourneys = async ({ page = 1, limit = 10 }) => {
+  const executor = transactionStorage.getStore() || pool;
   try {
     const safePage = Math.max(1, parseInt(page) || 1);
     const safeLimit = Math.min(Math.max(1, parseInt(limit) || 10), 100);
@@ -710,7 +716,7 @@ const getAllCompletedJourneys = async ({ page = 1, limit = 10 }) => {
       ORDER BY Journey.endTime DESC
       LIMIT ? OFFSET ?`;
 
-    const [completedJourneys] = await pool.query(dataSql, [
+    const [completedJourneys] = await executor.query(dataSql, [
       journeyStatusMap.journeyCompleted,
       safeLimit,
       offset,
@@ -775,7 +781,7 @@ const getAllCompletedJourneys = async ({ page = 1, limit = 10 }) => {
       SELECT COUNT(*) as total
       FROM Journey 
       WHERE Journey.journeyStatusId = ?`;
-    const [countResult] = await pool.query(countSql, [
+    const [countResult] = await executor.query(countSql, [
       journeyStatusMap.journeyCompleted,
     ]);
     const totalCount = countResult[0]?.total || 0;
@@ -806,6 +812,7 @@ const getAllCompletedJourneys = async ({ page = 1, limit = 10 }) => {
 // Unified method to get journeys with exact response structure
 // Unified method to get journeys with exact response structure
 const getJourneys = async (filters = {}) => {
+  const executor = transactionStorage.getStore() || pool;
   try {
     const {
       journeyStatusId,
@@ -1023,7 +1030,7 @@ const getJourneys = async (filters = {}) => {
     `;
 
     queryParams.push(safeLimit, offset);
-    const [rows] = await pool.query(sql, queryParams);
+    const [rows] = await executor.query(sql, queryParams);
     const journeys = rows;
 
     // Count query (fixed - removed the duplicate joinTable)
@@ -1038,7 +1045,7 @@ const getJourneys = async (filters = {}) => {
       INNER JOIN JourneyStatus ON JourneyStatus.journeyStatusId = Journey.journeyStatusId
       ${whereClause}
     `;
-    const [countRows] = await pool.query(countSql, queryParams.slice(0, -2));
+    const [countRows] = await executor.query(countSql, queryParams.slice(0, -2));
     const totalCount = countRows[0]?.total || 0;
     const totalPages = Math.ceil(totalCount / safeLimit);
 

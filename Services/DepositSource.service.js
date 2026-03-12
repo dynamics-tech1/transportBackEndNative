@@ -2,13 +2,15 @@ const { pool } = require("../Middleware/Database.config");
 const { v4: uuidv4 } = require("uuid");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 // Create
 const createDepositSource = async ({ sourceKey, sourceLabel, user }) => {
   const depositSourceUniqueId = uuidv4();
 
+  const executor = transactionStorage.getStore() || pool;
   const checkSql = `SELECT * FROM DepositSource WHERE sourceKey = ?`;
-  const [existing] = await pool.query(checkSql, [sourceKey]);
+  const [existing] = await executor.query(checkSql, [sourceKey]);
 
   if (existing.length > 0) {
     return { message: "success", data: { ...existing[0] } };
@@ -19,7 +21,7 @@ const createDepositSource = async ({ sourceKey, sourceLabel, user }) => {
     INSERT INTO DepositSource (depositSourceUniqueId, sourceKey, sourceLabel, depositSourceCreatedBy, depositSourceCreatedAt)
     VALUES (?, ?, ?, ?, ?)
   `;
-  await pool.query(sql, [
+  await executor.query(sql, [
     depositSourceUniqueId,
     sourceKey,
     sourceLabel,
@@ -39,15 +41,17 @@ const createDepositSource = async ({ sourceKey, sourceLabel, user }) => {
 
 // Get all
 const getAllDepositSources = async () => {
+  const executor = transactionStorage.getStore() || pool;
   const sql = `SELECT * FROM DepositSource ORDER BY depositSourceCreatedAt DESC`;
-  const [result] = await pool.query(sql);
+  const [result] = await executor.query(sql);
   return { message: "success", data: result };
 };
 
 // Get by UUID
 const getDepositSourceByUniqueId = async (depositSourceUniqueId) => {
+  const executor = transactionStorage.getStore() || pool;
   const sql = `SELECT * FROM DepositSource WHERE depositSourceUniqueId = ?`;
-  const [result] = await pool.query(sql, [depositSourceUniqueId]);
+  const [result] = await executor.query(sql, [depositSourceUniqueId]);
 
   if (result.length === 0) {
     throw new AppError("Deposit source not found", 404);
@@ -90,7 +94,8 @@ const updateDepositSourceByUniqueId = async (
   values.push(depositSourceUniqueId);
   const sql = `UPDATE DepositSource SET ${setParts.join(", ")} WHERE depositSourceUniqueId = ? AND depositSourceDeletedAt IS NULL`;
 
-  const [result] = await pool.query(sql, values);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, values);
 
   if (result.affectedRows === 0) {
     throw new AppError("Failed to update deposit source", 500);
@@ -104,9 +109,10 @@ const updateDepositSourceByUniqueId = async (
 
 // Delete by UUID
 const deleteDepositSourceByUniqueId = async (depositSourceUniqueId, user) => {
+  const executor = transactionStorage.getStore() || pool;
   // first check if it was deleted before
   const checkDeletedSql = `SELECT depositSourceDeletedAt FROM DepositSource WHERE depositSourceUniqueId = ?`;
-  const [existing] = await pool.query(checkDeletedSql, [depositSourceUniqueId]);
+  const [existing] = await executor.query(checkDeletedSql, [depositSourceUniqueId]);
 
   if (existing.length === 0) {
     throw new AppError("Deposit source not found", 404);
@@ -118,7 +124,7 @@ const deleteDepositSourceByUniqueId = async (depositSourceUniqueId, user) => {
 
   const userUniqueId = user?.userUniqueId;
   const sql = `UPDATE DepositSource SET depositSourceDeletedAt = ?, depositSourceDeletedBy = ? WHERE depositSourceUniqueId = ?`;
-  const [result] = await pool.query(sql, [
+  const [result] = await executor.query(sql, [
     currentDate(),
     userUniqueId,
     depositSourceUniqueId,

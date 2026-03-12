@@ -1,5 +1,6 @@
 const service = require("../Services/DepositSource.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 const AppError = require("../Utils/AppError");
 const { usersRoles } = require("../Utils/ListOfSeedData");
 
@@ -18,10 +19,12 @@ exports.createDepositSource = async (req, res, next) => {
   try {
     checkAdminAccess(req.user);
     const { sourceKey, sourceLabel } = req.body;
-    const result = await service.createDepositSource({
-      sourceKey,
-      sourceLabel,
-      user: req.user,
+    const result = await executeInTransaction(async () => {
+      return await service.createDepositSource({
+        sourceKey,
+        sourceLabel,
+        user: req.user,
+      });
     });
     ServerResponder(res, result);
   } catch (error) {
@@ -54,11 +57,13 @@ exports.updateDepositSourceByUniqueId = async (req, res, next) => {
   try {
     checkAdminAccess(req.user);
     const { depositSourceUniqueId } = req.params;
-    const result = await service.updateDepositSourceByUniqueId(
-      depositSourceUniqueId,
-      req.body,
-      req.user,
-    );
+    const result = await executeInTransaction(async () => {
+      return await service.updateDepositSourceByUniqueId(
+        depositSourceUniqueId,
+        req.body,
+        req.user,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -69,10 +74,12 @@ exports.deleteDepositSourceByUniqueId = async (req, res, next) => {
   try {
     checkAdminAccess(req.user);
     const { depositSourceUniqueId } = req.params;
-    const result = await service.deleteDepositSourceByUniqueId(
-      depositSourceUniqueId,
-      req.user,
-    );
+    const result = await executeInTransaction(async () => {
+      return await service.deleteDepositSourceByUniqueId(
+        depositSourceUniqueId,
+        req.user,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

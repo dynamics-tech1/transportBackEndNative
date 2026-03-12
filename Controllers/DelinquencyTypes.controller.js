@@ -1,5 +1,6 @@
 const delinquencyTypesService = require("../Services/DelinquencyTypes.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 const handleServiceResponse = async (serviceCall, res, next) => {
   try {
@@ -19,7 +20,9 @@ const createDelinquencyType = async (req, res, next) => {
   };
 
   await handleServiceResponse(
-    delinquencyTypesService.createDelinquencyType(data),
+    executeInTransaction(async () => {
+      return await delinquencyTypesService.createDelinquencyType(data);
+    }),
     res,
     next,
   );
@@ -44,10 +47,12 @@ const updateDelinquencyType = async (req, res, next) => {
   const data = { ...req.body, user: req.user };
 
   await handleServiceResponse(
-    delinquencyTypesService.updateDelinquencyType(
-      delinquencyTypeUniqueId,
-      data,
-    ),
+    executeInTransaction(async () => {
+      return await delinquencyTypesService.updateDelinquencyType(
+        delinquencyTypeUniqueId,
+        data,
+      );
+    }),
     res,
     next,
   );
@@ -57,10 +62,12 @@ const deleteDelinquencyType = async (req, res, next) => {
   const { delinquencyTypeUniqueId } = req.params;
 
   await handleServiceResponse(
-    delinquencyTypesService.deleteDelinquencyType(
-      delinquencyTypeUniqueId,
-      req.user,
-    ),
+    executeInTransaction(async () => {
+      return await delinquencyTypesService.deleteDelinquencyType(
+        delinquencyTypeUniqueId,
+        req.user,
+      );
+    }),
     res,
     next,
   );
@@ -84,9 +91,11 @@ const toggleDelinquencyTypeActive = async (req, res, next) => {
   const { delinquencyTypeUniqueId } = req.params;
 
   await handleServiceResponse(
-    delinquencyTypesService.toggleDelinquencyTypeActive(
-      delinquencyTypeUniqueId,
-    ),
+    executeInTransaction(async () => {
+      return await delinquencyTypesService.toggleDelinquencyTypeActive(
+        delinquencyTypeUniqueId,
+      );
+    }),
     res,
     next,
   );

@@ -1,6 +1,7 @@
 const journeyRoutePointsService = require("../Services/JourneyRoutePoints.service");
 const ServerResponder = require("../Utils/ServerResponder");
 const AppError = require("../Utils/AppError");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 // Create a new journey route point
 exports.createJourneyRoutePoint = async (req, res, next) => {
@@ -12,9 +13,9 @@ exports.createJourneyRoutePoint = async (req, res, next) => {
     if (userUniqueId === "self") {
       req.body.userUniqueId = req.user.userUniqueId;
     }
-    const result = await journeyRoutePointsService.createJourneyRoutePoint(
-      req.body,
-    );
+    const result = await executeInTransaction(async () => {
+      return await journeyRoutePointsService.createJourneyRoutePoint(req.body);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -39,11 +40,13 @@ exports.updateJourneyRoutePoint = async (req, res, next) => {
   try {
     const { pointId } = req.params;
     const { latitude, longitude } = req.body;
-    const result = await journeyRoutePointsService.updateJourneyRoutePoint(
-      pointId,
-      latitude,
-      longitude,
-    );
+    const result = await executeInTransaction(async () => {
+      return await journeyRoutePointsService.updateJourneyRoutePoint(
+        pointId,
+        latitude,
+        longitude,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -54,8 +57,9 @@ exports.updateJourneyRoutePoint = async (req, res, next) => {
 exports.deleteJourneyRoutePoint = async (req, res, next) => {
   try {
     const { pointId } = req.params;
-    const result =
-      await journeyRoutePointsService.deleteJourneyRoutePoint(pointId);
+    const result = await executeInTransaction(async () => {
+      return await journeyRoutePointsService.deleteJourneyRoutePoint(pointId);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

@@ -1,13 +1,13 @@
 const journeyStatusService = require("../Services/JourneyStatus.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 // Create a new journey status
 const createJourneyStatus = async (req, res, next) => {
   try {
-    const result = await journeyStatusService.createJourneyStatus(
-      req.body,
-      req.user,
-    );
+    const result = await executeInTransaction(async () => {
+      return await journeyStatusService.createJourneyStatus(req.body, req.user);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -28,11 +28,13 @@ const getAllJourneyStatuses = async (req, res, next) => {
 const updateJourneyStatus = async (req, res, next) => {
   try {
     const { journeyStatusUniqueId } = req.params;
-    const result = await journeyStatusService.updateJourneyStatusByUniqueId(
-      journeyStatusUniqueId,
-      { ...req.body },
-      { ...req.user },
-    );
+    const result = await executeInTransaction(async () => {
+      return await journeyStatusService.updateJourneyStatusByUniqueId(
+        journeyStatusUniqueId,
+        { ...req.body },
+        { ...req.user },
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -44,10 +46,12 @@ const deleteJourneyStatus = async (req, res, next) => {
   try {
     const { journeyStatusUniqueId } = req.params;
     const user = req.user;
-    const result = await journeyStatusService.deleteJourneyStatusByUniqueId(
-      journeyStatusUniqueId,
-      user,
-    );
+    const result = await executeInTransaction(async () => {
+      return await journeyStatusService.deleteJourneyStatusByUniqueId(
+        journeyStatusUniqueId,
+        user,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

@@ -3,6 +3,7 @@ const { v4: uuidv4 } = require("uuid");
 const { messaging } = require("../Config/FirebaseAdmin");
 const AppError = require("../Utils/AppError");
 const { currentDate } = require("../Utils/CurrentDate");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 // Service for managing DeviceTokens table
 const upsertDeviceToken = async ({
@@ -20,8 +21,9 @@ const upsertDeviceToken = async ({
   const now = currentDate();
 
   try {
+    const executor = transactionStorage.getStore() || pool;
     // Check if token already exists for any user
-    const [existingTokenCheck] = await pool.query(
+    const [existingTokenCheck] = await executor.query(
       "SELECT * FROM DeviceTokens WHERE token = ?",
       [token],
     );
@@ -36,7 +38,7 @@ const upsertDeviceToken = async ({
         existingRecord.roleId === roleId
       ) {
         const sql = `UPDATE DeviceTokens SET platform = ?, appVersion = ?, locale = ?, lastSeenAt = ? WHERE token = ?`;
-        const [result] = await pool.query(sql, [
+        const [result] = await executor.query(sql, [
           platform,
           appVersion,
           locale,
@@ -59,7 +61,7 @@ const upsertDeviceToken = async ({
       // If token exists for different user/role, update it to the new user/role
       // This handles the case where a device is reassigned to a different user
       const sql = `UPDATE DeviceTokens SET userUniqueId = ?, roleId = ?, platform = ?, appVersion = ?, locale = ?, lastSeenAt = ? WHERE token = ?`;
-      const [result] = await pool.query(sql, [
+      const [result] = await executor.query(sql, [
         userUniqueId,
         roleId,
         platform,
@@ -82,7 +84,7 @@ const upsertDeviceToken = async ({
     }
 
     // Check if user already has tokens for this role
-    const [existingUserTokens] = await pool.query(
+    const [existingUserTokens] = await executor.query(
       "SELECT * FROM DeviceTokens WHERE userUniqueId = ? AND roleId = ?",
       [userUniqueId, roleId],
     );
@@ -95,7 +97,7 @@ const upsertDeviceToken = async ({
       if (existingToken) {
         // Update existing record
         const sql = `UPDATE DeviceTokens SET platform = ?, appVersion = ?, locale = ?, lastSeenAt = ? WHERE token = ?`;
-        const [result] = await pool.query(sql, [
+        const [result] = await executor.query(sql, [
           platform,
           appVersion,
           locale,
@@ -122,7 +124,7 @@ const upsertDeviceToken = async ({
             deviceTokenUniqueId, userUniqueId, token, platform, appVersion, locale, lastSeenAt, roleId
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
-        await pool.query(sql, [
+        await executor.query(sql, [
           deviceTokenUniqueId,
           userUniqueId,
           token,
@@ -154,7 +156,7 @@ const upsertDeviceToken = async ({
           deviceTokenUniqueId, userUniqueId, token, platform, appVersion, locale, lastSeenAt, roleId
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `;
-      await pool.query(sql, [
+      await executor.query(sql, [
         deviceTokenUniqueId,
         userUniqueId,
         token,
@@ -191,7 +193,8 @@ const upsertDeviceToken = async ({
 };
 
 const getDeviceTokenByUniqueId = async (deviceTokenUniqueId) => {
-  const [rows] = await pool.query(
+  const executor = transactionStorage.getStore() || pool;
+  const [rows] = await executor.query(
     "SELECT * FROM DeviceTokens WHERE deviceTokenUniqueId = ?",
     [deviceTokenUniqueId],
   );
@@ -236,7 +239,8 @@ const updateDeviceTokenByUniqueId = async (
     ", ",
   )} WHERE deviceTokenUniqueId = ?`;
   params.push(deviceTokenUniqueId);
-  const [result] = await pool.query(sql, params);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, params);
 
   if (result.affectedRows === 0) {
     throw new AppError("Device token not found or not updated", 404);
@@ -246,7 +250,8 @@ const updateDeviceTokenByUniqueId = async (
 };
 
 const deleteDeviceTokenByUniqueId = async (deviceTokenUniqueId) => {
-  const [result] = await pool.query(
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(
     "DELETE FROM DeviceTokens WHERE deviceTokenUniqueId = ?",
     [deviceTokenUniqueId],
   );
@@ -260,7 +265,8 @@ const deleteDeviceTokenByUniqueId = async (deviceTokenUniqueId) => {
 };
 
 const getActiveTokensByUser = async (userUniqueId, roleId) => {
-  const [rows] = await pool.query(
+  const executor = transactionStorage.getStore() || pool;
+  const [rows] = await executor.query(
     "SELECT token FROM DeviceTokens WHERE userUniqueId = ? AND revokedAt IS NULL and roleId = ?",
     [userUniqueId, roleId],
   );

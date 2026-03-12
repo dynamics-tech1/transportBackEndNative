@@ -12,7 +12,9 @@ const createRequest = async (req, res, next) => {
       throw new AppError("User not authenticated", 401);
     }
     req.body.userUniqueId = userUniqueId;
-    const result = await services.createRequest({ body: req.body });
+    const result = await executeInTransaction(async () => {
+      return await services.createRequest({ body: req.body });
+    });
     ServerResponder(res, result, 201);
   } catch (error) {
     next(error);
@@ -26,7 +28,9 @@ const takeFromStreet = async (req, res, next) => {
     req.body.shipperRequestCreatedBy = shipperRequestCreatedBy;
     req.body.shipperRequestCreatedByRoleId = shipperRequestCreatedByRoleId;
 
-    const result = await services.takeFromStreet({ ...req.body }, req.user);
+    const result = await executeInTransaction(async () => {
+      return await services.takeFromStreet({ ...req.body }, req.user);
+    });
     ServerResponder(res, result, 201);
   } catch (error) {
     next(error);
@@ -36,7 +40,9 @@ const createAndAcceptNewRequest = async (req, res, next) => {
   try {
     const { userUniqueId } = req?.user;
     req.body.userUniqueId = userUniqueId;
-    const result = await services.createAndAcceptNewRequest(req.body);
+    const result = await executeInTransaction(async () => {
+      return await services.createAndAcceptNewRequest(req.body);
+    });
     ServerResponder(res, result, 201);
   } catch (error) {
     next(error);
@@ -49,7 +55,9 @@ const acceptPassengerRequest = async (req, res, next) => {
     const { userUniqueId } = req?.user;
     req.body.userUniqueId = userUniqueId;
     req.body.journeyStatusId = journeyStatusMap.acceptedByDriver;
-    const result = await services.acceptPassengerRequest(req.body);
+    const result = await executeInTransaction(async () => {
+      return await services.acceptPassengerRequest(req.body);
+    });
     ServerResponder(res, result, 200);
   } catch (error) {
     next(error);
@@ -69,9 +77,11 @@ const deleteRequestController = async (req, res, next) => {
       throw new AppError("User not authenticated", 401);
     }
 
-    const result = await services.deleteDriverRequest({
-      driverRequestUniqueId,
-      deletedBy: userUniqueId,
+    const result = await executeInTransaction(async () => {
+      return await services.deleteDriverRequest({
+        driverRequestUniqueId,
+        deletedBy: userUniqueId,
+      });
     });
 
     ServerResponder(res, result, 200);
@@ -184,7 +194,9 @@ const noAnswerFromDriver = async (req, res, next) => {
     req.body.userUniqueId = userUniqueId;
     req.body.journeyStatusId = journeyStatusMap.noAnswerFromDriver;
     req.body.previousStatusId = journeyStatusMap.requested;
-    const result = await services.noAnswerFromDriver(req.body);
+    const result = await executeInTransaction(async () => {
+      return await services.noAnswerFromDriver(req.body);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -235,7 +247,9 @@ const cancelDriverRequest = async (req, res, next) => {
         ? { cancellationReasonsTypeId }
         : {}),
     };
-    const result = await services.cancelDriverRequest(data);
+    const result = await executeInTransaction(async () => {
+      return await services.cancelDriverRequest(data);
+    });
 
     ServerResponder(res, result);
   } catch (error) {
@@ -246,7 +260,9 @@ const sendUpdatedLocationController = async (req, res, next) => {
   try {
     const { userUniqueId } = req?.user;
     req.body.userUniqueId = userUniqueId;
-    const result = await services.sendUpdatedLocation(req.body);
+    const result = await executeInTransaction(async () => {
+      return await services.sendUpdatedLocation(req.body);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -286,9 +302,11 @@ const markNegativeStatusAsSeenController = async (req, res, next) => {
       throw new AppError("Missing required fields", 400);
     }
 
-    const result = await services.markNegativeStatusAsSeenByDriver({
-      driverRequestUniqueId,
-      userUniqueId,
+    const result = await executeInTransaction(async () => {
+      return await services.markNegativeStatusAsSeenByDriver({
+        driverRequestUniqueId,
+        userUniqueId,
+      });
     });
 
     ServerResponder(res, result, 200);
@@ -309,9 +327,11 @@ const updateDriverRequestController = async (req, res, next) => {
       throw new AppError("No update fields provided", 400);
     }
 
-    const result = await services.updateDriverRequest({
-      conditions: { driverRequestUniqueId },
-      updateValues,
+    const result = await executeInTransaction(async () => {
+      return await services.updateDriverRequest({
+        conditions: { driverRequestUniqueId },
+        updateValues,
+      });
     });
 
     ServerResponder(res, result, 200);

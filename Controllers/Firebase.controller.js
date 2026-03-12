@@ -8,6 +8,7 @@ const {
   sendNotificationToTokens,
   sendFCMNotificationToUser,
 } = require("../Services/Firebase.service");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 const firebaseController = {
   // POST /api/user/updateFCMToken
@@ -16,13 +17,15 @@ const firebaseController = {
       const userUniqueId = req?.user?.userUniqueId || null; // from verifyTokenOfAxios
       const roleId = req?.user?.roleId || null;
       const { token, FCMToken, platform, appVersion, locale } = req.body || {};
-      const result = await upsertDeviceToken({
-        userUniqueId,
-        token: token || FCMToken,
-        platform,
-        appVersion,
-        locale,
-        roleId,
+      const result = await executeInTransaction(async () => {
+        return await upsertDeviceToken({
+          userUniqueId,
+          token: token || FCMToken,
+          platform,
+          appVersion,
+          locale,
+          roleId,
+        });
       });
       return ServerResponder(res, result);
     } catch (error) {
@@ -52,11 +55,13 @@ const firebaseController = {
         revoke = undefined,
       } = req.body || {};
 
-      const result = await updateDeviceTokenByUniqueId(deviceTokenUniqueId, {
-        platform,
-        appVersion,
-        locale,
-        revokedAt: revoke, // pass true to revoke, false to un-revoke
+      const result = await executeInTransaction(async () => {
+        return await updateDeviceTokenByUniqueId(deviceTokenUniqueId, {
+          platform,
+          appVersion,
+          locale,
+          revokedAt: revoke, // pass true to revoke, false to un-revoke
+        });
       });
       return ServerResponder(res, result);
     } catch (error) {
@@ -68,7 +73,9 @@ const firebaseController = {
   deleteFirebase: async (req, res, next) => {
     try {
       const { deviceTokenUniqueId } = req.params;
-      const result = await deleteDeviceTokenByUniqueId(deviceTokenUniqueId);
+      const result = await executeInTransaction(async () => {
+        return await deleteDeviceTokenByUniqueId(deviceTokenUniqueId);
+      });
       return ServerResponder(res, result);
     } catch (error) {
       next(error);
@@ -94,14 +101,16 @@ const firebaseController = {
           new AppError("notification must contain title and body", 400),
         );
       }
-      const result = await sendFCMNotificationToUser({
-        userUniqueId,
-        roleId,
-        notification,
-        data,
-        android,
-        apns,
-        webpush,
+      const result = await executeInTransaction(async () => {
+        return await sendFCMNotificationToUser({
+          userUniqueId,
+          roleId,
+          notification,
+          data,
+          android,
+          apns,
+          webpush,
+        });
       });
       return ServerResponder(res, result);
     } catch (error) {
@@ -114,13 +123,15 @@ const firebaseController = {
     try {
       const { tokens, notification, data, android, apns, webpush } =
         req.body || {};
-      const result = await sendNotificationToTokens({
-        tokens,
-        notification,
-        data,
-        android,
-        apns,
-        webpush,
+      const result = await executeInTransaction(async () => {
+        return await sendNotificationToTokens({
+          tokens,
+          notification,
+          data,
+          android,
+          apns,
+          webpush,
+        });
       });
       return ServerResponder(res, result);
     } catch (error) {

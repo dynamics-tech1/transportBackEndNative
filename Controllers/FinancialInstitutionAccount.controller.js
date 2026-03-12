@@ -1,5 +1,6 @@
 const service = require("../Services/FinancialInstitutionAccount.service");
 const ServerResponder = require("../Utils/ServerResponder");
+const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 
 exports.createFinancialInstitutionAccount = async (req, res, next) => {
   try {
@@ -9,7 +10,9 @@ exports.createFinancialInstitutionAccount = async (req, res, next) => {
     const userUniqueId = user?.userUniqueId;
     data.addedBy = userUniqueId;
     data.user = user; // Pass the full user object for createdBy field
-    const result = await service.createFinancialInstitutionAccount(data);
+    const result = await executeInTransaction(async () => {
+      return await service.createFinancialInstitutionAccount(data);
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -34,10 +37,12 @@ exports.updateFinancialInstitutionAccountByUniqueId = async (
   try {
     const { accountUniqueId } = req.params;
     const updates = req.body;
-    const result = await service.updateFinancialInstitutionAccountByUniqueId(
-      accountUniqueId,
-      updates,
-    );
+    const result = await executeInTransaction(async () => {
+      return await service.updateFinancialInstitutionAccountByUniqueId(
+        accountUniqueId,
+        updates,
+      );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -51,10 +56,11 @@ exports.deleteFinancialInstitutionAccountByUniqueId = async (
 ) => {
   try {
     const { accountUniqueId } = req.params;
-    const result =
-      await service.deleteFinancialInstitutionAccountByUniqueId(
+    const result = await executeInTransaction(async () => {
+      return await service.deleteFinancialInstitutionAccountByUniqueId(
         accountUniqueId,
       );
+    });
     ServerResponder(res, result);
   } catch (error) {
     next(error);

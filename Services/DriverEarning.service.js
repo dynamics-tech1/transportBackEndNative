@@ -1,6 +1,7 @@
 const { pool } = require("../Middleware/Database.config");
 const { journeyStatusMap } = require("../Utils/ListOfSeedData");
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 exports.getDriverEarningsByFilter = async ({
   driverUniqueId,
@@ -58,7 +59,8 @@ exports.getDriverEarningsByFilter = async ({
       LIMIT ? OFFSET ?
     `;
 
-  const [data] = await pool.query(sql, params);
+  const executor = transactionStorage.getStore() || pool;
+  const [data] = await executor.query(sql, params);
 
   // ✅ Get total count for pagination (remove limit/offset from params)
   const countParams = params.slice(0, -2); // Remove limit and offset
@@ -71,7 +73,7 @@ exports.getDriverEarningsByFilter = async ({
       WHERE ${whereConditions.join(" AND ")}
     `;
 
-  const [countRows] = await pool.query(countSql, countParams);
+  const [countRows] = await executor.query(countSql, countParams);
 
   const total = countRows[0]?.total || 0;
 

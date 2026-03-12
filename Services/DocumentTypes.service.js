@@ -6,6 +6,7 @@ const { currentDate } = require("../Utils/CurrentDate");
 const logger = require("../Utils/logger");
 const uuidv4 = require("uuid").v4;
 const AppError = require("../Utils/AppError");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 const createDocumentType = async ({ body }) => {
   const { documentTypeName, documentTypeDescription, user } = body;
@@ -181,8 +182,9 @@ const getAllDocumentTypes = async (filters = {}) => {
       ${whereClause}
     `;
 
-    const [dataRows] = await pool.query(dataSql, [...params, limit, offset]);
-    const [countRows] = await pool.query(countSql, params);
+    const executor = transactionStorage.getStore() || pool;
+    const [dataRows] = await executor.query(dataSql, [...params, limit, offset]);
+    const [countRows] = await executor.query(countSql, params);
     const total = countRows?.[0]?.total || 0;
 
     if (!dataRows || dataRows.length === 0) {
