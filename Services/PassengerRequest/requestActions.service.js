@@ -61,6 +61,7 @@ const acceptDriverRequest = async (body) => {
     return await executeInTransaction(async () => {
       const connectedDrivers = await performJoinSelect({
         baseTable: "DriverRequest",
+        selectColumns: "DriverRequest.*, Users.phoneNumber, DriverRequest.userUniqueId AS driverUserUniqueId, PassengerRequest.userUniqueId AS passengerUserUniqueId, JourneyDecisions.journeyDecisionUniqueId, JourneyDecisions.driverRequestId as jd_driverRequestId, PassengerRequest.passengerRequestId as pr_passengerRequestId",
         joins: [
           {
             table: "JourneyDecisions",
@@ -69,6 +70,10 @@ const acceptDriverRequest = async (body) => {
           {
             table: "PassengerRequest",
             on: "JourneyDecisions.passengerRequestId = PassengerRequest.passengerRequestId",
+          },
+          {
+            table: "Users",
+            on: "DriverRequest.userUniqueId = Users.userUniqueId",
           },
         ],
         conditions: {
@@ -84,7 +89,7 @@ const acceptDriverRequest = async (body) => {
       for (let i = 0; i < connectedDrivers?.length; i++) {
         const driver = connectedDrivers[i];
         const phoneNumber = driver?.phoneNumber;
-        const targetDriverUserUniqueId = driver?.userUniqueId;
+        const targetDriverUserUniqueId = driver?.driverUserUniqueId;
 
         const isAccepted = driverRequestUniqueId === driver.driverRequestUniqueId;
 
@@ -101,7 +106,7 @@ const acceptDriverRequest = async (body) => {
 
         // Verification of driver journey status (lazy required/internal check)
         const driverStatus = await verifyDriverJourneyStatus({
-          userUniqueId: driver?.userUniqueId,
+          userUniqueId: driver?.driverUserUniqueId,
         });
 
         const notification = {

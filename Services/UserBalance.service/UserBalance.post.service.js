@@ -3,8 +3,7 @@ const { pool } = require("../../Middleware/Database.config");
 const { transactionStorage } = require("../../Utils/TransactionContext");
 const { currentDate } = require("../../Utils/CurrentDate");
 const AppError = require("../../Utils/AppError");
-const logger = require("../../Utils/logger");
-
+ 
 const getDriverLastBalance = async (driverUniqueId, connection = null) => {
   const sql = `
     SELECT *

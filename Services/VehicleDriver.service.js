@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require("uuid");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
 const logger = require("../Utils/logger");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 // Create a new VehicleDriver assignment
 const createVehicleDriver = async (data) => {
@@ -61,7 +62,7 @@ const createVehicleDriver = async (data) => {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
-  const queryExecutor = connection || pool;
+  const queryExecutor = transactionStorage.getStore() || connection || pool;
   const [result] = await queryExecutor.query(sql, [
     vehicleDriverUniqueId,
     vehicleUniqueId,
@@ -221,8 +222,9 @@ const getVehicleDrivers = async (filters = {}) => {
      ${whereClause}
   `;
 
-  const [rows] = await pool.query(sql, [...params, numLimit, offset]);
-  const [countRows] = await pool.query(countSql, params);
+  const executor = transactionStorage.getStore() || pool;
+  const [rows] = await executor.query(sql, [...params, numLimit, offset]);
+  const [countRows] = await executor.query(countSql, params);
   const total = countRows[0]?.total || 0;
   const totalPages = Math.ceil(total / numLimit);
 
@@ -290,13 +292,14 @@ const updateVehicleDriverByUniqueId = async (
   )}, vehicleDriverUpdatedAt = ? WHERE vehicleDriverUniqueId = ?`;
   params.push(currentDate(), vehicleDriverUniqueId);
 
-  const [result] = await pool.query(sql, params);
+  const executor = transactionStorage.getStore() || pool;
+  const [result] = await executor.query(sql, params);
   if (!result.affectedRows) {
     throw new AppError("Update failed or assignment not found", 404);
   }
 
   // Get the updated record to get driverUserUniqueId
-  const [updatedRecord] = await pool.query(
+  const [updatedRecord] = await executor.query(
     "SELECT driverUserUniqueId FROM VehicleDriver WHERE vehicleDriverUniqueId = ?",
     [vehicleDriverUniqueId],
   );
@@ -335,7 +338,8 @@ const deleteVehicleDriverByUniqueId = async (vehicleDriverUniqueId) => {
   }
 
   // Get the record before deletion to get driverUserUniqueId
-  const [existingRecord] = await pool.query(
+  const executor = transactionStorage.getStore() || pool;
+  const [existingRecord] = await executor.query(
     "SELECT driverUserUniqueId FROM VehicleDriver WHERE vehicleDriverUniqueId = ?",
     [vehicleDriverUniqueId],
   );
@@ -346,7 +350,7 @@ const deleteVehicleDriverByUniqueId = async (vehicleDriverUniqueId) => {
 
   const driverUserUniqueId = existingRecord[0].driverUserUniqueId;
 
-  const [result] = await pool.query(
+  const [result] = await executor.query(
     `DELETE FROM VehicleDriver WHERE vehicleDriverUniqueId = ?`,
     [vehicleDriverUniqueId],
   );

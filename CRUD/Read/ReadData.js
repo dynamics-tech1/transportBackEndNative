@@ -214,7 +214,8 @@ const performJoinSelect = async ({
   limit = null,
   offset = null,
   groupBy = null, // Optional group by column
-  connection = null, // Optional: connection for transaction support
+  connection = null,
+  selectColumns = "*", // Optional specific columns
 }) => {
   // Validate the operator
   if (operator !== "AND" && operator !== "OR") {
@@ -250,11 +251,11 @@ const performJoinSelect = async ({
   const groupByClause = groupBy ? ` GROUP BY ${groupBy}` : ""; // Optional group by
 
   // Construct the final SQL query
-  const sqlQuery = `SELECT * FROM ${baseTable} ${joinClauses} ${whereClause} ${groupByClause} ${orderByClause} ${limitClause} ${offsetClause}`;
+  const sqlQuery = `SELECT ${selectColumns} FROM ${baseTable} ${joinClauses} ${whereClause} ${groupByClause} ${orderByClause} ${limitClause} ${offsetClause}`;
 
   try {
-    // Use provided connection for transaction support, or fall back to pool
-    const queryExecutor = connection || pool;
+    // Use provided connection for transaction support, context store, or fall back to pool
+    const queryExecutor = transactionStorage.getStore() || connection || pool;
     const [result] = await queryExecutor.query(sqlQuery, values);
     return result; // Return the result set
   } catch (error) {
