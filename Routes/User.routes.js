@@ -40,13 +40,6 @@ router.post(
 );
 
 // log in / register user by phone number
-router.get(
-  "/api/user/loginUser",
-  validator(loginUser, "query"),
-  loginRateLimiter(),
-  controller.loginUser,
-);
-
 router.post(
   "/api/user/loginUser",
   validator(loginUser),
@@ -56,6 +49,7 @@ router.post(
 
 router.post(
   "/api/user/verifyUserByOTP",
+  loginRateLimiter({ limit: 5 }), // Stricter limit for OTP attempts
   validator(verifyUserByOTP),
   controller.verifyUserByOTP,
 );
@@ -71,9 +65,9 @@ router.put(
 );
 
 router.delete(
-  "/api/user/deleteUser",
+  "/api/user/users/:userUniqueId",
   verifyTokenOfAxios,
-  validator(userIdParams, "query"),
+  validator(userIdParams, "params"),
   controller.deleteUser,
 );
 

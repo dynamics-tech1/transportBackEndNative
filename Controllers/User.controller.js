@@ -55,7 +55,7 @@ const deleteUser = async (req, res, next) => {
     const deletedBy = user?.userUniqueId;
     const roleId = user.roleId;
 
-    let userUniqueId = req.query?.userUniqueId;
+    let userUniqueId = req.params?.userUniqueId;
     if (userUniqueId === "self") {
       userUniqueId = deletedBy;
     }
