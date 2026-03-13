@@ -488,10 +488,10 @@ const getDetailedJourneyData = async (passengerRequests) => {
       journeyStatusMap.journeyCompleted,
     ].includes(journeyStatusId);
 
-    // Get decisions
+    // Get decisions matching the passenger request's journeyStatusId
     const decisions = await getData({
       tableName: "JourneyDecisions",
-      conditions: { passengerRequestId },
+      conditions: { passengerRequestId, journeyStatusId },
     });
 
     if (decisions.length === 0) {
@@ -503,7 +503,7 @@ const getDetailedJourneyData = async (passengerRequests) => {
       };
     }
 
-    // Get driver requests
+    // Get driver requests only for matching decisions
     const driverRequests = await Promise.all(
       decisions.map(async (decision) => {
         const driverResults = await performJoinSelect({
