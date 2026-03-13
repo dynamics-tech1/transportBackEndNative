@@ -148,3 +148,15 @@ exports.startJourney = Joi.object({
     "number.max": "longitude must be between -180 and 180",
   }),
 }).unknown(true); // Allow additional fields
+// Create and accept new request - driver finds a passenger request and accepts it directly
+exports.createAndAcceptNewRequest = Joi.object({
+  passengerRequestUniqueId: uuidSchema.required().messages({
+    "any.required": "passengerRequestUniqueId is required",
+    "string.guid": "passengerRequestUniqueId must be a valid UUID",
+  }),
+  shippingCostByDriver: Joi.number().min(0).required().messages({
+    "any.required": "shippingCostByDriver is required",
+    "number.min": "shippingCostByDriver must be at least 0",
+  }),
+  currentLocation: locationSchema,
+}).unknown(true);

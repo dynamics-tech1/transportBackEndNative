@@ -491,7 +491,7 @@ const getDetailedJourneyData = async (passengerRequests) => {
     // Get decisions
     const decisions = await getData({
       tableName: "JourneyDecisions",
-      conditions: { passengerRequestId, journeyStatusId },
+      conditions: { passengerRequestId },
     });
 
     if (decisions.length === 0) {
@@ -516,7 +516,6 @@ const getDetailedJourneyData = async (passengerRequests) => {
           ],
           conditions: {
             "DriverRequest.driverRequestId": decision.driverRequestId,
-            "DriverRequest.journeyStatusId": journeyStatusId,
           },
         });
 

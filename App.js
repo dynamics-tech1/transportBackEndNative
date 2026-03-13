@@ -1,9 +1,8 @@
-// // App.js
 require("express-async-errors");
 const dotenv = require("dotenv");
-const logger = require("./Utils/logger");
 dotenv.config();
 
+const logger = require("./Utils/logger");
 const getLocalIpAddress = require("./Utils/MyIpAddress.js");
 const ipAddress = getLocalIpAddress();
 //import express server setup

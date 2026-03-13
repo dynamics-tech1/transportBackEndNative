@@ -26,6 +26,7 @@ const { validator } = require("../Middleware/Validator");
 const {
   createRequest: createRequestSchema,
   takeFromStreet: takeFromStreetSchema,
+  createAndAcceptNewRequest: createAndAcceptNewRequestSchema,
   getCancellationNotificationsQuery: getCancellationNotificationsQuerySchema,
   markNegativeStatusAsSeen: markNegativeStatusAsSeenSchema,
   acceptPassengerRequest: acceptPassengerRequestSchema,
@@ -234,7 +235,7 @@ router.post(
  * - Driver provides bid price (shippingCostByDriver) and accepts the request
  * - System creates or updates DriverRequest, JourneyDecision, and PassengerRequest
  * - All three tables updated to status = 3 (acceptedByDriver) atomically
- * - Returns complete journey data for driver to see the accepted request
+ * - Returns a completed journey data for driver to see the accepted request
  *
  * Difference from /api/driver/request:
  * - /api/driver/request: Auto-matches with nearby passengers (~1km radius) → status: requested (2)
@@ -318,6 +319,7 @@ router.post(
   "/api/driver/createAndAcceptNewRequest",
   verifyTokenOfAxios,
   verifyDriversIdentity,
+  validator(createAndAcceptNewRequestSchema),
   createAndAcceptNewRequest,
 );
 
