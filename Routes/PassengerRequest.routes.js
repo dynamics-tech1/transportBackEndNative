@@ -19,6 +19,10 @@ const {
   markCancellationAsSeen,
   markJourneyCompletionAsSeen,
   verifyPassengerStatusQuery,
+  getPassengerRequestQuery,
+  acceptDriverRequestBody,
+  rejectDriverOfferBody,
+  getAllActiveRequestsQuery,
 } = require("../Validations/PassengerRequest.schema");
 
 /**
@@ -550,6 +554,7 @@ router.post(
 router.get(
   "/api/user/getPassengerRequest4allOrSingleUser",
   verifyTokenOfAxios,
+  validator(getPassengerRequestQuery, "query"),
   controller.getPassengerRequest4allOrSingleUser,
 );
 /**
@@ -576,6 +581,7 @@ router.get(
 router.put(
   "/api/passenger/acceptDriverRequest",
   verifyTokenOfAxios,
+  validator(acceptDriverRequestBody),
   controller.acceptDriverRequest,
 );
 
@@ -607,6 +613,7 @@ router.put(
 router.put(
   "/api/user/rejectDriverOffer",
   verifyTokenOfAxios,
+  validator(rejectDriverOfferBody),
   controller.rejectDriverOffer,
 );
 
@@ -875,6 +882,7 @@ router.get(
 router.get(
   "/api/shippingRequest/getAllActiveRequests",
   verifyTokenOfAxios,
+  validator(getAllActiveRequestsQuery, "query"),
   controller.getAllActiveRequestsController,
 );
 

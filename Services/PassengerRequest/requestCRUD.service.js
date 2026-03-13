@@ -1,4 +1,4 @@
-const { getData, performJoinSelect } = require("../../CRUD/Read/ReadData");
+const {   performJoinSelect } = require("../../CRUD/Read/ReadData");
 const { updateData } = require("../../CRUD/Update/Data.update");
 const { deleteData } = require("../../CRUD/Delete/DeleteData");
 const { createNewPassengerRequest } = require("../../CRUD/Create/CreateData");

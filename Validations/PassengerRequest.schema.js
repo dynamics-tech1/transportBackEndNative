@@ -72,3 +72,50 @@ exports.verifyPassengerStatusQuery = Joi.object({
   pageSize: Joi.number().integer().min(1).max(100).optional(),
   page: Joi.number().integer().min(1).optional(),
 }).unknown(true);
+
+exports.getPassengerRequestQuery = Joi.object({
+  target: Joi.string().valid("all", "single").optional(),
+  journeyStatusId: Joi.string().optional(), // single or comma-separated IDs
+  limit: Joi.number().integer().min(1).max(100).optional(),
+  page: Joi.number().integer().min(1).optional(),
+  passengerRequestUniqueId: uuidSchema.optional(),
+  passengerUserUniqueId: Joi.alternatives()
+    .try(uuidSchema, Joi.string().valid("self"))
+    .optional(),
+  vehicleTypeUniqueId: uuidSchema.optional(),
+  passengerRequestBatchId: uuidSchema.optional(),
+}).unknown(true);
+
+exports.acceptDriverRequestBody = Joi.object({
+  driverRequestUniqueId: uuidSchema.required(),
+  journeyDecisionUniqueId: uuidSchema.required(),
+  passengerRequestUniqueId: uuidSchema.required(),
+}).unknown(true);
+
+exports.rejectDriverOfferBody = Joi.object({
+  driverRequestUniqueId: uuidSchema.required(),
+  journeyDecisionUniqueId: uuidSchema.required(),
+  passengerRequestUniqueId: uuidSchema.required(),
+  passengerRequestId: Joi.number().integer().required(),
+  journeyStatusId: Joi.number().integer().required(),
+}).unknown(true);
+
+exports.getAllActiveRequestsQuery = Joi.object({
+  userUniqueId: uuidSchema.optional(),
+  email: Joi.string().optional(),
+  phoneNumber: Joi.string().optional(),
+  fullName: Joi.string().optional(),
+  vehicleTypeUniqueId: uuidSchema.optional(),
+  journeyStatusId: Joi.number().integer().optional(),
+  shippableItemName: Joi.string().optional(),
+  originPlace: Joi.string().optional(),
+  destinationPlace: Joi.string().optional(),
+  startDate: Joi.date().iso().optional(),
+  endDate: Joi.date().iso().optional(),
+  shippingDate: Joi.date().iso().optional(),
+  deliveryDate: Joi.date().iso().optional(),
+  page: Joi.number().integer().min(1).optional(),
+  limit: Joi.number().integer().min(1).max(100).optional(),
+  sortBy: Joi.string().optional(),
+  sortOrder: Joi.string().valid("ASC", "DESC", "asc", "desc").optional(),
+}).unknown(true);
