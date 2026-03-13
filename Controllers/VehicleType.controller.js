@@ -42,9 +42,9 @@ exports.createVehicleType = async (req, res, next) => {
   }
 };
 
-exports.getAllVehicleTypes = async (req, res, next) => {
+exports.getVehicleTypesByfilter = async (req, res, next) => {
   try {
-    const vehicleTypes = await vehicleTypeService.getAllVehicleTypes(req.query);
+    const vehicleTypes = await vehicleTypeService.getVehicleTypesByfilter(req.query);
     ServerResponder(res, vehicleTypes);
   } catch (error) {
     next(error);

@@ -65,20 +65,20 @@ function auth() {
 
 async function setup() {
   console.log("━━ Auth ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-  await request("POST", "/api/user/loginUser", {
+  const loginRes = await request("POST", "/api/user/loginUser", {
     phoneNumber: SUPER_ADMIN_PHONE,
     roleId: 6,
   });
+  state.userUniqueId = loginRes.body?.data?.userUniqueId || loginRes.body?.user?.userUniqueId;
+
   const res = await request("POST", "/api/user/verifyUserByOTP", {
     phoneNumber: SUPER_ADMIN_PHONE,
     OTP: DEFAULT_OTP,
     roleId: 6,
   });
   const token = res.body?.token || res.body?.data?.token;
-  const user = res.body?.user || res.body?.data?.user;
   if (!token) throw new Error(`Auth failed: ${JSON.stringify(res.body)}`);
   state.adminToken = token;
-  state.userUniqueId = user?.userUniqueId;
   console.log(`  ✅ Admin JWT acquired (User: ${state.userUniqueId})\n`);
 }
 

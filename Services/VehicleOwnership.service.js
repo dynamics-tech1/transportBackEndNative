@@ -5,6 +5,7 @@ const {
   createVehicleStatus,
 } = require("./VehicleStatus.service");
 const { insertData } = require("../CRUD/Create/CreateData");
+const { updateData } = require("../CRUD/Update/Data.update");
 const { usersRoles, VEHICLE_STATUS_TYPES } = require("../Utils/ListOfSeedData");
 const AppError = require("../Utils/AppError");
 const { currentDate } = require("../Utils/CurrentDate");
@@ -152,13 +153,14 @@ const updateVehicleOwnership = async (body) => {
 };
 
 const deleteVehicleOwnership = async (ownershipUniqueId) => {
-  if (!ownershipUniqueId) {
-    throw new AppError("ownershipUniqueId is required for deletion", 400);
-  }
-
-  const sql = `DELETE FROM VehicleOwnership WHERE ownershipUniqueId = ?`;
-  const executor = transactionStorage.getStore() || pool;
-  const [result] = await executor.query(sql, [ownershipUniqueId]);
+  const result = await updateData({
+    tableName: "VehicleOwnership",
+    conditions: { ownershipUniqueId },
+    updateValues: {
+      isDeleted: 1,
+      vehicleOwnershipDeletedAt: currentDate(),
+    },
+  });
 
   if (result.affectedRows === 0) {
     throw new AppError("Vehicle ownership not found", 404);
@@ -166,7 +168,7 @@ const deleteVehicleOwnership = async (ownershipUniqueId) => {
 
   return {
     message: "success",
-    data: "Vehicle ownership deleted successfully",
+    data: "Vehicle ownership soft-deleted successfully",
   };
 };
 
@@ -177,30 +179,23 @@ const getVehicleOwnershipsByFilter = async ({
   includePagination = false,
 }) => {
   const parameterMapping = {
-    ownershipId: "ownershipId",
     ownershipUniqueId: "ownershipUniqueId",
     ownershipStartDate: "ownershipStartDate",
     ownershipEndDate: "ownershipEndDate",
-    vehicleId: "vehicleId",
     vehicleUniqueId: "vehicleUniqueId",
     licensePlate: "licensePlate",
     color: "color",
-    vehicleTypeId: "vehicleTypeId",
-    vehicleTypeName: "vehicleTypeName",
     vehicleTypeUniqueId: "vehicleTypeUniqueId",
-    userId: "userId",
     userUniqueId: "userUniqueId",
     phoneNumber: "phoneNumber",
     email: "email",
     fullName: "fullName",
-    roleId: "roleId",
     roleUniqueId: "roleUniqueId",
-    roleName: "roleName",
     hasOwner: "hasOwner",
     search: "search",
   };
 
-  const where = [];
+  const where = ["VehicleOwnership.isDeleted = 0"];
   const values = [];
 
   for (const [paramKey, paramValue] of Object.entries(filters)) {

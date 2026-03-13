@@ -19,20 +19,8 @@ const createVehicleStatus = async (req, res, next) => {
 
 const getVehicleStatuses = async (req, res, next) => {
   try {
-    const result = await vehicleStatusService.getVehicleStatuses(
-      req.query || {},
-    );
-    ServerResponder(res, result);
-  } catch (error) {
-    next(error);
-  }
-};
-
-const getVehicleStatusById = async (req, res, next) => {
-  try {
-    const result = await vehicleStatusService.getVehicleStatusById(
-      req.params.id,
-    );
+    const filters = req.query || {};
+    const result = await vehicleStatusService.getVehicleStatuses(filters);
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -41,9 +29,10 @@ const getVehicleStatusById = async (req, res, next) => {
 
 const updateVehicleStatus = async (req, res, next) => {
   try {
+    const { vehicleStatusUniqueId } = req.params;
     const result = await executeInTransaction(async () => {
       return await vehicleStatusService.updateVehicleStatus(
-        req.params.id,
+        vehicleStatusUniqueId,
         req.body,
       );
     });
@@ -55,9 +44,10 @@ const updateVehicleStatus = async (req, res, next) => {
 
 const deleteVehicleStatus = async (req, res, next) => {
   try {
+    const { vehicleStatusUniqueId } = req.params;
     const result = await executeInTransaction(async () => {
       return await vehicleStatusService.deleteVehicleStatus(
-        req.params.id,
+        vehicleStatusUniqueId,
       );
     });
     ServerResponder(res, result);
@@ -68,7 +58,6 @@ const deleteVehicleStatus = async (req, res, next) => {
 
 module.exports = {
   createVehicleStatus,
-  getVehicleStatusById,
   updateVehicleStatus,
   deleteVehicleStatus,
   getVehicleStatuses,

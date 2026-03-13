@@ -30,11 +30,14 @@ const getVehicleDriversController = async (req, res, next) => {
   try {
     const filters = req.query || {};
     const driverUserUniqueId = req?.query?.driverUserUniqueId;
-    if (driverUserUniqueId === "self" || !driverUserUniqueId) {
+    if (driverUserUniqueId === "self") {
       filters.driverUserUniqueId = req?.user?.userUniqueId;
-    } else {
+    } else if (driverUserUniqueId === "all") {
+      delete filters.driverUserUniqueId;
+    } else if (driverUserUniqueId) {
       filters.driverUserUniqueId = driverUserUniqueId;
     }
+    // Note: if driverUserUniqueId is not provided at all, we keep the filters as is (which might include it from req.query)
     logger.info("@getVehicleDriversController filters", filters);
     const result = await getVehicleDrivers(filters);
     ServerResponder(res, result, 200);

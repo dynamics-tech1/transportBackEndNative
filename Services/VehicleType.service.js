@@ -83,7 +83,7 @@ const createVehicleType = async (data) => {
 };
 
 // Get all vehicle types
-const getAllVehicleTypes = async (filters = {}) => {
+const getVehicleTypesByfilter = async (filters = {}) => {
   const page = Number(filters.page) || 1;
   const limit = Math.min(Number(filters.limit) || 10, 100);
   const offset = (page - 1) * limit;
@@ -286,7 +286,7 @@ const deleteVehicleType = async (vehicleTypeUniqueId, deletedBy) => {
 module.exports = {
   checkVehicleTypeDuplicate,
   createVehicleType,
-  getAllVehicleTypes,
+  getVehicleTypesByfilter,
   updateVehicleType,
   deleteVehicleType,
 };

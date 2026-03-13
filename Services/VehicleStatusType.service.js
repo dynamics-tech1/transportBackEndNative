@@ -1,13 +1,15 @@
 const { insertData } = require("../CRUD/Create/CreateData");
-const deleteData = require("../CRUD/Delete/DeleteData");
 const { getData } = require("../CRUD/Read/ReadData");
 const { updateData } = require("../CRUD/Update/Data.update");
 const { currentDate } = require("../Utils/CurrentDate");
 const AppError = require("../Utils/AppError");
+const { v4: uuidv4 } = require("uuid");
+const { pool } = require("../Middleware/Database.config");
+const { transactionStorage } = require("../Utils/TransactionContext");
 
 // Create a new VehicleStatusType
 const createVehicleStatusType = async (data) => {
-  const statusTypeName = data.VehicleStatusTypeName;
+  const statusTypeName = data.VehicleStatusTypeName || data.typeName;
   if (!statusTypeName) {
     throw new AppError("Vehicle Status Type name is required", 400);
   }
@@ -17,7 +19,7 @@ const createVehicleStatusType = async (data) => {
 
   const registeredType = await getData({
     tableName: "VehicleStatusTypes",
-    conditions: { VehicleStatusTypeName: statusTypeName },
+    conditions: { VehicleStatusTypeName: statusTypeName, isDeleted: 0 },
   });
 
   if (registeredType?.length) {
@@ -25,9 +27,11 @@ const createVehicleStatusType = async (data) => {
   }
 
   const VehicleStatusTypeCreatedBy = "admin";
+  const vehicleStatusTypeUniqueId = uuidv4();
   const payload = {
+    vehicleStatusTypeUniqueId,
     VehicleStatusTypeName: statusTypeName,
-    VehicleStatusTypeDescription: data.statusTypeDescription,
+    VehicleStatusTypeDescription: data.statusTypeDescription || data.description,
     VehicleStatusTypeCreatedAt: currentDate(),
     VehicleStatusTypeCreatedBy,
   };
@@ -38,34 +42,57 @@ const createVehicleStatusType = async (data) => {
   return { message: "success", data: result };
 };
 
-// Get all VehicleStatusTypes
-const getAllVehicleStatusTypes = async () => {
-  const result = await getData({ tableName: "VehicleStatusTypes" });
-  return { message: "success", data: result };
-};
+// Unified GET with filtering
+const getAllVehicleStatusTypes = async (filters = {}) => {
+  const { page = 1, limit = 10, typeName, vehicleStatusTypeUniqueId } = filters;
+  const pageNum = Number(page) || 1;
+  const limitNum = Number(limit) || 10;
+  const offset = (pageNum - 1) * limitNum;
 
-// Get a single VehicleStatusType by ID
-const getVehicleStatusTypeById = async (id) => {
-  const result = await getData({
-    tableName: "VehicleStatusTypes",
-    conditions: { VehicleStatusTypeId: id },
-  });
-  if (!result?.length) {
-    throw new AppError("Vehicle Status Type not found", 404);
+  const where = ["isDeleted = 0"];
+  const params = [];
+
+  if (vehicleStatusTypeUniqueId) {
+    where.push("vehicleStatusTypeUniqueId = ?");
+    params.push(vehicleStatusTypeUniqueId);
   }
-  return { message: "success", data: result[0] };
+  if (typeName) {
+    where.push("VehicleStatusTypeName LIKE ?");
+    params.push(`%${typeName}%`);
+  }
+
+  const whereClause = `WHERE ${where.join(" AND ")}`;
+  const sql = `SELECT * FROM VehicleStatusTypes ${whereClause} LIMIT ? OFFSET ?`;
+  const countSql = `SELECT COUNT(*) as total FROM VehicleStatusTypes ${whereClause}`;
+
+  const executor = transactionStorage.getStore() || pool;
+  const [[countRow]] = await executor.query(countSql, params);
+  
+  params.push(limitNum, offset);
+  const [rows] = await executor.query(sql, params);
+
+  return {
+    message: "success",
+    data: rows,
+    pagination: {
+      page: pageNum,
+      limit: limitNum,
+      total: countRow?.total || 0,
+      totalPages: Math.ceil((countRow?.total || 0) / limitNum) || 1,
+    },
+  };
 };
 
-// Update VehicleStatusType by ID
-const updateVehicleStatusType = async (id, data) => {
+// Update VehicleStatusType by UUID
+const updateVehicleStatusType = async (vehicleStatusTypeUniqueId, data) => {
   const payload = {
-    VehicleStatusTypeName: data.statusTypeName,
-    VehicleStatusTypeDescription: data.statusTypeDescription,
+    VehicleStatusTypeName: data.statusTypeName || data.typeName,
+    VehicleStatusTypeDescription: data.statusTypeDescription || data.description,
   };
 
   const result = await updateData({
     tableName: "VehicleStatusTypes",
-    conditions: { VehicleStatusTypeId: id },
+    conditions: { vehicleStatusTypeUniqueId },
     updateValues: payload,
   });
 
@@ -79,11 +106,15 @@ const updateVehicleStatusType = async (id, data) => {
   };
 };
 
-// Delete VehicleStatusType by ID
-const deleteVehicleStatusType = async (id) => {
-  const result = await deleteData({
+// Soft Delete VehicleStatusType by UUID
+const deleteVehicleStatusType = async (vehicleStatusTypeUniqueId) => {
+  const result = await updateData({
     tableName: "VehicleStatusTypes",
-    conditions: { VehicleStatusTypeId: id },
+    conditions: { vehicleStatusTypeUniqueId },
+    updateValues: {
+      isDeleted: 1,
+      VehicleStatusTypeDeletedAt: currentDate(),
+    },
   });
 
   if (result.affectedRows === 0) {
@@ -92,14 +123,13 @@ const deleteVehicleStatusType = async (id) => {
 
   return {
     message: "success",
-    data: "Vehicle Status Type deleted successfully",
+    data: "Vehicle Status Type soft-deleted successfully",
   };
 };
 
 module.exports = {
   createVehicleStatusType,
   getAllVehicleStatusTypes,
-  getVehicleStatusTypeById,
   updateVehicleStatusType,
   deleteVehicleStatusType,
 };

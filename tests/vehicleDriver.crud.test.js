@@ -62,14 +62,11 @@ const state = {
     return `Using vehicle: ${state.vehicleUniqueId}`;
   });
 
-  await test("Resolve admin user UUID (self)", async () => {
-    // The controller auto-resolves 'self' to req.user.userUniqueId
-    // Make a GET call and extract userUniqueId from the response
-    const res = await request("GET", "/api/vehicleDriver?driverUserUniqueId=self&limit=1", null, auth());
-    // Even if empty, the request works — the admin UUID comes from JWT
-    // We can extract it from the auth token or just use 'self' pattern
-    state.driverUserUniqueId = "self"; // The controller resolves this
-    return "Using 'self' (resolved from JWT)";
+  await test("Resolve admin user UUID", async () => {
+    const { state: helperState } = require("./testHelper");
+    state.driverUserUniqueId = helperState.userUniqueId;
+    assert(state.driverUserUniqueId, "No userUniqueId in shared state");
+    return `Using UUID: ${state.driverUserUniqueId}`;
   });
 
   // ── CREATE ──────────────────────────────────────────────────────────────
@@ -79,7 +76,7 @@ const state = {
   await test("Cleanup: remove existing active assignment (if any)", async () => {
     const res = await request(
       "GET",
-      `/api/vehicleDriver?vehicleUniqueId=${state.vehicleUniqueId}&assignmentStatus=active`,
+      `/api/vehicleDriver?vehicleUniqueId=${state.vehicleUniqueId}&assignmentStatus=active&driverUserUniqueId=all`,
       null,
       auth(),
     );
@@ -88,9 +85,9 @@ const state = {
       if (d.vehicleDriverUniqueId) {
         await request(
           "DELETE",
-          `/api/vehicleDriver`,
+          `/api/vehicleDriver/${d.vehicleDriverUniqueId}`,
           null,
-          { ...auth(), "Content-Type": "application/json" },
+          auth(),
         );
       }
     }
@@ -104,6 +101,7 @@ const state = {
       "/api/vehicleDriver",
       {
         vehicleUniqueId: state.vehicleUniqueId,
+        userUniqueId: state.driverUserUniqueId,
         driverUserUniqueId: state.driverUserUniqueId,
         assignmentStartDate: today,
         assignmentStatus: "active",
@@ -123,6 +121,7 @@ const state = {
       "/api/vehicleDriver",
       {
         vehicleUniqueId: state.vehicleUniqueId,
+        userUniqueId: state.driverUserUniqueId,
         driverUserUniqueId: state.driverUserUniqueId,
         assignmentStartDate: today,
       },
@@ -164,9 +163,8 @@ const state = {
     assert(state.vehicleDriverUniqueId, "No UUID — cannot update");
     const res = await request(
       "PUT",
-      `/api/vehicleDriver`,
+      `/api/vehicleDriver/${state.vehicleDriverUniqueId}`,
       {
-        vehicleDriverUniqueId: state.vehicleDriverUniqueId,
         assignmentStatus: "inactive",
       },
       auth(),
@@ -204,8 +202,8 @@ const state = {
     assert(state.vehicleDriverUniqueId, "No UUID — cannot delete");
     const res = await request(
       "DELETE",
-      `/api/vehicleDriver`,
-      { vehicleDriverUniqueId: state.vehicleDriverUniqueId },
+      `/api/vehicleDriver/${state.vehicleDriverUniqueId}`,
+      null,
       auth(),
     );
     assert(res.body?.message === "success", `Delete failed: ${JSON.stringify(res.body)}`);

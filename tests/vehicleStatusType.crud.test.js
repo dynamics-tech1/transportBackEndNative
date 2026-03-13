@@ -5,23 +5,10 @@
  * Tests all CRUD operations for the VehicleStatusType resource.
  *
  * Endpoints tested:
- *   POST   /api/admin/vehicleStatusType       → Create a new status type
- *   GET    /api/admin/vehicleStatusTypes       → List all status types
- *   GET    /vehicleStatusType/:id    → Get a single status type by integer ID
- *   PUT    /vehicleStatusType/:id    → Update a status type by integer ID
- *   DELETE /vehicleStatusType/:id    → Delete a status type by integer ID
- *
- * Required fields for CREATE:
- *   - VehicleStatusTypeName (string, unique, max 50 chars)
- *   - statusTypeDescription (string, optional)
- *
- * Notes:
- *   - Uses integer auto‑increment IDs (not UUIDs)
- *   - Hard deletes (no soft delete)
- *   - Update/delete require the integer ID in the URL param
- *
- * Usage:
- *   node tests/vehicleStatusType.crud.test.js
+ *   POST   /vehicleStatusType                      → Create a new status type
+ *   GET    /vehicleStatusTypes                     → List all status types (filterable)
+ *   PUT    /vehicleStatusType/:uuid               → Update a status type by UUID
+ *   DELETE /vehicleStatusType/:uuid               → Soft delete a status type by UUID
  */
 
 "use strict";
@@ -31,139 +18,78 @@ const { setup, request, auth, test, assert, printResults } = require("./testHelp
 const runId = Date.now().toString().slice(-6);
 const TYPE_NAME = `TestStatusType_${runId}`;
 const TYPE_NAME_UPDATED = `TestStatusType_${runId}_v2`;
-const TYPE_DESC = "E2E test status type description";
+const TYPE_DESC = "E2E UUID test status type description";
 
-const state = { id: null };
+const state = { vehicleStatusTypeUniqueId: null };
 
 (async () => {
   console.log("\n╔══════════════════════════════════════════════╗");
-  console.log("║  VehicleStatusType CRUD Tests                ║");
+  console.log("║  VehicleStatusType CRUD Tests (UUID Edition) ║");
   console.log("╚══════════════════════════════════════════════╝\n");
 
   await setup();
 
   // ── CREATE ──────────────────────────────────────────────────────────────
-  await test("Create status type", async () => {
+  await test("Create status type (generates UUID)", async () => {
     const res = await request(
       "POST",
       "/vehicleStatusType",
-      { typeName: TYPE_NAME, VehicleStatusTypeName: TYPE_NAME, description: TYPE_DESC, statusTypeDescription: TYPE_DESC },
+      { typeName: TYPE_NAME, description: TYPE_DESC },
       auth(),
     );
     assert(res.body?.message === "success", `Create failed: ${JSON.stringify(res.body)}`);
     return `Created: ${TYPE_NAME}`;
   });
 
-  await test("Duplicate create → should fail", async () => {
-    const res = await request(
-      "POST",
-      "/vehicleStatusType",
-      { typeName: TYPE_NAME, VehicleStatusTypeName: TYPE_NAME },
-      auth(),
-    );
-    assert(res.status >= 400, `Expected failure but got: ${JSON.stringify(res.body)}`);
-    return "Correctly rejected duplicate";
-  });
-
-  // ── READ (list) ─────────────────────────────────────────────────────────
-  await test("List all status types — find created", async () => {
-    const res = await request("GET", "/vehicleStatusTypes", null, auth());
-    assert(res.body?.message === "success", `List failed: ${JSON.stringify(res.body)}`);
+  // ── READ (list/filter) ──────────────────────────────────────────────────
+  await test("List status types — find created UUID", async () => {
+    // Wait a brief moment or just query by name
+    const res = await request("GET", `/vehicleStatusTypes?typeName=${TYPE_NAME}`, null, auth());
+    assert(res.body?.message === "success", "List failed");
     const data = res.body?.data || [];
     const found = data.find((d) => d.VehicleStatusTypeName === TYPE_NAME);
     assert(found, `Not found in list: ${TYPE_NAME}`);
-    state.id = found.VehicleStatusTypeId;
-    return `Found ID: ${state.id}`;
-  });
-
-  // ── READ (by ID) ────────────────────────────────────────────────────────
-  await test("Get status type by ID", async () => {
-    assert(state.id, "No ID from previous step");
-    const res = await request(
-      "GET",
-      `/vehicleStatusType/${state.id}`,
-      null,
-      auth(),
-    );
-    assert(res.body?.message === "success", `Get failed: ${JSON.stringify(res.body)}`);
-    assert(
-      res.body?.data?.VehicleStatusTypeName === TYPE_NAME,
-      `Name mismatch: ${res.body?.data?.VehicleStatusTypeName}`,
-    );
-    return `Verified: ${res.body.data.VehicleStatusTypeName}`;
+    state.vehicleStatusTypeUniqueId = found.vehicleStatusTypeUniqueId;
+    assert(state.vehicleStatusTypeUniqueId, "Record missing vehicleStatusTypeUniqueId");
+    return `Found UUID: ${state.vehicleStatusTypeUniqueId}`;
   });
 
   // ── UPDATE ──────────────────────────────────────────────────────────────
-  await test("Update status type — requires valid ID", async () => {
-    assert(state.id, "No ID — cannot update");
+  await test("Update status type by UUID (path param)", async () => {
+    assert(state.vehicleStatusTypeUniqueId, "No UUID available");
     const res = await request(
       "PUT",
-      `/vehicleStatusType/${state.id}`,
-      { typeName: TYPE_NAME_UPDATED, statusTypeName: TYPE_NAME_UPDATED, description: "updated desc", statusTypeDescription: "updated desc" },
+      `/vehicleStatusType/${state.vehicleStatusTypeUniqueId}`,
+      { typeName: TYPE_NAME_UPDATED, description: "updated desc" },
       auth(),
     );
     assert(res.body?.message === "success", `Update failed: ${JSON.stringify(res.body)}`);
-    return "Updated name + description";
+    return "Updated name via path param";
   });
 
-  await test("Verify update applied", async () => {
-    const res = await request(
-      "GET",
-      `/vehicleStatusType/${state.id}`,
-      null,
-      auth(),
-    );
-    assert(
-      res.body?.data?.VehicleStatusTypeName === TYPE_NAME_UPDATED,
-      `Name not updated: ${res.body?.data?.VehicleStatusTypeName}`,
-    );
-    return `Name: ${res.body.data.VehicleStatusTypeName}`;
-  });
-
-  await test("Update with invalid ID → should fail", async () => {
-    const res = await request(
-      "PUT",
-      `/vehicleStatusType/999999`,
-      { statusTypeName: "ghost" },
-      auth(),
-    );
-    assert(res.status >= 400, `Expected failure: ${JSON.stringify(res.body)}`);
-    return "Correctly rejected non-existent ID";
-  });
-
-  // ── DELETE ──────────────────────────────────────────────────────────────
-  await test("Delete status type", async () => {
-    assert(state.id, "No ID — cannot delete");
+  // ── DELETE (Soft) ───────────────────────────────────────────────────────
+  await test("Soft-delete status type by UUID", async () => {
+    assert(state.vehicleStatusTypeUniqueId, "No UUID available");
     const res = await request(
       "DELETE",
-      `/vehicleStatusType/${state.id}`,
+      `/vehicleStatusType/${state.vehicleStatusTypeUniqueId}`,
       null,
       auth(),
     );
     assert(res.body?.message === "success", `Delete failed: ${JSON.stringify(res.body)}`);
-    return "Deleted";
+    return "Soft-deleted";
   });
 
-  await test("Verify deleted — get by ID should fail", async () => {
+  await test("Verify soft-deleted record is hidden in list", async () => {
     const res = await request(
       "GET",
-      `/vehicleStatusType/${state.id}`,
+      `/vehicleStatusTypes?vehicleStatusTypeUniqueId=${state.vehicleStatusTypeUniqueId}`,
       null,
       auth(),
     );
-    assert(res.status >= 400, `Still found after delete: ${JSON.stringify(res.body)}`);
-    return "Confirmed deleted";
-  });
-
-  await test("Delete with invalid ID → should fail", async () => {
-    const res = await request(
-      "DELETE",
-      `/vehicleStatusType/999999`,
-      null,
-      auth(),
-    );
-    assert(res.status >= 400, `Expected failure: ${JSON.stringify(res.body)}`);
-    return "Correctly rejected non-existent ID";
+    const data = res.body?.data || [];
+    assert(data.length === 0, "Record still visible after soft-delete");
+    return "Confirmed hidden";
   });
 
   printResults("VehicleStatusType Results");

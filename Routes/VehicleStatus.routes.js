@@ -2,13 +2,14 @@ const express = require("express");
 const router = express.Router();
 const vehicleStatusController = require("../Controllers/VehicleStatus.controller");
 const { verifyTokenOfAxios } = require("../Middleware/VerifyToken");
+const { validator } = require("../Middleware/Validator");
 
 // Define routes for CRUD operations
-const { validator } = require("../Middleware/Validator");
 const {
   createVehicleStatus,
   updateVehicleStatus,
   vehicleStatusParams,
+  vehicleStatusQuery,
 } = require("../Validations/VehicleStatus.schema");
 
 // Define routes for CRUD operations
@@ -18,26 +19,24 @@ router.post(
   validator(createVehicleStatus),
   vehicleStatusController.createVehicleStatus,
 );
+
 router.get(
   "/vehicleStatus",
   verifyTokenOfAxios,
+  validator(vehicleStatusQuery, "query"),
   vehicleStatusController.getVehicleStatuses,
 );
-router.get(
-  "/vehicleStatus/:id",
-  verifyTokenOfAxios,
-  validator(vehicleStatusParams, "params"),
-  vehicleStatusController.getVehicleStatusById,
-);
+
 router.put(
-  "/vehicleStatus/:id",
+  "/vehicleStatus/:vehicleStatusUniqueId",
   verifyTokenOfAxios,
   validator(vehicleStatusParams, "params"),
   validator(updateVehicleStatus),
   vehicleStatusController.updateVehicleStatus,
 );
+
 router.delete(
-  "/vehicleStatus/:id",
+  "/vehicleStatus/:vehicleStatusUniqueId",
   verifyTokenOfAxios,
   validator(vehicleStatusParams, "params"),
   vehicleStatusController.deleteVehicleStatus,

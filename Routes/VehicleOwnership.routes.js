@@ -8,6 +8,7 @@ const {
   createVehicleOwnership,
   updateVehicleOwnership,
   ownershipParams,
+  ownershipQuery,
 } = require("../Validations/VehicleOwnership.schema");
 
 router.post(
@@ -15,24 +16,25 @@ router.post(
   verifyTokenOfAxios,
   validator(createVehicleOwnership),
   controller.createVehicleOwnershipController,
-); // Create vehicle ownership
+);
 
-// Single filterable list endpoint
 router.get(
   "/api/admin/vehicleOwnerships",
   verifyTokenOfAxios,
+  validator(ownershipQuery, "query"),
   controller.listVehicleOwnershipsController,
 );
 
 router.put(
-  "/api/admin/vehicleOwnerships",
+  "/api/admin/vehicleOwnerships/:ownershipUniqueId",
   verifyTokenOfAxios,
+  validator(ownershipParams, "params"),
   validator(updateVehicleOwnership),
   controller.updateVehicleOwnershipController,
-); // Update vehicle ownership
+);
 
 router.delete(
-  "/api/admin/vehicleOwnerships/:ownershipId",
+  "/api/admin/vehicleOwnerships/:ownershipUniqueId",
   verifyTokenOfAxios,
   validator(ownershipParams, "params"),
   controller.deleteVehicleOwnershipController,

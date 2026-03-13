@@ -47,7 +47,7 @@ router.get(
   "/api/admin/vehicleTypes",
   verifyTokenOfAxios,
   validator(getVehicleTypesQuery, "query"),
-  vehicleTypeController.getAllVehicleTypes,
+  vehicleTypeController.getVehicleTypesByfilter,
 );
 
 // Route to update a vehicle type by unique ID

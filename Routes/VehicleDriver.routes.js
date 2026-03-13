@@ -8,6 +8,7 @@ const {
   createVehicleDriver,
   updateVehicleDriver,
   vehicleDriverQuery,
+  vehicleDriverParams,
 } = require("../Validations/VehicleDriver.schema");
 
 // Create
@@ -28,17 +29,18 @@ router.get(
 
 // Update
 router.put(
-  "/api/vehicleDriver",
+  "/api/vehicleDriver/:vehicleDriverUniqueId",
   verifyTokenOfAxios,
+  validator(vehicleDriverParams, "params"),
   validator(updateVehicleDriver),
   ctrl.updateVehicleDriverController,
 );
 
 // Delete
 router.delete(
-  "/api/vehicleDriver",
+  "/api/vehicleDriver/:vehicleDriverUniqueId",
   verifyTokenOfAxios,
-  // validator(vehicleDriverQuery), // Delete usually needs ID or query, checking later.
+  validator(vehicleDriverParams, "params"),
   ctrl.deleteVehicleDriverController,
 );
 

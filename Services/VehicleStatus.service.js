@@ -54,78 +54,66 @@ const createVehicleStatus = async (data) => {
   return { message: "success", data: result };
 };
 
-const getVehicleStatusById = async (id) => {
-  const result = await getData({
-    tableName: "VehicleStatus",
-    conditions: { vehicleStatusId: id },
-  });
-  if (!result?.length) {
-    throw new AppError("VehicleStatus not found", 404);
-  }
-  return { message: "success", data: result[0] };
-};
+const getVehicleStatuses = async (filters = {}) => {
+  const {
+    page = 1,
+    limit = 10,
+    vehicleStatusUniqueId,
+    vehicleUniqueId,
+    VehicleStatusTypeId,
+    search,
+  } = filters;
 
-const updateVehicleStatus = async (id, data) => {
-  const result = await updateData({
-    tableName: "VehicleStatus",
-    conditions: { vehicleStatusId: id },
-    updateValues: data,
-  });
-
-  if (result.affectedRows === 0) {
-    throw new AppError("Update failed or VehicleStatus not found", 404);
-  }
-
-  return { message: "success", data: result };
-};
-
-const deleteVehicleStatus = async (id) => {
-  const result = await deleteData({
-    tableName: "VehicleStatus",
-    conditions: { vehicleStatusId: id },
-  });
-
-  if (result.affectedRows === 0) {
-    throw new AppError("Delete failed or VehicleStatus not found", 404);
-  }
-
-  return { message: "success", data: "VehicleStatus deleted successfully" };
-};
-
-const getStatusOfVehicleByVehicleUniqueId = async (vehicleUniqueId) => {
-  if (!vehicleUniqueId) {
-    throw new AppError("vehicleUniqueId is required", 400);
-  }
-  const result = await getData({
-    tableName: "VehicleStatus",
-    conditions: { vehicleUniqueId },
-  });
-
-  return { message: "success", data: result[0] };
-};
-
-const getVehicleStatuses = async ({ page = 1, limit = 10, search }) => {
   const pageNum = Number(page) || 1;
   const limitNum = Number(limit) || 10;
   const offset = (pageNum - 1) * limitNum;
 
-  let where = "";
+  const where = ["vs.isDeleted = 0"];
   const params = [];
+
+  if (vehicleStatusUniqueId) {
+    where.push("vs.vehicleStatusUniqueId = ?");
+    params.push(vehicleStatusUniqueId);
+  }
+  if (vehicleUniqueId) {
+    where.push("vs.vehicleUniqueId = ?");
+    params.push(vehicleUniqueId);
+  }
+  if (VehicleStatusTypeId) {
+    where.push("vs.VehicleStatusTypeId = ?");
+    params.push(VehicleStatusTypeId);
+  }
   if (search) {
-    where = "WHERE LOWER(VehicleStatusTypeName) LIKE ?";
-    params.push(`%${search.toLowerCase()}%`);
+    where.push("(vst.VehicleStatusTypeName LIKE ? OR vs.remark LIKE ?)");
+    const s = `%${search}%`;
+    params.push(s, s);
   }
 
-  const sql = `SELECT VehicleStatusTypeName, VehicleStatusTypeDescription FROM VehicleStatusTypes ${where} LIMIT ? OFFSET ?`;
-  const countSql = `SELECT COUNT(*) as total FROM VehicleStatusTypes ${where}`;
+  const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
 
-  params.push(limitNum, offset);
+  const sql = `
+    SELECT 
+      vs.*,
+      vst.VehicleStatusTypeName,
+      vst.VehicleStatusTypeDescription
+    FROM VehicleStatus vs
+    LEFT JOIN VehicleStatusTypes vst ON vs.VehicleStatusTypeId = vst.VehicleStatusTypeId
+    ${whereClause}
+    ORDER BY vs.vehicleStatusCreatedAt DESC
+    LIMIT ? OFFSET ?
+  `;
+
+  const countSql = `
+    SELECT COUNT(*) as total 
+    FROM VehicleStatus vs
+    LEFT JOIN VehicleStatusTypes vst ON vs.VehicleStatusTypeId = vst.VehicleStatusTypeId
+    ${whereClause}
+  `;
 
   const executor = transactionStorage.getStore() || pool;
-  const [[countRow]] = await executor.query(
-    countSql,
-    where ? params.slice(0, -2) : [],
-  );
+  const [[countRow]] = await executor.query(countSql, params);
+  
+  params.push(limitNum, offset);
   const [rows] = await executor.query(sql, params);
 
   return {
@@ -140,10 +128,39 @@ const getVehicleStatuses = async ({ page = 1, limit = 10, search }) => {
   };
 };
 
+const updateVehicleStatus = async (vehicleStatusUniqueId, data) => {
+  const result = await updateData({
+    tableName: "VehicleStatus",
+    conditions: { vehicleStatusUniqueId },
+    updateValues: data,
+  });
+
+  if (result.affectedRows === 0) {
+    throw new AppError("Update failed or VehicleStatus not found", 404);
+  }
+
+  return { message: "success", data: result };
+};
+
+const deleteVehicleStatus = async (vehicleStatusUniqueId) => {
+  const result = await updateData({
+    tableName: "VehicleStatus",
+    conditions: { vehicleStatusUniqueId },
+    updateValues: {
+      isDeleted: 1,
+      vehicleStatusDeletedAt: currentDate(),
+    },
+  });
+
+  if (result.affectedRows === 0) {
+    throw new AppError("Delete failed or VehicleStatus not found", 404);
+  }
+
+  return { message: "success", data: "VehicleStatus soft-deleted successfully" };
+};
+
 module.exports = {
-  getStatusOfVehicleByVehicleUniqueId,
   createVehicleStatus,
-  getVehicleStatusById,
   updateVehicleStatus,
   deleteVehicleStatus,
   getVehicleStatuses,

@@ -1,4 +1,5 @@
 const Joi = require("joi");
+const { uuidSchema } = require("../Middleware/Validator");
 
 exports.createVehicleStatusType = Joi.object({
   typeName: Joi.string().required(),
@@ -11,5 +12,12 @@ exports.updateVehicleStatusType = Joi.object({
 }).unknown(true);
 
 exports.vehicleStatusTypeParams = Joi.object({
-  id: Joi.number().integer().required(),
+  vehicleStatusTypeUniqueId: uuidSchema.required(),
 });
+
+exports.vehicleStatusTypeQuery = Joi.object({
+  vehicleStatusTypeUniqueId: uuidSchema.optional(),
+  typeName: Joi.string().optional(),
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(10),
+}).unknown(true);

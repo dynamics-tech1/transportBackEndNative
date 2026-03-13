@@ -20,8 +20,9 @@ const createVehicleOwnershipController = async (req, res, next) => {
 
 const updateVehicleOwnershipController = async (req, res, next) => {
   try {
+    const { ownershipUniqueId } = req.params;
     const response = await executeInTransaction(async () => {
-      return await updateVehicleOwnership(req.query);
+      return await updateVehicleOwnership({ ...req.body, ownershipUniqueId });
     });
     ServerResponder(res, response);
   } catch (error) {
@@ -31,8 +32,9 @@ const updateVehicleOwnershipController = async (req, res, next) => {
 
 const deleteVehicleOwnershipController = async (req, res, next) => {
   try {
+    const { ownershipUniqueId } = req.params;
     const response = await executeInTransaction(async () => {
-      return await deleteVehicleOwnership(req.params.ownershipId);
+      return await deleteVehicleOwnership(ownershipUniqueId);
     });
     ServerResponder(res, response);
   } catch (error) {
