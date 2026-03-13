@@ -144,9 +144,14 @@ exports.getTariffRatesByFilter = async (filters = {}) => {
   };
 };
 
-// Update a tariff rate by ID
+// Update a tariff rate by UUID
 exports.updateTariffRate = async (tariffRateUniqueId, data) => {
   const userUniqueId = data.user?.userUniqueId;
+
+  // Protect ID/UUID fields from being updated
+  delete data.tariffRateUniqueId;
+  delete data.tariffRateId;
+
   const setParts = [];
   const values = [];
 

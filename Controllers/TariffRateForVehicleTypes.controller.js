@@ -5,6 +5,7 @@ const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 // Create a new tariff rate for a vehicle type
 exports.createTariffRateForVehicleType = async (req, res, next) => {
   try {
+    req.body.user = req.user;
     const result = await executeInTransaction(async () => {
       return await tariffRateForVehicleTypesService.createTariffRateForVehicleType(
         req.body,
@@ -32,6 +33,7 @@ exports.getTariffRatesByFilterForVehicleTypes = async (req, res, next) => {
 // Update a tariff rate for vehicle type by UUID
 exports.updateTariffRateForVehicleType = async (req, res, next) => {
   try {
+    req.body.user = req.user;
     const result = await executeInTransaction(async () => {
       return await tariffRateForVehicleTypesService.updateTariffRateForVehicleType(
         req.params.tariffRateForVehicleTypeUniqueId,

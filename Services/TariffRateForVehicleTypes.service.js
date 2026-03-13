@@ -25,13 +25,18 @@ exports.createTariffRateForVehicleType = async (data) => {
     INSERT INTO TariffRateForVehicleTypes (
       tariffRateForVehicleTypeUniqueId,
       vehicleTypeUniqueId,
-      tariffRateUniqueId
-    ) VALUES (?, ?, ?)
+      tariffRateUniqueId,
+      tariffRateForVehicleTypeCreatedBy,
+      tariffRateForVehicleTypeCreatedAt
+    ) VALUES (?, ?, ?, ?, ?)
   `;
+  const userUniqueId = data.user?.userUniqueId;
   await executor.query(sql, [
     uuidv4(),
     data.vehicleTypeUniqueId,
     data.tariffRateUniqueId,
+    userUniqueId || null,
+    currentDate(),
   ]);
 
   return {
@@ -165,17 +170,38 @@ exports.updateTariffRateForVehicleType = async (
   tariffRateForVehicleTypeUniqueId,
   data,
 ) => {
-  const sql = `
-    UPDATE TariffRateForVehicleTypes
-    SET vehicleTypeUniqueId = ?, tariffRateUniqueId = ?
+  // Protect ID/UUID fields from being updated
+  delete data.tariffRateForVehicleTypeUniqueId;
+  delete data.tariffRateForVehicleTypeId;
+
+  const userUniqueId = data.user?.userUniqueId;
+  const setParts = [];
+  const values = [];
+
+  // Build dynamic SET clause — only update provided fields
+  if (data.vehicleTypeUniqueId !== undefined) {
+    setParts.push("vehicleTypeUniqueId = ?");
+    values.push(data.vehicleTypeUniqueId);
+  }
+  if (data.tariffRateUniqueId !== undefined) {
+    setParts.push("tariffRateUniqueId = ?");
+    values.push(data.tariffRateUniqueId);
+  }
+
+  if (setParts.length === 0) {
+    throw new AppError("No fields provided to update", 400);
+  }
+
+  // Always update audit fields
+  setParts.push("tariffRateForVehicleTypeUpdatedBy = ?");
+  values.push(userUniqueId);
+  setParts.push("tariffRateForVehicleTypeUpdatedAt = ?");
+  values.push(currentDate());
+
+  values.push(tariffRateForVehicleTypeUniqueId);
+  const sql = `UPDATE TariffRateForVehicleTypes SET ${setParts.join(", ")}
     WHERE tariffRateForVehicleTypeUniqueId = ?
-      AND tariffRateForVehicleTypeDeletedAt IS NULL
-  `;
-  const values = [
-    data.vehicleTypeUniqueId,
-    data.tariffRateUniqueId,
-    tariffRateForVehicleTypeUniqueId,
-  ];
+      AND tariffRateForVehicleTypeDeletedAt IS NULL`;
 
   const [result] = await (transactionStorage.getStore() || pool).query(sql, values);
 
