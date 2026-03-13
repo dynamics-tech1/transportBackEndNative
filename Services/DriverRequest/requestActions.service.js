@@ -369,11 +369,14 @@ const createAndAcceptNewRequest = async (body, connection = null) => {
       );
     }
     // verify if there was any shipper-driver relation/decision before
+    // Only match ACTIVE decisions (statuses 1-5) — ignore completed, cancelled, etc.
     const { pool } = require("../../Middleware/Database.config");
-    const sql = `Select * from JourneyDecisions, PassengerRequest, DriverRequest 
-    where PassengerRequest.passengerRequestId=? 
-    and JourneyDecisions.passengerRequestId=PassengerRequest.passengerRequestId and 
-    JourneyDecisions.driverRequestId=DriverRequest.driverRequestId and DriverRequest.userUniqueId=?`;
+    const sql = `SELECT * FROM JourneyDecisions, PassengerRequest, DriverRequest 
+    WHERE PassengerRequest.passengerRequestId=? 
+    AND JourneyDecisions.passengerRequestId=PassengerRequest.passengerRequestId 
+    AND JourneyDecisions.driverRequestId=DriverRequest.driverRequestId 
+    AND DriverRequest.userUniqueId=?
+    AND JourneyDecisions.journeyStatusId IN (${activeJourneyStatuses.join(", ")})`;
 
     const sqlValues = [passengerRequestId, userUniqueId];
     const executor = connection || pool;
@@ -1041,11 +1044,13 @@ const cancelDriverRequest = async (data) => {
           // Count ALL journey decisions (including this one) to determine total drivers matched
           // If count === 1, this is the only driver ever matched, so passenger goes back to waiting
           // If count > 1, multiple drivers were matched, so passenger status stays unchanged
+          // Count only ACTIVE decisions (statuses 1-5) to determine if any active drivers remain
           const countSql = `
             SELECT COUNT(*) as count 
             FROM JourneyDecisions 
             INNER JOIN PassengerRequest ON JourneyDecisions.passengerRequestId = PassengerRequest.passengerRequestId 
             WHERE PassengerRequest.passengerRequestUniqueId = ?
+              AND JourneyDecisions.journeyStatusId IN (${activeJourneyStatuses.join(", ")})
           `;
           const [countResult] = await connection.query(countSql, [
             passengerRequestUniqueId,

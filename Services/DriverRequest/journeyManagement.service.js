@@ -42,11 +42,13 @@ const startJourney = async (body) => {
         JourneyDecisions.*,
         DriverRequest.driverRequestUniqueId,
         DriverRequest.userUniqueId,
+        PassengerRequest.passengerRequestUniqueId,
         Users.fullName,
         Users.email,
         Users.phoneNumber
       FROM JourneyDecisions
       JOIN DriverRequest ON JourneyDecisions.driverRequestId = DriverRequest.driverRequestId
+      JOIN PassengerRequest ON JourneyDecisions.passengerRequestId = PassengerRequest.passengerRequestId
       JOIN Users ON DriverRequest.userUniqueId = Users.userUniqueId
       WHERE JourneyDecisions.journeyDecisionUniqueId = ?
       LIMIT 1
@@ -101,7 +103,7 @@ const startJourney = async (body) => {
 
     await updateJourneyStatus({
       journeyDecisionUniqueId,
-      passengerRequestUniqueId: combinedData.passengerRequestId,
+      passengerRequestUniqueId: combinedData.passengerRequestUniqueId,
       driverRequestUniqueId: combinedData.driverRequestUniqueId,
       journeyStatusId: body.journeyStatusId,
       journeyUniqueId: finalJourneyUniqueId,
