@@ -482,7 +482,7 @@ const getDetailedJourneyData = async (passengerRequests) => {
       };
     }
 
-    // Determine which table to query
+    // Determine which table to query, get journey data if journeyStatusId is in started or completed
     const useJourneyDecisions = [
       journeyStatusMap.journeyStarted,
       journeyStatusMap.journeyCompleted,
@@ -495,6 +495,19 @@ const getDetailedJourneyData = async (passengerRequests) => {
     });
 
     if (decisions.length === 0) {
+      // No matching decisions — all drivers cancelled/rejected
+      // Auto-correct PassengerRequest back to waiting (1) so it can receive new drivers
+      if (journeyStatusId !== journeyStatusMap.waiting) {
+        const { updateData } = require("../../CRUD/Update/Data.update");
+        await updateData({
+          tableName: "PassengerRequest",
+          conditions: { passengerRequestId },
+          updateValues: { journeyStatusId: journeyStatusMap.waiting },
+        });
+        // Exclude from current response since status was changed
+        return null;
+      }
+
       return {
         passengerRequest,
         driverRequests: [],
@@ -586,7 +599,8 @@ const getDetailedJourneyData = async (passengerRequests) => {
     };
   };
 
-  return Promise.all(passengerRequests?.map(processPassengerRequest));
+  const results = await Promise.all(passengerRequests?.map(processPassengerRequest));
+  return results.filter(Boolean);
 };
 
 /**
