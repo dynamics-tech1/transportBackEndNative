@@ -28,10 +28,11 @@ exports.createTariffRate = async (data) => {
       400,
     );
   }
-  const existedTariffRate = await getData({
-    tableName: "TariffRate",
-    conditions: { tariffRateName },
-  });
+  const executor = transactionStorage.getStore() || pool;
+  const [existedTariffRate] = await executor.query(
+    "SELECT tariffRateId FROM TariffRate WHERE tariffRateName = ? AND tariffRateDeletedAt IS NULL LIMIT 1",
+    [tariffRateName],
+  );
   if (existedTariffRate?.length > 0) {
     throw new AppError("Tariff rate already exists", 400);
   }
@@ -67,21 +68,80 @@ exports.createTariffRate = async (data) => {
   return { message: "success", data: "Tariff rate created successfully" };
 };
 
-// Get all tariff rates
-exports.getAllTariffRates = async () => {
-  const sql = `SELECT * FROM TariffRate`;
-  const [result] = await (transactionStorage.getStore() || pool).query(sql);
-  return { message: "success", data: result };
-};
+/**
+ * Get tariff rates with optional filtering and pagination.
+ * Supports: tariffRateUniqueId, tariffRateName, page, limit, sortBy, sortOrder
+ */
+exports.getTariffRatesByFilter = async (filters = {}) => {
+  const {
+    tariffRateUniqueId,
+    tariffRateName,
+    page = 1,
+    limit = 10,
+    sortBy = "tariffRateId",
+    sortOrder = "DESC",
+  } = filters;
 
-// Get a tariff rate by ID
-exports.getTariffRateById = async (tariffRateUniqueId) => {
-  const sql = `SELECT * FROM TariffRate WHERE tariffRateUniqueId = ?`;
-  const [result] = await (transactionStorage.getStore() || pool).query(sql, [tariffRateUniqueId]);
-  if (!result[0]) {
-    throw new AppError("Tariff rate not found", 404);
+  const executor = transactionStorage.getStore() || pool;
+  let whereClause = "WHERE tariffRateDeletedAt IS NULL";
+  const queryParams = [];
+  const countParams = [];
+
+  if (tariffRateUniqueId) {
+    whereClause += " AND tariffRateUniqueId = ?";
+    queryParams.push(tariffRateUniqueId);
+    countParams.push(tariffRateUniqueId);
   }
-  return { message: "success", data: result[0] };
+
+  if (tariffRateName) {
+    whereClause += " AND LOWER(tariffRateName) LIKE LOWER(?)";
+    queryParams.push(`%${tariffRateName}%`);
+    countParams.push(`%${tariffRateName}%`);
+  }
+
+  // Sorting
+  const validSortColumns = [
+    "tariffRateId",
+    "tariffRateName",
+    "tariffRateCreatedAt",
+    "tariffRateEffectiveDate",
+    "tariffRateExpirationDate",
+  ];
+  const safeSortColumn = validSortColumns.includes(sortBy)
+    ? sortBy
+    : "tariffRateId";
+  const safeSortOrder = sortOrder?.toUpperCase() === "ASC" ? "ASC" : "DESC";
+
+  // Count query
+  const [countResult] = await executor.query(
+    `SELECT COUNT(*) as total FROM TariffRate ${whereClause}`,
+    countParams,
+  );
+  const total = countResult[0]?.total || 0;
+
+  // Data query with pagination
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+  queryParams.push(parseInt(limit), offset);
+
+  const [rows] = await executor.query(
+    `SELECT * FROM TariffRate ${whereClause} ORDER BY ${safeSortColumn} ${safeSortOrder} LIMIT ? OFFSET ?`,
+    queryParams,
+  );
+
+  const totalPages = Math.ceil(total / parseInt(limit));
+
+  return {
+    message: "success",
+    data: rows,
+    pagination: {
+      currentPage: parseInt(page),
+      totalPages,
+      totalItems: total,
+      itemsPerPage: parseInt(limit),
+      hasNext: parseInt(page) < totalPages,
+      hasPrev: parseInt(page) > 1,
+    },
+  };
 };
 
 // Update a tariff rate by ID
@@ -141,11 +201,11 @@ exports.updateTariffRate = async (tariffRateUniqueId, data) => {
   return { message: "success", data: "Tariff rate updated successfully" };
 };
 
-// Delete a tariff rate by ID
-exports.deleteTariffRate = async (id, user) => {
+// Soft delete a tariff rate by UUID
+exports.deleteTariffRate = async (tariffRateUniqueId, user) => {
   const userUniqueId = user?.userUniqueId;
-  const sql = `UPDATE TariffRate SET tariffRateDeletedAt = ?, tariffRateDeletedBy = ? WHERE tariffRateId = ?`;
-  const [result] = await (transactionStorage.getStore() || pool).query(sql, [currentDate(), userUniqueId, id]);
+  const sql = `UPDATE TariffRate SET tariffRateDeletedAt = ?, tariffRateDeletedBy = ? WHERE tariffRateUniqueId = ? AND tariffRateDeletedAt IS NULL`;
+  const [result] = await (transactionStorage.getStore() || pool).query(sql, [currentDate(), userUniqueId, tariffRateUniqueId]);
   if (result.affectedRows === 0) {
     throw new AppError("Tariff rate not found or delete failed", 404);
   }

@@ -16,23 +16,12 @@ exports.createTariffRateForVehicleType = async (req, res, next) => {
   }
 };
 
-// Get all tariff rates for vehicle types
-exports.getAllTariffRatesForVehicleTypes = async (req, res, next) => {
+// Get tariff rates for vehicle types with filtering and pagination
+exports.getTariffRatesByFilterForVehicleTypes = async (req, res, next) => {
   try {
     const result =
-      await tariffRateForVehicleTypesService.getAllTariffRatesForVehicleTypes();
-    ServerResponder(res, result);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Get a tariff rate for vehicle type by ID
-exports.getTariffRateForVehicleTypeById = async (req, res, next) => {
-  try {
-    const result =
-      await tariffRateForVehicleTypesService.getTariffRateForVehicleTypeById(
-        req.params.id,
+      await tariffRateForVehicleTypesService.getTariffRatesByFilterForVehicleTypes(
+        req.query,
       );
     ServerResponder(res, result);
   } catch (error) {
@@ -40,7 +29,7 @@ exports.getTariffRateForVehicleTypeById = async (req, res, next) => {
   }
 };
 
-// Update a tariff rate for vehicle type by ID
+// Update a tariff rate for vehicle type by UUID
 exports.updateTariffRateForVehicleType = async (req, res, next) => {
   try {
     const result = await executeInTransaction(async () => {
@@ -55,12 +44,14 @@ exports.updateTariffRateForVehicleType = async (req, res, next) => {
   }
 };
 
-// Delete a tariff rate for vehicle type by ID
+// Soft delete a tariff rate for vehicle type by UUID
 exports.deleteTariffRateForVehicleType = async (req, res, next) => {
   try {
+    const user = req.user;
     const result = await executeInTransaction(async () => {
       return await tariffRateForVehicleTypesService.deleteTariffRateForVehicleType(
         req.params.tariffRateForVehicleTypeUniqueId,
+        user,
       );
     });
     ServerResponder(res, result);

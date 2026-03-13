@@ -1,0 +1,8 @@
+use company logo in every logo
+under line the horizontal active tab
+use email dynamics
+ship cargo and drive with us button must have click listener
+button appstore and playstore must have correct click listener 
+https://dynamic-transport-market.vercel.app/contact dose form works call buttons also works  dose message button works, add telegram too for messagings
+the form https://dynamic-transport-market.vercel.app/for-shippers must work or remove it
+https://dynamic-transport-market.vercel.app/for-drivers how it work redirects to 

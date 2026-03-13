@@ -16,22 +16,10 @@ exports.createTariffRate = async (req, res, next) => {
   }
 };
 
-// Get all tariff rates
-exports.getAllTariffRates = async (req, res, next) => {
+// Get tariff rates with filtering and pagination
+exports.getTariffRatesByFilter = async (req, res, next) => {
   try {
-    const result = await tariffRateService.getAllTariffRates();
-    ServerResponder(res, result);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Get a tariff rate by ID
-exports.getTariffRateById = async (req, res, next) => {
-  try {
-    const result = await tariffRateService.getTariffRateById(
-      req.params.tariffRateUniqueId,
-    );
+    const result = await tariffRateService.getTariffRatesByFilter(req.query);
     ServerResponder(res, result);
   } catch (error) {
     next(error);
@@ -41,11 +29,11 @@ exports.getTariffRateById = async (req, res, next) => {
 // Update a tariff rate by ID
 exports.updateTariffRate = async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const { tariffRateUniqueId } = req.params;
     const user = req.user;
     req.body.user = user;
     const result = await executeInTransaction(async () => {
-      return await tariffRateService.updateTariffRate(id, req.body);
+      return await tariffRateService.updateTariffRate(tariffRateUniqueId, req.body);
     });
     ServerResponder(res, result);
   } catch (error) {
@@ -56,10 +44,10 @@ exports.updateTariffRate = async (req, res, next) => {
 // Delete a tariff rate by ID
 exports.deleteTariffRate = async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const { tariffRateUniqueId } = req.params;
     const user = req.user;
     const result = await executeInTransaction(async () => {
-      return await tariffRateService.deleteTariffRate(id, user);
+      return await tariffRateService.deleteTariffRate(tariffRateUniqueId, user);
     });
     ServerResponder(res, result);
   } catch (error) {

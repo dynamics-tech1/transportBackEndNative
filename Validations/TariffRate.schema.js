@@ -25,3 +25,20 @@ exports.tariffRateParams = Joi.object({
   tariffRateUniqueId: uuidSchema.optional(),
   id: uuidSchema.optional(),
 }).xor("tariffRateUniqueId", "id");
+
+exports.getTariffRatesByFiltersQuery = Joi.object({
+  tariffRateUniqueId: uuidSchema.optional(),
+  tariffRateName: Joi.string().optional(),
+  page: Joi.number().integer().min(1).optional(),
+  limit: Joi.number().integer().min(1).max(100).optional(),
+  sortBy: Joi.string()
+    .valid(
+      "tariffRateId",
+      "tariffRateName",
+      "tariffRateCreatedAt",
+      "tariffRateEffectiveDate",
+      "tariffRateExpirationDate",
+    )
+    .optional(),
+  sortOrder: Joi.string().valid("ASC", "DESC", "asc", "desc").optional(),
+}).unknown(true);
