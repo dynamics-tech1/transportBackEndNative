@@ -159,9 +159,18 @@ const deleteVehicleStatus = async (vehicleStatusUniqueId) => {
   return { message: "success", data: "VehicleStatus soft-deleted successfully" };
 };
 
+const getStatusOfVehicleByVehicleUniqueId = async (vehicleUniqueId) => {
+  const result = await getVehicleStatuses({ vehicleUniqueId, limit: 1 });
+  return {
+    message: result.message,
+    data: result.data?.[0] || null
+  };
+};
+
 module.exports = {
   createVehicleStatus,
   updateVehicleStatus,
   deleteVehicleStatus,
   getVehicleStatuses,
+  getStatusOfVehicleByVehicleUniqueId,
 };

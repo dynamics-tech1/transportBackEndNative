@@ -21,7 +21,9 @@ async function run() {
   const tables = [
     { name: "VehicleStatusTypes", uniqueId: "vehicleStatusTypeUniqueId", deletedAt: "VehicleStatusTypeDeletedAt" },
     { name: "VehicleStatus", uniqueId: "vehicleStatusUniqueId", deletedAt: "vehicleStatusDeletedAt" },
-    { name: "VehicleOwnership", uniqueId: "ownershipUniqueId", deletedAt: "vehicleOwnershipDeletedAt" }
+    { name: "VehicleOwnership", uniqueId: "ownershipUniqueId", deletedAt: "vehicleOwnershipDeletedAt" },
+    { name: "Vehicle", uniqueId: "vehicleUniqueId", deletedAt: "vehicleDeletedAt" },
+    { name: "VehicleTypes", uniqueId: "vehicleTypeUniqueId", deletedAt: "vehicleTypeDeletedAt" }
   ];
 
   for (const t of tables) {

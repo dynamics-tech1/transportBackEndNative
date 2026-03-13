@@ -117,18 +117,20 @@ const updateVehicle = async (vehicleUniqueId, updateValues) => {
 };
 
 const deleteVehicle = async (vehicleUniqueId) => {
-  // Soft delete or deactivating vehicle
   const result = await updateData({
     tableName: "Vehicle",
     conditions: { vehicleUniqueId },
-    updateValues: { vehicleDeletedAt: currentDate() },
+    updateValues: { 
+      isDeleted: 1,
+      vehicleDeletedAt: currentDate() 
+    },
   });
 
   if (result.affectedRows === 0) {
     throw new AppError("Failed to delete vehicle or vehicle not found", 404);
   }
 
-  return { message: "success", data: "Vehicle deleted successfully" };
+  return { message: "success", data: "Vehicle soft-deleted successfully" };
 };
 
 const getVehicles = async (query) => {
@@ -139,14 +141,18 @@ const getVehicles = async (query) => {
     sortOrder = "DESC",
     vehicleUniqueId,
     ownerUserUniqueId,
+    driverUserUniqueId,
     licensePlate,
     color,
     vehicleTypeUniqueId,
     search,
   } = query;
 
-  const offset = (page - 1) * limit;
-  let whereConditions = ["v.vehicleDeletedAt IS NULL"];
+  const pageNum = parseInt(page);
+  const limitNum = parseInt(limit);
+  const offset = (pageNum - 1) * limitNum;
+
+  const whereConditions = ["v.isDeleted = 0"];
   const params = [];
 
   if (vehicleUniqueId) {
@@ -158,6 +164,11 @@ const getVehicles = async (query) => {
   if (ownerUserUniqueId) {
     whereConditions.push("(vo.userUniqueId = ? OR vd.driverUserUniqueId = ?)");
     params.push(ownerUserUniqueId, ownerUserUniqueId);
+  }
+
+  if (driverUserUniqueId) {
+    whereConditions.push("vd.driverUserUniqueId = ?");
+    params.push(driverUserUniqueId);
   }
 
   if (licensePlate) {
@@ -211,11 +222,13 @@ const getVehicles = async (query) => {
     ${whereClause}
   `;
   const executor = transactionStorage.getStore() || pool;
-  const [rows] = await executor.query(sql, [...params, parseInt(limit), offset]);
-  const [totalRows] = await executor.query(countSql, params);
+  const [[totalRows]] = await executor.query(countSql, params);
+  
+  params.push(limitNum, offset);
+  const [rows] = await executor.query(sql, params);
 
-  const totalItems = totalRows[0].total;
-  const totalPages = Math.ceil(totalItems / limit);
+  const totalItems = totalRows?.total || 0;
+  const totalPages = Math.ceil(totalItems / limitNum) || 1;
 
   return {
     message: "success",
@@ -223,8 +236,8 @@ const getVehicles = async (query) => {
     pagination: {
       totalItems,
       totalPages,
-      currentPage: parseInt(page),
-      itemsPerPage: parseInt(limit),
+      currentPage: pageNum,
+      itemsPerPage: limitNum,
     },
   };
 };

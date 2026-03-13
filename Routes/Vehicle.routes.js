@@ -13,14 +13,15 @@ const { validator } = require("../Middleware/Validator");
 const {
   createVehicle,
   updateVehicle,
-  vehicleParams,
+  vehicleUniqueIdParam,
+  driverUserUniqueIdParam,
   getVehiclesQuery,
 } = require("../Validations/Vehicle.schema");
 
 router.post(
   "/api/user/vehicles/driverUserUniqueId/:driverUserUniqueId",
   verifyTokenOfAxios,
-  validator(vehicleParams, "params"),
+  validator(driverUserUniqueIdParam, "params"),
   validator(createVehicle),
   createVehicleController,
 );
@@ -37,18 +38,16 @@ router.get(
 router.put(
   "/api/user/vehicles/:vehicleUniqueId",
   verifyTokenOfAxios,
-  validator(vehicleParams, "params"),
+  validator(vehicleUniqueIdParam, "params"),
   validator(updateVehicle),
   updateVehicleController,
 );
 
 router.delete(
-  "/vehicles/:vehicleUniqueId",
+  "/api/user/vehicles/:vehicleUniqueId",
   verifyTokenOfAxios,
-  validator(vehicleParams, "params"),
+  validator(vehicleUniqueIdParam, "params"),
   deleteVehicleController,
-);
-
-// Note: Removed other GET routes to keep a single way of fetching vehicles
+); 
 
 module.exports = router;

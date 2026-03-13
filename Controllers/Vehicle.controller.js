@@ -66,12 +66,14 @@ const deleteVehicleController = async (req, res, next) => {
 
 const getVehiclesController = async (req, res, next) => {
   try {
-    let ownerUserUniqueId = req?.params?.ownerUserUniqueId;
-    const roleId = req?.user?.roleId;
+    let ownerUserUniqueId = req?.query?.ownerUserUniqueId;
     const user = req?.user;
+    const roleId = user?.roleId;
+
     if (ownerUserUniqueId === "self" || !ownerUserUniqueId) {
       ownerUserUniqueId = user?.userUniqueId;
     }
+
     if (
       roleId === usersRoles.adminRoleId ||
       roleId === usersRoles.supperAdminRoleId
@@ -84,10 +86,11 @@ const getVehiclesController = async (req, res, next) => {
         );
       }
     }
+
     const response = await getVehicles({
       ...req.query,
-      user: user,
       ownerUserUniqueId,
+      user: user,
     });
     ServerResponder(res, response);
   } catch (error) {

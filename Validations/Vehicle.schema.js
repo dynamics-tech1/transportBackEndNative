@@ -11,25 +11,31 @@ exports.createVehicle = Joi.object({
 }).unknown(true);
 
 exports.updateVehicle = Joi.object({
-  vehicleTypeId: Joi.alternatives().try(uuidSchema, Joi.number()).optional(),
-  colorId: Joi.alternatives().try(uuidSchema, Joi.number()).optional(),
-  vehicleModel: Joi.string().optional(),
-  vehicleYear: Joi.number().integer().min(1900).optional(),
-  vehicleLicensePlate: Joi.string().optional(),
+  vehicleTypeUniqueId: uuidSchema.optional(),
+  color: Joi.string().optional(),
+  licensePlate: Joi.string().optional(),
+  // Add other fields if needed for update
 }).unknown(true);
 
-exports.vehicleParams = Joi.object({
-  vehicleUniqueId: uuidSchema.optional(),
+exports.vehicleUniqueIdParam = Joi.object({
+  vehicleUniqueId: uuidSchema.required(),
+});
+
+exports.driverUserUniqueIdParam = Joi.object({
   driverUserUniqueId: Joi.alternatives()
     .try(uuidSchema, Joi.string().valid("self"))
-    .optional(), // create route uses this; allow "self"
-}).unknown(true); // Allow other params
+    .required(), 
+});
 
 // Filter schema for vehicles
 exports.getVehiclesQuery = Joi.object({
-  driverUserUniqueId: uuidSchema.optional(),
   vehicleUniqueId: uuidSchema.optional(),
+  driverUserUniqueId: uuidSchema.optional(),
+  ownerUserUniqueId: uuidSchema.optional(),
+  vehicleTypeUniqueId: uuidSchema.optional(),
+  licensePlate: Joi.string().optional(),
+  color: Joi.string().optional(),
+  search: Joi.string().optional(),
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(10),
-  // Add other filters if supported by controller
 }).unknown(true);
