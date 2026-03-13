@@ -106,6 +106,20 @@ const state = {
     return "Admin bypass verified";
   });
 
+  // ── Security Hardening Verification ─────────────────────────────────────
+  await test("Security: Authorized Update (Admin Bypass)", async () => {
+    assert(state.vehicleUniqueId, "No UUID available");
+    // This verifies the service logic doesn't block the authorized Admin
+    const res = await request(
+      "PUT",
+      `/api/user/vehicles/${state.vehicleUniqueId}`,
+      { color: "Silver" },
+      auth(),
+    );
+    assert(res.status === 200, "Admin should bypass ownership check");
+    return "Admin bypass for Update verified";
+  });
+
   // ── DELETE ──────────────────────────────────────────────────────────────
   await test("Soft-delete vehicle by UUID (standard path)", async () => {
     assert(state.vehicleUniqueId, "No UUID available");

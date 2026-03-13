@@ -102,7 +102,30 @@ const createVehicle = async (data, user, driverUserUniqueId) => {
   return { message: "success", data: { vehicleUniqueId } };
 };
 
-const updateVehicle = async (vehicleUniqueId, updateValues) => {
+const updateVehicle = async (vehicleUniqueId, updateValues, user) => {
+  const roleId = user?.roleId;
+  const userUniqueId = user?.userUniqueId;
+
+  if (
+    roleId !== usersRoles.adminRoleId &&
+    roleId !== usersRoles.supperAdminRoleId
+  ) {
+    // Verify ownership or assignment
+    const verification = await pool.query(
+      `SELECT 1 FROM Vehicle v
+       LEFT JOIN VehicleOwnership vo ON v.vehicleUniqueId = vo.vehicleUniqueId AND vo.ownershipEndDate IS NULL
+       LEFT JOIN VehicleDriver vd ON v.vehicleUniqueId = vd.vehicleUniqueId AND vd.assignmentStatus = 'active' AND vd.assignmentEndDate IS NULL
+       WHERE v.vehicleUniqueId = ? 
+         AND (vo.userUniqueId = ? OR vd.driverUserUniqueId = ?)
+         AND v.isDeleted = 0`,
+      [vehicleUniqueId, userUniqueId, userUniqueId]
+    );
+
+    if (!verification[0].length) {
+      throw new AppError("Unauthorized: You do not own or drive this vehicle", 403);
+    }
+  }
+
   const result = await updateData({
     tableName: "Vehicle",
     conditions: { vehicleUniqueId },
@@ -116,7 +139,30 @@ const updateVehicle = async (vehicleUniqueId, updateValues) => {
   return { message: "success", data: "Vehicle updated successfully" };
 };
 
-const deleteVehicle = async (vehicleUniqueId) => {
+const deleteVehicle = async (vehicleUniqueId, user) => {
+  const roleId = user?.roleId;
+  const userUniqueId = user?.userUniqueId;
+
+  if (
+    roleId !== usersRoles.adminRoleId &&
+    roleId !== usersRoles.supperAdminRoleId
+  ) {
+    // Verify ownership or assignment
+    const verification = await pool.query(
+      `SELECT 1 FROM Vehicle v
+       LEFT JOIN VehicleOwnership vo ON v.vehicleUniqueId = vo.vehicleUniqueId AND vo.ownershipEndDate IS NULL
+       LEFT JOIN VehicleDriver vd ON v.vehicleUniqueId = vd.vehicleUniqueId AND vd.assignmentStatus = 'active' AND vd.assignmentEndDate IS NULL
+       WHERE v.vehicleUniqueId = ? 
+         AND (vo.userUniqueId = ? OR vd.driverUserUniqueId = ?)
+         AND v.isDeleted = 0`,
+      [vehicleUniqueId, userUniqueId, userUniqueId]
+    );
+
+    if (!verification[0].length) {
+      throw new AppError("Unauthorized: You do not own or drive this vehicle", 403);
+    }
+  }
+
   const result = await updateData({
     tableName: "Vehicle",
     conditions: { vehicleUniqueId },
