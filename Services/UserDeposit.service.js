@@ -738,6 +738,22 @@ const updateUserDepositStatusService = async (userDepositUniqueId, data) => {
   const updatedData = await fetchDepositData(userDepositUniqueId);
   return { message: "success", data: updatedData };
 };
+/**
+ * Initiates a payment process using the SantimPay service.
+ * 
+ * This service function:
+ * 1. Ensures the "santimpay" deposit source exists.
+ * 2. Creates a pending deposit record in the local database.
+ * 3. Generates a signed payment URL from SantimPay using ES256 algorithm.
+ * 4. Returns the payment URL for the client to redirect the user.
+ * 
+ * @param {Object} params - The initialization parameters.
+ * @param {string} params.driverUniqueId - The unique ID of the driver making the deposit.
+ * @param {number|string} params.depositAmount - The amount to deposit in ETB.
+ * @param {string} [params.phoneNumber=""] - Optional phone number for the payment gateway.
+ * @returns {Promise<Object>} - An object containing the transaction ID, payment URL, amount, and status.
+ * @throws {AppError} - If deposit source creation fails or payment initiation fails.
+ */
 const initiateSantimPayPaymentService = async ({
   driverUniqueId,
   depositAmount,
@@ -753,6 +769,7 @@ const initiateSantimPayPaymentService = async ({
   const depositSourceResult = await createDepositSource({
     sourceKey: "santimpay",
     sourceLabel: "SantimPay Automatic Payment",
+    user: { userUniqueId: driverUniqueId },
   });
 
   // Handle older format if still exists, but transition to data directly
