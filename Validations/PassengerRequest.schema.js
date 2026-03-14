@@ -59,8 +59,11 @@ exports.getCancellationNotificationsQuery = Joi.object({
 }).unknown(true);
 
 exports.markCancellationAsSeen = Joi.object({
-  journeyDecisionUniqueId: uuidSchema.required(),
-}).unknown(false);
+  journeyDecisionUniqueId: Joi.string().optional(),
+  userUniqueId: Joi.alternatives()
+    .try(uuidSchema, Joi.string().valid("self"))
+    .optional(),
+}).unknown(true);
 
 exports.markJourneyCompletionAsSeen = Joi.object({
   journeyDecisionUniqueId: uuidSchema.required(),

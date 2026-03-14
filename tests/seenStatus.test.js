@@ -10,6 +10,7 @@
 const http  = require("http");
 const https = require("https");
 const { randomBytes, randomUUID } = require("crypto");
+const { seedDriverDocuments, approveAllDocuments } = require("./document.testHelper");
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 const BASE_URL          = process.env.BASE_URL          || "http://localhost:3000";
@@ -156,33 +157,11 @@ async function run() {
             isDriverOwnerOfVehicle: true
         }, { Authorization: `Bearer ${state.driverToken}` });
 
-        // Seed docs via admin dev endpoint (same as e2e.test.js)
-        const API_KEY = process.env.API_KEY || "your-super-secret-key-that-is-hard-to-guess";
-        const requiredDocs = [
-            { documentTypeId: 1, expirationDate: "2028-01-01", label: "Driver's License"    },
-            { documentTypeId: 2, expirationDate: null,         label: "Vehicle Registration" },
-            { documentTypeId: 4, expirationDate: null,         label: "Profile Photo"        },
-        ];
-
-        for (const doc of requiredDocs) {
-            const res = await request("POST", "/api/admin/dev/seedTestDocument", {
-                userUniqueId: state.driverUniqueId,
-                documentTypeId: doc.documentTypeId,
-                roleId: 2,
-                documentExpirationDate: doc.expirationDate
-            }, { "x-api-key": API_KEY });
-            assert(res.body?.message === "success", `Seed doc ${doc.label} failed: ${JSON.stringify(res.body)}`);
-        }
+        // Seed docs via admin dev endpoint
+        await seedDriverDocuments(request, state.driverUniqueId);
 
         // Accept docs
-        const resDocs = await request("GET", `/api/user/attachedDocuments?userUniqueId=${state.driverUniqueId}&limit=10`, null, { Authorization: `Bearer ${state.adminToken}` });
-        const docs = resDocs.body?.data?.documents || resDocs.body?.data || [];
-        const uids = docs.map(d => d.attachedDocumentUniqueId).filter(Boolean);
-        assert(uids.length >= 3, `Expected at least 3 documents, found ${uids.length}`);
-
-        for (const uid of uids) {
-            await request("PUT", "/api/admin/acceptRejectAttachedDocuments", { attachedDocumentUniqueId: uid, action: "ACCEPTED", roleId: 2 }, { Authorization: `Bearer ${state.adminToken}` });
-        }
+        await approveAllDocuments(request, state.adminToken, state.driverUniqueId, 2);
 
         // Verify status
         const resStatus = await request("GET", `/api/admin/userRoleStatusCurrent?userUniqueId=${state.driverUniqueId}`, null, { Authorization: `Bearer ${state.adminToken}` });
@@ -269,9 +248,8 @@ async function run() {
       // Should return 404 instead of 500 foreign key error
       assert(res.status === 404, `Expected 404, got ${res.status}: ${JSON.stringify(res.body)}`);
       
-      const errMsg = res.body?.error?.message || res.body?.error || "";
       const fullBody = JSON.stringify(res.body);
-      assert(fullBody.includes("Journey decision not found") || errMsg.includes("Journey decision not found"), 
+      assert(fullBody.includes("Journey decision not found"), 
         `Expected 'Journey decision not found', got: ${fullBody}`);
     });
 
@@ -284,9 +262,8 @@ async function run() {
       
       assert(res.status === 400, `Expected 400, got ${res.status}: ${JSON.stringify(res.body)}`);
       
-      const errMsg = res.body?.error?.message || res.body?.error || "";
       const fullBody = JSON.stringify(res.body);
-      assert(fullBody.includes("userUniqueId and journeyDecisionUniqueId are required") || errMsg.includes("userUniqueId and journeyDecisionUniqueId are required"), 
+      assert(fullBody.includes("userUniqueId and journeyDecisionUniqueId are required"), 
         `Expected improved error message, got: ${fullBody}`);
     });
 

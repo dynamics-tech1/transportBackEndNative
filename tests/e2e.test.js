@@ -20,6 +20,7 @@
 const http  = require("http");
 const https = require("https");
 const { randomBytes, randomUUID } = require("crypto");
+const { seedDriverDocuments, approveAllDocuments } = require("./document.testHelper");
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 const BASE_URL          = process.env.BASE_URL          || "http://localhost:3000";
@@ -264,62 +265,14 @@ async function run() {
       return `vehicleUniqueId: ${state.vehicleUniqueId}`;
     });
 
-
-    // NOTE: Vehicle creation via /api/user/vehicles/driverUserUniqueId/self
-    // automatically creates the VehicleDriver assignment. No separate step needed.
-
-    // Seed required docs directly into DB (bypasses FTP — dev-only endpoint)
-    const API_KEY = process.env.API_KEY || "your-super-secret-key-that-is-hard-to-guess";
-    const requiredDocs = [
-      { documentTypeId: 1, expirationDate: "2028-01-01", label: "Driver's License"    },
-      { documentTypeId: 2, expirationDate: null,         label: "Vehicle Registration" },
-      { documentTypeId: 4, expirationDate: null,         label: "Profile Photo"        },
-    ];
-
-    for (const doc of requiredDocs) {
-      await step(`Driver: Seed document — ${doc.label}`, async () => {
-        const res = await request(
-          "POST",
-          "/api/admin/dev/seedTestDocument",
-          {
-            userUniqueId          : state.driverUniqueId,
-            documentTypeId        : doc.documentTypeId,
-            roleId                : 2,
-            documentExpirationDate: doc.expirationDate,
-          },
-          { "x-api-key": API_KEY },
-        );
-        assert(res.body?.message === "success", `Seed doc failed: ${JSON.stringify(res.body)}`);
-        return "seeded";
-      });
-    }
-
-    // Fetch the inserted document IDs so admin can approve them
-    await step("Admin: Fetch driver attached doc IDs", async () => {
-      const res = await request(
-        "GET",
-        `/api/user/attachedDocuments?userUniqueId=${state.driverUniqueId}&limit=20`,
-        null,
-        { Authorization: `Bearer ${state.adminToken}` },
-      );
-      const docs = res.body?.data?.documents || res.body?.data || [];
-      state.attachedDocumentUniqueIds = docs.map((d) => d.attachedDocumentUniqueId).filter(Boolean);
-      assert(state.attachedDocumentUniqueIds.length > 0, "No documents found after seeding");
-      return `Found ${state.attachedDocumentUniqueIds.length} document(s)`;
+    await step("Driver: Seed documents", async () => {
+      await seedDriverDocuments(request, state.driverUniqueId);
+      return "seeded";
     });
 
     await step("Admin: Accept all driver documents", async () => {
-      const outcomes = [];
-      for (const uid of state.attachedDocumentUniqueIds) {
-        const res = await request(
-          "PUT",
-          "/api/admin/acceptRejectAttachedDocuments",
-          { attachedDocumentUniqueId: uid, action: "ACCEPTED", roleId: 2 },
-          { Authorization: `Bearer ${state.adminToken}` },
-        );
-        outcomes.push(res.body?.message === "success" ? "✓" : `✗ (${JSON.stringify(res.body)})`);
-      }
-      return outcomes.join(" ");
+      await approveAllDocuments(request, state.adminToken, state.driverUniqueId, 2);
+      return "all accepted";
     });
 
     await step("Verify driver role status = active (statusId 1)", async () => {
