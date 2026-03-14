@@ -9,7 +9,7 @@ const {
 const upload = require("../Config/MulterConfig");
 
 const { validator } = require("../Middleware/Validator");
-const loginRateLimiter = require("../Middleware/LoginRateLimiter");
+// const loginRateLimiter = require("../Middleware/LoginRateLimiter");
 const {
   createUser,
   createUserByAdmin,
@@ -43,13 +43,13 @@ router.post(
 router.post(
   "/api/user/loginUser",
   validator(loginUser),
-  loginRateLimiter(),
+  // loginRateLimiter(),
   controller.loginUser,
 );
 
 router.post(
   "/api/user/verifyUserByOTP",
-  loginRateLimiter({ limit: 5 }), // Stricter limit for OTP attempts
+  // loginRateLimiter({ limit: 5 }), // Stricter limit for OTP attempts
   validator(verifyUserByOTP),
   controller.verifyUserByOTP,
 );
