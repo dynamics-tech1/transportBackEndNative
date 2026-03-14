@@ -319,13 +319,15 @@ const markCancellationAsSeenController = async (req, res, next) => {
   try {
     const { userUniqueId } = req?.user;
     const { journeyDecisionUniqueId } = req.body;
-
-    if (!userUniqueId || !journeyDecisionUniqueId) {
+     if (!userUniqueId || !journeyDecisionUniqueId) {
       throw new AppError("Missing required fields", 400);
     }
 
     const result = await executeInTransaction(async () => {
-      return await PassengerService.markCancellationAsSeen(req.body);
+      return await PassengerService.markCancellationAsSeen({
+        userUniqueId,
+        journeyDecisionUniqueId,
+      });
     });
     ServerResponder(res, result, 200);
   } catch (error) {

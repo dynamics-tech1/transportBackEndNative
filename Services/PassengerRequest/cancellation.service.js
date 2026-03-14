@@ -4,6 +4,7 @@ const { pool } = require("../../Middleware/Database.config");
 const { journeyStatusMap } = require("../../Utils/ListOfSeedData");
 const AppError = require("../../Utils/AppError");
 const { transactionStorage } = require("../../Utils/TransactionContext");
+const logger = require("../../Utils/logger");
 
 /**
  * Gets cancellation notifications for a passenger
@@ -22,8 +23,7 @@ const getCancellationNotifications = async ({
 }) => {
   try {
     const offset = (page - 1) * limit;
-
-    // Build WHERE conditions
+     // Build WHERE conditions
     let whereConditions = [
       "PassengerRequest.userUniqueId = ?",
       "JourneyDecisions.journeyStatusId IN (?, ?)",
@@ -268,8 +268,8 @@ const markCancellationAsSeen = async ({
       throw new AppError("Journey decision not found", 404);
     }
 
-    const passengerRequestId = journeyDecision[0].passengerRequestId;
-
+    const passengerRequestId = journeyDecision?.[0]?.passengerRequestId;
+logger.debug("@passengerRequestId => "+ passengerRequestId+"\n@userUniqueId => "+ userUniqueId);
     // Verify the passenger request belongs to this user
     const passengerRequest = await getData({
       tableName: "PassengerRequest",

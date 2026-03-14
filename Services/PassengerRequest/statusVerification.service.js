@@ -80,6 +80,16 @@ const seenByPassenger = async (body) => {
     // TODO: Import createRating once available
     const { createRating } = require("../Ratings.service");
 
+    // Verify that the journeyDecisionUniqueId exists to prevent foreign key errors
+    const journeyDecision = await getData({
+      tableName: "JourneyDecisions",
+      conditions: { journeyDecisionUniqueId },
+    });
+
+    if (!journeyDecision || journeyDecision.length === 0) {
+      throw new AppError("Journey decision not found", 404);
+    }
+
     await Promise.all([
       updateData({
         tableName: "PassengerRequest",

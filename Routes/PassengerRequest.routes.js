@@ -794,7 +794,7 @@ router.get(
 router.put(
   "/api/passengerRequest/markCancellationAsSeen",
   verifyTokenOfAxios,
-  verifyPassengersIdentity,
+  // verifyPassengersIdentity,
   validator(markCancellationAsSeen),
   controller.markCancellationAsSeenController,
 );
