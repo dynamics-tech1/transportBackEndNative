@@ -1,7 +1,6 @@
 const axios = require("axios");
-const jwt = require("jsonwebtoken");
-const { currentDate } = require("./CurrentDate");
-const logger = require("./logger");
+ const jwt = require("jsonwebtoken");
+ const logger = require("./logger");
 
 /**
  * Formats a phone number for SantimPay requirements (+2519...).
@@ -63,9 +62,12 @@ function getSantimPayClient() {
     );
   }
 
+  // Handle literal backticks from .env
+  const formattedPrivateKey = privateKey.replace(/`/g, "").trim();
+
   return {
     merchantId,
-    privateKey,
+    privateKey: formattedPrivateKey,
     baseUrl,
   };
 }
@@ -74,12 +76,11 @@ function getSantimPayClient() {
  * Generate signed token for initiate payment
  */
 function generateSignedTokenForInitiatePayment(amount, paymentReason, client) {
-  const time = Math.floor(currentDate() / 1000);
   const payload = {
-    amount,
+    amount: parseFloat(amount),
     paymentReason,
     merchantId: client.merchantId,
-    generated: time,
+    generated: null,
   };
   return signES256(payload, client.privateKey);
 }
@@ -88,7 +89,7 @@ function generateSignedTokenForInitiatePayment(amount, paymentReason, client) {
  * Generate signed token for get transaction
  */
 function generateSignedTokenForGetTransaction(id, client) {
-  const time = Math.floor(currentDate() / 1000);
+  const time = Math.floor(Date.now() / 1000);
   const payload = {
     id,
     merId: client.merchantId,
@@ -125,14 +126,14 @@ async function generatePaymentUrl(id, amount, paymentReason, phoneNumber = "") {
 
     const payload = {
       id,
-      amount,
+      amount: parseFloat(amount),
       reason: paymentReason,
       merchantId: client.merchantId,
       signedToken: token,
       successRedirectUrl,
       failureRedirectUrl,
       notifyUrl,
-      cancelRedirectUrl: cancelRedirectUrl,
+      cancelRedirectUrl,
     };
 
     if (phoneNumber) {
