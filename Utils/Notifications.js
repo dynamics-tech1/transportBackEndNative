@@ -52,17 +52,18 @@ const sendSocketIONotificationToDriver = async ({
     if (res.status === "success" || res.message === "success") {
       return { status: "success", data: "Message sent to driver" };
     } else {
-      throw new AppError("Failed to send message to driver", 500);
+      logger.error("Failed to send message to driver", { res });
+      return { status: "error", message: "Failed to send message to driver" };
     }
   } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
     logger.error("Error sending notification to driver", {
       error: error.message,
       stack: error.stack,
     });
-    throw new AppError("Request can't be sent to driver", 500);
+    return {
+      status: "error",
+      message: "Request can't be sent to driver",
+    };
   }
 };
 
@@ -95,26 +96,29 @@ const sendSocketIONotificationToPassenger = async ({
       messageDetails: JSON.stringify(message),
       socketId,
     });
+
     if (res.status === "success" || res.message === "success") {
       return { status: "success", data: "Message sent to passenger" };
     } else {
-      throw new AppError("Failed to send message to passenger", 500);
+      logger.error("Failed to send message to passenger", { res });
+      return { status: "error", message: "Failed to send message to passenger" };
     }
   } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
     logger.error("Error sending notification to passenger", {
       error: error.message,
       stack: error.stack,
     });
-    throw new AppError("Message can't be sent to passenger", 500);
+    return {
+      status: "error",
+      message: "Message can't be sent to passenger",
+    };
   }
 };
 
 const sendSocketIONotificationToAdmin = async ({ message, eventName }) => {
   if (!redis) {
-    throw new AppError("Redis not available", 503);
+    logger.warn("Redis not available for admin notification");
+    return { status: "error", message: "Redis not available" };
   }
   try {
     let keys = [];
@@ -125,10 +129,10 @@ const sendSocketIONotificationToAdmin = async ({ message, eventName }) => {
         error: redisError.message,
         stack: redisError.stack,
       });
-      throw new AppError(
-        "Redis connection error - unable to send admin notifications",
-        503,
-      );
+      return {
+        status: "error",
+        message: "Redis connection error - unable to send admin notifications",
+      };
     }
 
     const successList = [];
@@ -192,21 +196,22 @@ const sendSocketIONotificationToAdmin = async ({ message, eventName }) => {
     }
 
     if (successList.length === 0) {
-      throw new AppError("No admin message was sent", 500);
+      logger.warn("No admin message was sent", { errorList });
+      return { status: "error", message: "No admin message was sent" };
     }
 
     return {
       status: "success",
     };
   } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
     logger.error("Internal error sending notifications", {
       error: error.message,
       stack: error.stack,
     });
-    throw new AppError("Internal error sending notifications", 500);
+    return {
+      status: "error",
+      message: "Internal error sending notifications",
+    };
   }
 };
 

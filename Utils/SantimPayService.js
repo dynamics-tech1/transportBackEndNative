@@ -1,5 +1,46 @@
 const axios = require("axios");
 const jwt = require("jsonwebtoken");
+const { currentDate } = require("./CurrentDate");
+const logger = require("./logger");
+
+/**
+ * Formats a phone number for SantimPay requirements (+2519...).
+ * @param {string} phoneNumber - The raw phone number string.
+ * @returns {string|null} - The formatted phone number or null if invalid/empty.
+ */
+const formatPhoneNumberForSantim = (phoneNumber) => {
+  if (!phoneNumber) {
+    return null;
+  }
+
+  // Remove all non-digit characters
+  let clean = phoneNumber.replace(/\D/g, "");
+
+  // Handle various formats:
+  // 0912345678 -> +251912345678
+  // 251912345678 -> +251912345678
+  // 912345678 -> +251912345678
+
+  if (clean.startsWith("0")) {
+    clean = clean.substring(1);
+  }
+
+  if (clean.startsWith("251")) {
+    clean = clean.substring(3);
+  }
+
+  // Ensure it's now a 9-digit number starting with 9 or 7 (Ethiopian mobile standards)
+  if (clean.length === 9) {
+    return `+251${clean}`;
+  }
+
+  // If we can't reliably format it, return original cleaned string as a fallback but logged
+  logger.warn("Could not reliably format phone number for SantimPay", {
+    original: phoneNumber,
+    cleaned: clean,
+  });
+  return `+${clean}`;
+};
 
 /**
  * Sign payload with ES256 algorithm
@@ -60,7 +101,6 @@ function generateSignedTokenForGetTransaction(id, client) {
 async function generatePaymentUrl(id, amount, paymentReason, phoneNumber = "") {
   try {
     const client = getSantimPayClient();
-
     const successRedirectUrl = process.env.SANTIMPAY_SUCCESS_REDIRECT_URL;
     const failureRedirectUrl = process.env.SANTIMPAY_FAILURE_REDIRECT_URL;
     const cancelRedirectUrl = process.env.SANTIMPAY_CANCEL_REDIRECT_URL;
@@ -95,8 +135,11 @@ async function generatePaymentUrl(id, amount, paymentReason, phoneNumber = "") {
       cancelRedirectUrl: cancelRedirectUrl,
     };
 
-    if (phoneNumber && phoneNumber.length > 0) {
-      payload.phoneNumber = phoneNumber;
+    if (phoneNumber) {
+      const formattedPhone = formatPhoneNumberForSantim(phoneNumber);
+      if (formattedPhone) {
+        payload.phoneNumber = formattedPhone;
+      }
     }
 
     const response = await axios.post(
@@ -110,8 +153,13 @@ async function generatePaymentUrl(id, amount, paymentReason, phoneNumber = "") {
       throw new Error("Failed to initiate payment: Invalid response");
     }
   } catch (error) {
-    if (error.response && error.response.data) {
-      throw error.response.data;
+    logger.error("Error generating payment url", {
+      message: error.message,
+      response: error?.response?.data,
+      code: error.code,
+    });
+    if (error?.response && error?.response?.data) {
+      throw error?.response?.data;
     }
     throw error;
   }

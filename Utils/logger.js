@@ -24,6 +24,29 @@ if (!isServerless) {
   }
 }
 
+/**
+ * Safely stringifies an object, handling circular references.
+ * @param {Object} obj - The object to stringify.
+ * @param {number} indent - Optional indentation for the output.
+ * @returns {string} - The stringified object.
+ */
+const safeStringify = (obj, indent = 2) => {
+  const seen = new WeakSet();
+  return JSON.stringify(
+    obj,
+    (key, value) => {
+      if (typeof value === "object" && value !== null) {
+        if (seen.has(value)) {
+          return "[Circular]";
+        }
+        seen.add(value);
+      }
+      return value;
+    },
+    indent,
+  );
+};
+
 // Custom format for console (human-readable)
 const consoleFormat = printf(
   ({ level, message, timestamp, stack, ...meta }) => {
@@ -34,7 +57,7 @@ const consoleFormat = printf(
     }
 
     if (Object.keys(meta).length > 0) {
-      log += `\n${JSON.stringify(meta, null, 2)}`;
+      log += `\n${safeStringify(meta)}`;
     }
 
     return log;
@@ -67,7 +90,7 @@ const logger = winston.createLogger({
               log += `\n${stack}`;
             }
             if (Object.keys(meta).length > 0) {
-              log += `\n${JSON.stringify(meta, null, 2)}`;
+              log += `\n${safeStringify(meta)}`;
             }
             return log;
           }),
@@ -101,7 +124,7 @@ const logger = winston.createLogger({
         format: combine(
           timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
           printf(({ timestamp, level, message, ...meta }) => {
-            return JSON.stringify({
+            return safeStringify({
               timestamp,
               level,
               message,
@@ -285,19 +308,9 @@ class ApplicationLogger {
       return data;
     }
 
-    // Handle circular references
-    const seen = new WeakSet();
-    const sanitized = JSON.parse(
-      JSON.stringify(data, (key, value) => {
-        if (typeof value === "object" && value !== null) {
-          if (seen.has(value)) {
-            return "[Circular]";
-          }
-          seen.add(value);
-        }
-        return value;
-      }),
-    );
+    // Handle circular references and sanitize
+    const sanitizedString = safeStringify(data, null);
+    const sanitized = JSON.parse(sanitizedString);
 
     const sensitiveFields = [
       "password",
