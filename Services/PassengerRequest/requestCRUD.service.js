@@ -568,7 +568,7 @@ const getDetailedJourneyData = async (passengerRequests) => {
     const [allDrivers] = await pool.query(
       `SELECT DR.*, U.userId, U.fullName, U.phoneNumber, U.email,
               U.userCreatedAt, U.userCreatedBy, U.userDeletedAt, U.userDeletedBy,
-              U.isDeleted, U.telegramChatId
+              U.isDeleted
        FROM DriverRequest DR
        JOIN Users U ON DR.userUniqueId = U.userUniqueId
        WHERE DR.driverRequestId IN (?)`,
