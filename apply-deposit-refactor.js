@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable no-console */
 /**
  * One-time script to apply updateUserDepositByUniqueId refactor and balance connection support.
  * Run from project root: node apply-deposit-refactor.js
