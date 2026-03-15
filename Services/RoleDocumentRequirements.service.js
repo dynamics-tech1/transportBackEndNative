@@ -52,14 +52,26 @@ const createMapping = async ({ body }) => {
     throw new AppError("Role not found", 404);
   }
   //  verify existence of documentTypeId
-  const documentTypeExists = await getData({
+  let documentTypeExists = await getData({
     tableName: "DocumentTypes",
     conditions: { documentTypeId: numericDocumentTypeId },
   });
 
+  // If not found by ID, try finding by name if documentTypeName is provided in the body
+  if (documentTypeExists.length === 0 && body.documentTypeName) {
+    const dtByName = await getData({
+      tableName: "DocumentTypes",
+      conditions: { documentTypeName: body.documentTypeName },
+    });
+    if (dtByName.length > 0) {
+      documentTypeExists = dtByName;
+      numericDocumentTypeId = dtByName[0].documentTypeId;
+    }
+  }
+
   if (documentTypeExists.length === 0) {
     throw new AppError(
-      `Document type not found for ID: ${numericDocumentTypeId}`,
+      `Document type not found for ID: ${numericDocumentTypeId}${body.documentTypeName ? " or Name: " + body.documentTypeName : ""}. Please ensure DocumentTypes are seeded first.`,
       404,
     );
   }

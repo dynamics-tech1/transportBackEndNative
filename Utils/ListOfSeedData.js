@@ -272,6 +272,7 @@ const driversDocumentRequirement = [
   {
     roleId: "2",
     documentTypeId: "1",
+    documentTypeName: "Driver’s License",
     isDocumentMandatory: true,
     isExpirationDateRequired: true,
     isFileNumberRequired: true,
@@ -279,6 +280,7 @@ const driversDocumentRequirement = [
   {
     roleId: "2",
     documentTypeId: "2",
+    documentTypeName: "Vehicle Registration (librea)",
     isDocumentMandatory: true,
     isExpirationDateRequired: false,
     isFileNumberRequired: true,
@@ -292,6 +294,7 @@ const driversDocumentRequirement = [
   {
     roleId: "2",
     documentTypeId: "4",
+    documentTypeName: "Profile Photo",
     isDocumentMandatory: true,
     isExpirationDateRequired: false,
     isFileNumberRequired: false,
@@ -315,6 +318,7 @@ const passengerDocumentRequirement = [
   {
     roleId: 1,
     documentTypeId: 4,
+    documentTypeName: "Profile Photo",
     isDocumentMandatory: false,
     isExpirationDateRequired: false,
   },
@@ -322,6 +326,7 @@ const passengerDocumentRequirement = [
   {
     roleId: 1,
     documentTypeId: 7,
+    documentTypeName: "National ID",
     isDocumentMandatory: false,
     isExpirationDateRequired: false,
   },

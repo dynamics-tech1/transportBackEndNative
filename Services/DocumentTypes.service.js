@@ -45,7 +45,7 @@ const createDocumentType = async ({ body }) => {
   });
 
   if (existingDocumentType.length > 0) {
-    throw new AppError("Document type already exists", 409);
+    return { message: "success", data: "Document type already exists" };
   }
 
   // Create a new document type

@@ -23,7 +23,10 @@ const createVehicleStatusType = async (data) => {
   });
 
   if (registeredType?.length) {
-    throw new AppError("Vehicle Status Type already exists", 400);
+    return {
+      message: "success",
+      data: "Vehicle Status Type already exists",
+    };
   }
 
   const VehicleStatusTypeCreatedBy = "admin";

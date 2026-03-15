@@ -23,10 +23,10 @@ const createCommissionStatus = async ({
   );
 
   if (existing.length > 0) {
-    throw new AppError(
-      "Commission status with this name already exists",
-      400,
-    );
+    return {
+      message: "success",
+      data: "Commission status with this name already exists",
+    };
   }
 
   const insertQuery = `
@@ -46,11 +46,14 @@ const createCommissionStatus = async ({
   ]);
 
   return {
-    commissionStatusUniqueId,
-    statusName,
-    description,
-    effectiveFrom,
-    effectiveTo,
+    message: "success",
+    data: {
+      commissionStatusUniqueId,
+      statusName,
+      description,
+      effectiveFrom,
+      effectiveTo,
+    },
   };
 };
 
