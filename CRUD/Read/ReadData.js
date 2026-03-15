@@ -143,7 +143,8 @@ const findNearbyDrivers = async ({ passengerRequest }) => {
   ];
 
   // Execute the query
-  const [drivers] = await pool.query(sqlQuery, values);
+  const queryExecutor = transactionStorage.getStore() || pool;
+  const [drivers] = await queryExecutor.query(sqlQuery, values);
   const listOfDrivers = [];
   for (const driver of drivers) {
     const { message } = await VerifyIfPassengerRequestWasNotRejected({
@@ -349,7 +350,7 @@ const checkActivePassengerRequest = async ({
     Number(offset),
   ];
 
-  const queryExecutor = connection || pool;
+  const queryExecutor = transactionStorage.getStore() || connection || pool;
   const [activeRequests, totalRecords] = await Promise.all([
     queryExecutor?.query?.(query, values),
     getActiveRequestsCount(userUniqueId, connection),
@@ -401,7 +402,7 @@ const getActiveRequestsCount = async (userUniqueId, connection = null) => {
     "not seen by passenger yet",
   ];
 
-  const queryExecutor = connection || pool;
+  const queryExecutor = transactionStorage.getStore() || connection || pool;
   const [result] = await queryExecutor.query(query, values);
   return result[0];
 };
@@ -451,7 +452,8 @@ const checkActiveDriverRequest = async (userUniqueId) => {
       LIMIT 1
     `;
 
-    const [results] = await pool.query(query, [
+    const queryExecutor = transactionStorage.getStore() || pool;
+    const [results] = await queryExecutor.query(query, [
       userUniqueId,
       ...activeJourneyStatuses,
       journeyStatusMap.notSelectedInBid,
@@ -516,7 +518,7 @@ const getAttachedDocumentsByUserUniqueIdAndDocumentTypeId = async (
 ) => {
   const sqlToGetDocument = `select * from AttachedDocuments, DocumentTypes where attachedDocumentCreatedByUserId=? and DocumentTypes.documentTypeId=?`;
   const values = [ownerUserUniqueId, documentTypeId];
-  const queryExecutor = connection || pool;
+  const queryExecutor = transactionStorage.getStore() || connection || pool;
   const [documents] = await queryExecutor.query(sqlToGetDocument, values);
 
   return {

@@ -45,15 +45,21 @@ const { verifyDriverJourneyStatus } = require("../DriverRequest");
 const acceptDriverRequest = async (body) => {
   try {
     const {
+      passengerRequestUniqueId,
       driverRequestUniqueId,
       journeyDecisionUniqueId,
       userUniqueId,
     } = body;
 
     // Validate required fields
-    if (!driverRequestUniqueId || !journeyDecisionUniqueId || !userUniqueId) {
+    if (
+      !passengerRequestUniqueId ||
+      !driverRequestUniqueId ||
+      !journeyDecisionUniqueId ||
+      !userUniqueId
+    ) {
       throw new AppError(
-        "driverRequestUniqueId, journeyDecisionUniqueId, and userUniqueId are required",
+        "passengerRequestUniqueId, driverRequestUniqueId, journeyDecisionUniqueId, and userUniqueId are required",
         400,
       );
     }
@@ -61,7 +67,8 @@ const acceptDriverRequest = async (body) => {
     return await executeInTransaction(async () => {
       const connectedDrivers = await performJoinSelect({
         baseTable: "DriverRequest",
-        selectColumns: "DriverRequest.*, Users.phoneNumber, DriverRequest.userUniqueId AS driverUserUniqueId, PassengerRequest.userUniqueId AS passengerUserUniqueId, JourneyDecisions.journeyDecisionUniqueId, JourneyDecisions.driverRequestId as jd_driverRequestId, PassengerRequest.passengerRequestId as pr_passengerRequestId",
+        selectColumns:
+          "DriverRequest.*, Users.phoneNumber, DriverRequest.userUniqueId AS driverUserUniqueId, PassengerRequest.userUniqueId AS passengerUserUniqueId, PassengerRequest.passengerRequestUniqueId, JourneyDecisions.journeyDecisionUniqueId, JourneyDecisions.driverRequestId as jd_driverRequestId, PassengerRequest.passengerRequestId as pr_passengerRequestId",
         joins: [
           {
             table: "JourneyDecisions",

@@ -519,47 +519,76 @@ const getDetailedJourneyData = async (passengerRequests) => {
       return waitingResults;
     }
 
-    // --- Step 2: Batch fetch all decisions for all active PRs (1 query) ---
-    const decisionConditions = activePRs.map(
-      () =>
-        "(JourneyDecisions.passengerRequestId = ? AND JourneyDecisions.journeyStatusId = ?)",
-    );
-    const decisionValues = activePRs.flatMap((pr) => [
-      pr.passengerRequestId,
-      pr.journeyStatusId,
-    ]);
+    // --- Step 2: Batch fetch all active/positive decisions for all active PRs (1 query) ---
+    const prIds = activePRs.map((pr) => pr.passengerRequestId);
+    const positiveStatuses = [
+      journeyStatusMap.requested,
+      journeyStatusMap.acceptedByDriver,
+      journeyStatusMap.acceptedByPassenger,
+      journeyStatusMap.journeyStarted,
+      journeyStatusMap.journeyCompleted,
+    ];
 
-    const [allDecisions] = await executor.query(
-      `SELECT * FROM JourneyDecisions WHERE ${decisionConditions.join(" OR ")}`,
-      decisionValues,
+    const [allDecisionsRaw] = await executor.query(
+      `SELECT * FROM JourneyDecisions WHERE passengerRequestId IN (?) AND journeyStatusId IN (?)`,
+      [prIds, positiveStatuses],
     );
 
     // Group decisions by passengerRequestId
     const decisionsByPR = new Map();
-    for (const d of allDecisions) {
+    for (const d of allDecisionsRaw) {
       if (!decisionsByPR.has(d.passengerRequestId)) {
         decisionsByPR.set(d.passengerRequestId, []);
       }
       decisionsByPR.get(d.passengerRequestId).push(d);
     }
 
-    // --- Step 3: Auto-correct stale PRs and separate results ---
+    // --- Step 3: Auto-correct stale PRs and handle status mismatches ---
     const stalePRIds = []; // PRs to reset to waiting
     const validPRs = []; // PRs with matching decisions
+    const allDecisions = []; // Decisions matching current/updated status
 
     for (const pr of activePRs) {
       const decisions = decisionsByPR.get(pr.passengerRequestId) || [];
+
       if (decisions.length === 0) {
-        // No matching decisions — auto-correct to waiting
+        // No matching active decisions — auto-correct to waiting if not already
         if (pr.journeyStatusId !== journeyStatusMap.waiting) {
           stalePRIds.push(pr.passengerRequestId);
         }
       } else {
-        validPRs.push(pr);
+        // Check if PR status needs advancement (status mismatch where decisions are ahead)
+        const maxDecisionStatus = Math.max(
+          ...decisions.map((d) => d.journeyStatusId),
+        );
+        if (maxDecisionStatus > pr.journeyStatusId) {
+          logger.warn("@getDetailedJourneyData: auto-advancing PR status", {
+            passengerRequestId: pr.passengerRequestId,
+            oldStatus: pr.journeyStatusId,
+            newStatus: maxDecisionStatus,
+          });
+          await executor.query(
+            "UPDATE PassengerRequest SET journeyStatusId = ? WHERE passengerRequestId = ?",
+            [maxDecisionStatus, pr.passengerRequestId],
+          );
+          pr.journeyStatusId = maxDecisionStatus; // Sync in-memory
+        }
+
+        // Collect decisions matching the final status
+        const finalMatches = decisions.filter(
+          (d) => d.journeyStatusId === pr.journeyStatusId,
+        );
+        if (finalMatches.length > 0) {
+          allDecisions.push(...finalMatches);
+          validPRs.push(pr);
+        } else {
+          // If no decisions match even after possible advancement, it's stale
+          stalePRIds.push(pr.passengerRequestId);
+        }
       }
     }
 
-    // Batch update stale PRs to waiting (1 query if any)
+    // Batch update stale PRs to waiting
     if (stalePRIds.length > 0) {
       await executor.query(
         `UPDATE PassengerRequest SET journeyStatusId = ? WHERE passengerRequestId IN (?)`,
