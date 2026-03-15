@@ -108,7 +108,10 @@ const loginUser = async (phoneNumber, roleId) => {
   if (!phoneNumber?.trim() || !roleId) throw new AppError("Phone number and role ID are required.", 400);
 
   const cleanPhoneNumber = phoneNumber.trim();
-  const userDataResult = await manageService.getUserByFilterDetailed({ search: cleanPhoneNumber });
+  const userDataResult = await manageService.getUserByFilterDetailed({
+    search: cleanPhoneNumber,
+    includeDeleted: true,
+  });
 
   if (!userDataResult?.data?.[0]?.user) {
     throw new AppError("User not found at this phone/email address. Please sign up first.", 404);

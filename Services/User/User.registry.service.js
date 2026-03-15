@@ -162,11 +162,7 @@ const createUser = async (body) => {
   if (existing?.length > 0) {
     const user = existing[0];
     if (user.isDeleted) {
-      await updateData({
-        tableName: "Users",
-        updateValues: { isDeleted: 0, userDeletedAt: null, userDeletedBy: null },
-        conditions: { userUniqueId: user.userUniqueId },
-      });
+      throw new AppError("Account has been deleted", 403);
     }
     
     if (!authService) authService = require("./User.auth.service");
