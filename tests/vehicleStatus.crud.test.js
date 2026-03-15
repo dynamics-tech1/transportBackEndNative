@@ -82,7 +82,7 @@ const state = {
       auth(),
     );
     const data = res.body?.data || [];
-    const found = data.find(d => d.vehicleUniqueId === state.vehicleUniqueId && d.isDeleted === 0);
+    const found = data.find(d => d.vehicleUniqueId === state.vehicleUniqueId && d.vehicleStatusDeletedAt === null);
     assert(found, "Could not find created status in list");
     state.vehicleStatusUniqueId = found.vehicleStatusUniqueId;
     return `Found UUID: ${state.vehicleStatusUniqueId}`;

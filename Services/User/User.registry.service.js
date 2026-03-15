@@ -201,38 +201,33 @@ const createUserByAdminOrSuperAdmin = async ({ body, userUniqueId,userRoleStatus
     return { message: "success", data: "User already exists with this email address" };
   }
 
-  const userDataByPhone = await getData({
-    tableName: "Users",
-    conditions: { phoneNumber },
-  });
-
-  if (userDataByPhone?.[0]) {
-    return {
-      message: "success",
-      data: "User already exists with this email address",
-    };
-  }
-
   const userDataByPhoneNumber = await getData({
     tableName: "Users",
     conditions: { phoneNumber },
   });
 
   if (userDataByPhoneNumber?.[0]) {
-    const existingUserUniqueId = userDataByPhoneNumber?.[0]?.userUniqueId;
-    await ensureCredentialForUser({ userUniqueId: existingUserUniqueId });
+    const existingUser = userDataByPhoneNumber[0];
+    const existingUserUniqueId = existingUser.userUniqueId;
+    
+    // Ensure the user is registered for the new role and status
     await handleUserRoleStatus(
       existingUserUniqueId,
       roleId,
       statusId,
       userRoleStatusDescription,
     );
-    if (email && userDataByPhoneNumber?.[0]?.email !== email) {
+
+    // Generate/Update OTP for verification
+    await ensureCredentialForUser({ userUniqueId: existingUserUniqueId });
+
+    if (email && existingUser.email && existingUser.email !== email) {
       throw new AppError("There is a difference in email address", 409);
     }
+
     return {
       message: "success",
-      data: "User already exists with this phone number",
+      data: "User already exists with this phone number. Role and OTP have been updated.",
     };
   }
 

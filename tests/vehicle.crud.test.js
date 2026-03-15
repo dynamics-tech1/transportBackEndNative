@@ -29,7 +29,7 @@ const state = {
     // Free the driver from any active assignment
     await pool.query("UPDATE VehicleDriver SET assignmentStatus = 'deleted' WHERE driverUserUniqueId = ?", [state.driverUserUniqueId]);
     // Also cleanup ownership
-    await pool.query("UPDATE VehicleOwnership SET isDeleted = 1 WHERE userUniqueId = ?", [state.driverUserUniqueId]);
+    await pool.query("UPDATE VehicleOwnership SET vehicleOwnershipDeletedAt = NOW() WHERE userUniqueId = ?", [state.driverUserUniqueId]);
     return "Cleanup complete";
   });
 

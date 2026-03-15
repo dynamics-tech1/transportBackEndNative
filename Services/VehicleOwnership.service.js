@@ -157,7 +157,6 @@ const deleteVehicleOwnership = async (ownershipUniqueId) => {
     tableName: "VehicleOwnership",
     conditions: { ownershipUniqueId },
     updateValues: {
-      isDeleted: 1,
       vehicleOwnershipDeletedAt: currentDate(),
     },
   });
@@ -195,7 +194,7 @@ const getVehicleOwnershipsByFilter = async ({
     search: "search",
   };
 
-  const where = ["VehicleOwnership.isDeleted = 0"];
+  const where = ["VehicleOwnership.vehicleOwnershipDeletedAt IS NULL"];
   const values = [];
 
   for (const [paramKey, paramValue] of Object.entries(filters)) {

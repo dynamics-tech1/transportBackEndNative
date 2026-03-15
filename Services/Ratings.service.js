@@ -63,7 +63,7 @@ exports.getAllRatings = async ({
 }) => {
   const offset = (page - 1) * limit;
 
-  let whereClause = "";
+  let whereClause = "WHERE r.ratingDeletedAt IS NULL";
   const params = [];
 
   // Always include JOIN since we're selecting user columns
@@ -71,27 +71,27 @@ exports.getAllRatings = async ({
 
   // Add WHERE clause if search is provided
   if (journeyDecisionUniqueId) {
-    whereClause = `WHERE r.journeyDecisionUniqueId = ?`;
+    whereClause += ` AND r.journeyDecisionUniqueId = ?`;
     params.push(journeyDecisionUniqueId);
   } else if (searchBy) {
     // Search by specific field
     switch (searchBy) {
     case "phone":
-      whereClause = `WHERE u.phoneNumber LIKE ?`;
+      whereClause += ` AND u.phoneNumber LIKE ?`;
       params.push(`%${search}%`);
       break;
     case "email":
-      whereClause = `WHERE u.email LIKE ?`;
+      whereClause += ` AND u.email LIKE ?`;
       params.push(`%${search}%`);
       break;
     case "name":
-      whereClause = `WHERE u.fullName LIKE ?`;
+      whereClause += ` AND u.fullName LIKE ?`;
       params.push(`%${search}%`);
       break;
     }
   } else if (search) {
     // Default search across all fields when searchBy is not specified
-    whereClause = `WHERE (u.phoneNumber LIKE ? OR u.email LIKE ? OR u.fullName LIKE ?)`;
+    whereClause += ` AND (u.phoneNumber LIKE ? OR u.email LIKE ? OR u.fullName LIKE ?)`;
     params.push(`%${search}%`, `%${search}%`, `%${search}%`);
   }
 
@@ -181,7 +181,7 @@ exports.updateRating = async (ratingId, rating, comment, updatedBy) => {
 
 // Delete a specific rating by ID (Soft Delete)
 exports.deleteRating = async (ratingId, deletedBy) => {
-  const sql = `UPDATE Ratings SET isDeleted = 1, ratingDeletedBy = ?, ratingDeletedAt = ? WHERE ratingId = ?`;
+  const sql = `UPDATE Ratings SET ratingDeletedBy = ?, ratingDeletedAt = ? WHERE ratingId = ?`;
   const values = [deletedBy, currentDate(), ratingId];
   const executor = transactionStorage.getStore() || pool;
   const [result] = await executor.query(sql, values);

@@ -67,7 +67,7 @@ const getVehicleStatuses = async (filters = {}) => {
   const limitNum = Number(limit) || 10;
   const offset = (pageNum - 1) * limitNum;
 
-  const where = ["vs.isDeleted = 0"];
+  const where = ["vs.vehicleStatusDeletedAt IS NULL"];
   const params = [];
 
   if (vehicleStatusUniqueId) {
@@ -146,7 +146,6 @@ const deleteVehicleStatus = async (vehicleStatusUniqueId) => {
     tableName: "VehicleStatus",
     conditions: { vehicleStatusUniqueId },
     updateValues: {
-      isDeleted: 1,
       vehicleStatusDeletedAt: currentDate(),
     },
   });

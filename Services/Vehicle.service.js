@@ -117,7 +117,7 @@ const updateVehicle = async (vehicleUniqueId, updateValues, user) => {
        LEFT JOIN VehicleDriver vd ON v.vehicleUniqueId = vd.vehicleUniqueId AND vd.assignmentStatus = 'active' AND vd.assignmentEndDate IS NULL
        WHERE v.vehicleUniqueId = ? 
          AND (vo.userUniqueId = ? OR vd.driverUserUniqueId = ?)
-         AND v.isDeleted = 0`,
+         AND v.vehicleDeletedAt IS NULL`,
       [vehicleUniqueId, userUniqueId, userUniqueId]
     );
 
@@ -154,7 +154,7 @@ const deleteVehicle = async (vehicleUniqueId, user) => {
        LEFT JOIN VehicleDriver vd ON v.vehicleUniqueId = vd.vehicleUniqueId AND vd.assignmentStatus = 'active' AND vd.assignmentEndDate IS NULL
        WHERE v.vehicleUniqueId = ? 
          AND (vo.userUniqueId = ? OR vd.driverUserUniqueId = ?)
-         AND v.isDeleted = 0`,
+         AND v.vehicleDeletedAt IS NULL`,
       [vehicleUniqueId, userUniqueId, userUniqueId]
     );
 
@@ -167,7 +167,6 @@ const deleteVehicle = async (vehicleUniqueId, user) => {
     tableName: "Vehicle",
     conditions: { vehicleUniqueId },
     updateValues: { 
-      isDeleted: 1,
       vehicleDeletedAt: currentDate() 
     },
   });
@@ -198,7 +197,7 @@ const getVehicles = async (query) => {
   const limitNum = parseInt(limit);
   const offset = (pageNum - 1) * limitNum;
 
-  const whereConditions = ["v.isDeleted = 0"];
+  const whereConditions = ["v.vehicleDeletedAt IS NULL"];
   const params = [];
 
   if (vehicleUniqueId) {
