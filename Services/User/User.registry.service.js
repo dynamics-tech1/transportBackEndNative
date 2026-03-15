@@ -157,10 +157,10 @@ const createUser = async (body) => {
     tableName: "Users",
     conditions: { phoneNumber },
   });
-
+ 
   if (existing?.length > 0) {
-    const user = existing[0];
-    if (user.isDeleted) {
+    const user = existing?.[0];
+    if (user?.isDeleted) {
       throw new AppError("Account has been deleted", 403);
     }
     
