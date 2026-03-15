@@ -213,8 +213,8 @@ const accountStatus = async ({
         const rolesAndStatuses = firstEntry.rolesAndStatuses || [];
         const roleEntry = requestedRoleId
           ? rolesAndStatuses.find(
-              (rs) => rs?.userRoles?.roleId === requestedRoleId,
-            )
+            (rs) => rs?.userRoles?.roleId === requestedRoleId,
+          )
           : rolesAndStatuses[0];
 
         if (!roleEntry) {
@@ -358,22 +358,22 @@ const accountStatus = async ({
       // 2. Vehicle Check
       requiresVehicle
         ? getVehicleDrivers({
-            driverUserUniqueId: resolvedUserUniqueId,
-            assignmentStatus: "active",
-            limit: 1,
-            page: 1,
-          })
+          driverUserUniqueId: resolvedUserUniqueId,
+          assignmentStatus: "active",
+          limit: 1,
+          page: 1,
+        })
         : Promise.resolve({ data: [] }),
 
       // 3. Document Requirements List
       enableDocumentChecks
         ? getRoleDocumentRequirements({
-            roleId,
-            page: 1,
-            limit: 1000,
-            sortBy: "documentTypeId",
-            sortOrder: "ASC",
-          })
+          roleId,
+          page: 1,
+          limit: 1000,
+          sortBy: "documentTypeId",
+          sortOrder: "ASC",
+        })
         : Promise.resolve({ data: [] }),
 
       // 4. Subscription Check (Drivers Only)
@@ -384,8 +384,8 @@ const accountStatus = async ({
       // 5. User Balance Check (Drivers Only)
       Number(roleId) === usersRoles.driverRoleId
         ? getUserBalanceByFilterServices(
-            { userUniqueId: resolvedUserUniqueId, page: 1, limit: 1 },
-          )
+          { userUniqueId: resolvedUserUniqueId, page: 1, limit: 1 },
+        )
         : Promise.resolve(null),
     ]);
     //--- Process User Balance Check Result ---

@@ -19,7 +19,7 @@
 
 const http  = require("http");
 const https = require("https");
-const { randomBytes, randomUUID } = require("crypto");
+const { randomUUID } = require("crypto");
 const { seedDriverDocuments, approveAllDocuments } = require("./document.testHelper");
 
 // ─── Configuration ───────────────────────────────────────────────────────────
@@ -67,8 +67,8 @@ function request(method, path, body = null, extraHeaders = {}) {
       "Content-Type": "application/json",
       ...extraHeaders,
     };
-    if (bodyStr)     headers["Content-Length"] = Buffer.byteLength(bodyStr);
-    if (isMultipart) headers["Content-Length"] = body.length;
+    if (bodyStr)     {headers["Content-Length"] = Buffer.byteLength(bodyStr);}
+    if (isMultipart) {headers["Content-Length"] = body.length;}
 
     const req = transport.request(
       {
@@ -88,13 +88,14 @@ function request(method, path, body = null, extraHeaders = {}) {
       },
     );
     req.on("error", reject);
-    if (isMultipart) req.write(body);
-    else if (bodyStr) req.write(bodyStr);
+    if (isMultipart) {req.write(body);}
+    else if (bodyStr) {req.write(bodyStr);}
     req.end();
   });
 }
 
-/** Build a minimal multipart/form-data payload with one file */
+/*
+/!** Build a minimal multipart/form-data payload with one file *!/
 function buildMultipart(fields, fileField, filename, fileContent, mimeType) {
   const boundary = `----E2EBoundary${randomBytes(8).toString("hex")}`;
   const parts    = [];
@@ -117,6 +118,7 @@ const TINY_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
   "base64",
 );
+*/
 
 // ─── Step runner ─────────────────────────────────────────────────────────────
 const results = [];
@@ -139,7 +141,7 @@ async function step(name, fn) {
 }
 
 function assert(cond, msg) {
-  if (!cond) throw new Error(msg);
+  if (!cond) {throw new Error(msg);}
 }
 
 // ─── OTP helper — just use the default dev OTP (101010) ─────────────────────
@@ -449,7 +451,7 @@ async function run() {
   for (const r of results) {
     const icon = r.pass ? "\x1b[32m✅\x1b[0m" : "\x1b[31m❌\x1b[0m";
     console.log(`  ${icon} [${r.num}] ${r.name}`);
-    if (!r.pass) console.log(`       ${r.detail}`);
+    if (!r.pass) {console.log(`       ${r.detail}`);}
   }
   console.log(
     `\n  Total: ${results.length}  ` +

@@ -756,10 +756,10 @@ const getUsersByRoleUniqueId = async (
     INNER JOIN Statuses s ON ursc.statusId = s.statusId
     WHERE r.roleUniqueId = ?
     ${
-      search
-        ? "AND (u.fullName LIKE ? OR u.email LIKE ? OR u.phoneNumber LIKE ?)"
-        : ""
-    }
+  search
+    ? "AND (u.fullName LIKE ? OR u.email LIKE ? OR u.phoneNumber LIKE ?)"
+    : ""
+}
   `;
 
   const executor = transactionStorage.getStore() || connection || pool;
@@ -790,10 +790,10 @@ const getUsersByRoleUniqueId = async (
     INNER JOIN Statuses s ON ursc.statusId = s.statusId
     WHERE r.roleUniqueId = ?
     ${
-      search
-        ? "AND (u.fullName LIKE ? OR u.email LIKE ? OR u.phoneNumber LIKE ?)"
-        : ""
-    }
+  search
+    ? "AND (u.fullName LIKE ? OR u.email LIKE ? OR u.phoneNumber LIKE ?)"
+    : ""
+}
     ORDER BY u.userCreatedAt DESC
     LIMIT ? OFFSET ?
   `;
@@ -802,13 +802,13 @@ const getUsersByRoleUniqueId = async (
     sql,
     search
       ? [
-          roleUniqueId,
-          wildcardQuery,
-          wildcardQuery,
-          wildcardQuery,
-          limit,
-          offset,
-        ]
+        roleUniqueId,
+        wildcardQuery,
+        wildcardQuery,
+        wildcardQuery,
+        limit,
+        offset,
+      ]
       : [roleUniqueId, limit, offset],
   );
 
@@ -1135,10 +1135,10 @@ const getUserByFilterDetailed = async (
         },
         userRoleStatuses: row.userRoleStatusId
           ? {
-              statusId: row.statusId,
-              statusName: row.statusName,
-              userRoleStatusUniqueId: row.userRoleStatusUniqueId,
-            }
+            statusId: row.statusId,
+            statusName: row.statusName,
+            userRoleStatusUniqueId: row.userRoleStatusUniqueId,
+          }
           : null,
       });
 

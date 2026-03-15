@@ -1,4 +1,4 @@
-const { AsyncLocalStorage } = require('async_hooks');
+const { AsyncLocalStorage } = require("async_hooks");
 
 /**
  * AsyncLocalStorage instance to store database connections within an asynchronous execution context.

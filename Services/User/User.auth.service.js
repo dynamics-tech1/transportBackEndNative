@@ -1,13 +1,12 @@
 "use strict";
 
-const { pool } = require("../../Middleware/Database.config");
 const { sendSms } = require("../../Utils/smsSender");
 const createJWT = require("../../Utils/CreateJWT");
 const { currentDate } = require("../../Utils/CurrentDate");
 const bcrypt = require("bcryptjs");
 const verifyPassword = require("../../Utils/VerifyPassword");
 const logger = require("../../Utils/logger");
-const { usersRoles, USER_STATUS } = require("../../Utils/ListOfSeedData");
+const { usersRoles } = require("../../Utils/ListOfSeedData");
 const AppError = require("../../Utils/AppError");
 const { transactionStorage } = require("../../Utils/TransactionContext");
 const { sendSocketIONotificationToAdmin } = require("../../Utils/Notifications");
@@ -24,10 +23,10 @@ let manageService;
 let registryService;
 
 const handleExistingUser = async ({ requestedFrom, user, roleId, statusId, userRoleStatusDescription = "no description" }) => {
-  if (!registryService) registryService = require("./User.registry.service");
+  if (!registryService) {registryService = require("./User.registry.service");}
   
   const userUniqueId = user.userUniqueId;
-  if (!userUniqueId) throw new AppError("wrong user data", 400);
+  if (!userUniqueId) {throw new AppError("wrong user data", 400);}
 
   const OTP = Math.floor(100000 + Math.random() * 900000);
   const hashedOTP = await bcrypt.hash(String(OTP), 10);
@@ -104,8 +103,8 @@ const handleExistingUser = async ({ requestedFrom, user, roleId, statusId, userR
 };
 
 const loginUser = async (phoneNumber, roleId) => {
-  if (!manageService) manageService = require("./User.manage.service");
-  if (!phoneNumber?.trim() || !roleId) throw new AppError("Phone number and role ID are required.", 400);
+  if (!manageService) {manageService = require("./User.manage.service");}
+  if (!phoneNumber?.trim() || !roleId) {throw new AppError("Phone number and role ID are required.", 400);}
 
   const cleanPhoneNumber = phoneNumber.trim();
   const userDataResult = await manageService.getUserByFilterDetailed({
@@ -119,10 +118,10 @@ const loginUser = async (phoneNumber, roleId) => {
 
   const userEntry = userDataResult.data[0];
   const userData = userEntry.user;
-  if (userData?.isDeleted || userData?.userDeletedAt) throw new AppError("Account has been deleted", 403);
+  if (userData?.isDeleted || userData?.userDeletedAt) {throw new AppError("Account has been deleted", 403);}
 
   const roleEntry = userEntry.rolesAndStatuses?.find((rs) => rs?.userRoles?.roleId === roleId);
-  if (!roleEntry) throw new AppError("User not found at this role. Please sign up for this role first.", 404);
+  if (!roleEntry) {throw new AppError("User not found at this role. Please sign up for this role first.", 404);}
 
   return await handleExistingUser({
     requestedFrom: "user",
@@ -134,7 +133,7 @@ const loginUser = async (phoneNumber, roleId) => {
 
 const verifyUserByOTP = async (req) => {
   const { phoneNumber, OTP, roleId } = req.body;
-  if (!OTP || !phoneNumber) throw new AppError("OTP and phoneNumber are required", 400);
+  if (!OTP || !phoneNumber) {throw new AppError("OTP and phoneNumber are required", 400);}
 
   const verifyUserExistence = await performJoinSelect({
     baseTable: "Users",
@@ -142,10 +141,10 @@ const verifyUserByOTP = async (req) => {
     conditions: { phoneNumber },
   });
 
-  if (!verifyUserExistence || verifyUserExistence.length === 0) throw new AppError("user not found", 404);
+  if (!verifyUserExistence || verifyUserExistence.length === 0) {throw new AppError("user not found", 404);}
   
   const userRow = verifyUserExistence[0];
-  if (userRow.isDeleted || userRow.userDeletedAt) throw new AppError("Account has been deleted", 403);
+  if (userRow.isDeleted || userRow.userDeletedAt) {throw new AppError("Account has been deleted", 403);}
 
   await verifyPassword({ hashedPassword: userRow.OTP, notHashedPassword: String(OTP) });
 
@@ -154,7 +153,7 @@ const verifyUserByOTP = async (req) => {
     conditions: { roleId, userUniqueId: userRow.userUniqueId },
   });
 
-  if (userInRoleId.length === 0) throw new AppError("user not found in this role", 401);
+  if (userInRoleId.length === 0) {throw new AppError("user not found in this role", 401);}
 
   const tokenData = createJWT({
     userUniqueId: userRow.userUniqueId,
@@ -176,7 +175,7 @@ const verifyUserByOTP = async (req) => {
       user: userRow,
     });
 
-    if (docReq?.message === "error") throw new AppError(docReq.error || "Failed to check requirements", 500);
+    if (docReq?.message === "error") {throw new AppError(docReq.error || "Failed to check requirements", 500);}
 
     const { unAttachedDocumentTypes, attachedDocumentsByStatus } = docReq;
     if (attachedDocumentsByStatus?.PENDING?.length > 0 || attachedDocumentsByStatus?.REJECTED?.length > 0 || unAttachedDocumentTypes?.length > 0) {

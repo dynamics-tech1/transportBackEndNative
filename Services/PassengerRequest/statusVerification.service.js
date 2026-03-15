@@ -111,7 +111,7 @@ const seenByPassenger = async (body) => {
       error: error.message,
       stack: error.stack,
     });
-    if (error instanceof AppError) throw error;
+    if (error instanceof AppError) {throw error;}
     throw new AppError(`Unable to seen by passenger: ${error.message}`, error.statusCode || 500);
   }
 };

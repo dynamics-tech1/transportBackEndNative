@@ -27,7 +27,7 @@ function request(method, path, body = null, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const bodyStr = body ? JSON.stringify(body) : null;
     const headers = { "Content-Type": "application/json", ...extraHeaders };
-    if (bodyStr) headers["Content-Length"] = Buffer.byteLength(bodyStr);
+    if (bodyStr) {headers["Content-Length"] = Buffer.byteLength(bodyStr);}
 
     const req = transport.request(
       {
@@ -50,7 +50,7 @@ function request(method, path, body = null, extraHeaders = {}) {
       },
     );
     req.on("error", reject);
-    if (bodyStr) req.write(bodyStr);
+    if (bodyStr) {req.write(bodyStr);}
     req.end();
   });
 }
@@ -74,7 +74,7 @@ async function test(name, fn) {
 }
 
 function assert(condition, msg) {
-  if (!condition) throw new Error(msg);
+  if (!condition) {throw new Error(msg);}
 }
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -221,7 +221,7 @@ const state = {
       `Name not updated: ${data[0].tariffRateName}`,
     );
     assert(
-      data[0].standingTariffRate == 200,
+      Number(data[0].standingTariffRate) === 200,
       `Rate not updated: ${data[0].standingTariffRate}`,
     );
     return `Name: ${data[0].tariffRateName}, standingRate: ${data[0].standingTariffRate}`;
@@ -429,7 +429,7 @@ const state = {
   const failed = results.filter((r) => !r.pass).length;
   results.forEach((r) => {
     console.log(`  ${r.pass ? "✅" : "❌"} [${String(r.num).padStart(2, "0")}] ${r.name}`);
-    if (!r.pass) console.log(`      → ${r.error}`);
+    if (!r.pass) {console.log(`      → ${r.error}`);}
   });
   console.log(`\n  Total: ${results.length}  Passed: ${passed}  Failed: ${failed}`);
   console.log(failed === 0 ? "\n  🎉 ALL TESTS PASSED!" : "\n  ⚠️  SOME TESTS FAILED");

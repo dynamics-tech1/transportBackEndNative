@@ -2,7 +2,6 @@ const { v4: uuidv4 } = require("uuid");
 const { pool } = require("../../Middleware/Database.config");
 const { getData } = require("../../CRUD/Read/ReadData");
 const { insertData } = require("../../CRUD/Create/CreateData");
-const logger = require("../../Utils/logger");
 
 const { sendFCMNotificationToUser } = require("../Firebase.service");
 const { createJourneyRoutePoint } = require("../JourneyRoutePoints.service");

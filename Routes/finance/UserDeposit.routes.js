@@ -3,7 +3,6 @@ const router = express.Router();
 const controller = require("../../Controllers/UserDeposit.controller");
 const {
   verifyTokenOfAxios,
-  verifyIfUserIsAdminOrSupperAdmin,
 } = require("../../Middleware/VerifyToken");
 
 const { validator } = require("../../Middleware/Validator");

@@ -7,7 +7,7 @@ async function runSQL(sql, label) {
     await pool.query(sql);
     console.log(`✅ SUCCESS: ${label}`);
   } catch (e) {
-    if (e.code === 'ER_DUP_COLUMN_NAME' || e.code === 'ER_DUP_KEYNAME') {
+    if (e.code === "ER_DUP_COLUMN_NAME" || e.code === "ER_DUP_KEYNAME") {
       console.log(`ℹ️ SKIP: ${label} (already exists)`);
     } else {
       console.error(`❌ ERROR: ${label} -> ${e.message}`);

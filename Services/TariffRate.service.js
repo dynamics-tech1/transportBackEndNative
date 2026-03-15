@@ -1,7 +1,6 @@
 const { v4: uuidv4 } = require("uuid");
 const { currentDate } = require("../Utils/CurrentDate");
 const { pool } = require("../Middleware/Database.config");
-const { getData } = require("../CRUD/Read/ReadData");
 const AppError = require("../Utils/AppError");
 const { transactionStorage } = require("../Utils/TransactionContext");
 
@@ -64,7 +63,7 @@ exports.createTariffRate = async (data) => {
     userUniqueId,
     currentDate(),
   ];
-  const [result] = await (transactionStorage.getStore() || pool).query(sql, values);
+  await (transactionStorage.getStore() || pool).query(sql, values);
   return { message: "success", data: "Tariff rate created successfully" };
 };
 

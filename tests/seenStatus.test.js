@@ -9,7 +9,6 @@
 
 const http  = require("http");
 const https = require("https");
-const { randomBytes, randomUUID } = require("crypto");
 const { seedDriverDocuments, approveAllDocuments } = require("./document.testHelper");
 
 // ─── Configuration ───────────────────────────────────────────────────────────
@@ -51,7 +50,7 @@ function request(method, path, body = null, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const bodyStr = body ? JSON.stringify(body) : null;
     const headers = { "Content-Type": "application/json", ...extraHeaders };
-    if (bodyStr) headers["Content-Length"] = Buffer.byteLength(bodyStr);
+    if (bodyStr) {headers["Content-Length"] = Buffer.byteLength(bodyStr);}
 
     const req = transport.request(
       {
@@ -71,7 +70,7 @@ function request(method, path, body = null, extraHeaders = {}) {
       },
     );
     req.on("error", reject);
-    if (bodyStr) req.write(bodyStr);
+    if (bodyStr) {req.write(bodyStr);}
     req.end();
   });
 }
@@ -96,7 +95,7 @@ async function step(name, fn) {
 }
 
 function assert(cond, msg) {
-  if (!cond) throw new Error(msg);
+  if (!cond) {throw new Error(msg);}
 }
 
 async function verifyOtp(phoneNumber, roleId) {
@@ -149,24 +148,24 @@ async function run() {
     });
 
     await step("Driver Setup (Vehicle & Docs)", async () => {
-        // Create vehicle
-        await request("POST", "/api/user/vehicles/driverUserUniqueId/self", {
-            vehicleTypeUniqueId: state.vehicleTypeUniqueId,
-            licensePlate: `TEST-${runId.toUpperCase()}`,
-            color: "Blue",
-            isDriverOwnerOfVehicle: true
-        }, { Authorization: `Bearer ${state.driverToken}` });
+      // Create vehicle
+      await request("POST", "/api/user/vehicles/driverUserUniqueId/self", {
+        vehicleTypeUniqueId: state.vehicleTypeUniqueId,
+        licensePlate: `TEST-${runId.toUpperCase()}`,
+        color: "Blue",
+        isDriverOwnerOfVehicle: true
+      }, { Authorization: `Bearer ${state.driverToken}` });
 
-        // Seed docs via admin dev endpoint
-        await seedDriverDocuments(request, state.driverUniqueId);
+      // Seed docs via admin dev endpoint
+      await seedDriverDocuments(request, state.driverUniqueId);
 
-        // Accept docs
-        await approveAllDocuments(request, state.adminToken, state.driverUniqueId, 2);
+      // Accept docs
+      await approveAllDocuments(request, state.adminToken, state.driverUniqueId, 2);
 
-        // Verify status
-        const resStatus = await request("GET", `/api/admin/userRoleStatusCurrent?userUniqueId=${state.driverUniqueId}`, null, { Authorization: `Bearer ${state.adminToken}` });
-        const record = Array.isArray(resStatus.body?.data) ? resStatus.body.data[0] : resStatus.body?.data;
-        assert(record?.statusId === 1, `Expected statusId 1, got ${record?.statusId}`);
+      // Verify status
+      const resStatus = await request("GET", `/api/admin/userRoleStatusCurrent?userUniqueId=${state.driverUniqueId}`, null, { Authorization: `Bearer ${state.adminToken}` });
+      const record = Array.isArray(resStatus.body?.data) ? resStatus.body.data[0] : resStatus.body?.data;
+      assert(record?.statusId === 1, `Expected statusId 1, got ${record?.statusId}`);
     });
 
     // Phase 2: Test Journey Completion Seen

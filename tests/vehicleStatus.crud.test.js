@@ -31,8 +31,7 @@ const state = {
     
     if (!state.vehicleUniqueId) {
       // Create a dummy vehicle if possible (depends on Vehicle routes, but let's try a direct GET first)
-      const res2 = await request("GET", "/api/admin/vehicle-types", null, auth());
-      const vTypes = res2.body?.data || [];
+      await request("GET", "/api/admin/vehicle-types", null, auth());
       // If we can't create one, we need to fail
       assert(state.vehicleUniqueId, "No vehicles found. Ensure at least one vehicle exists in the system.");
     }
@@ -46,12 +45,13 @@ const state = {
       state.VehicleStatusTypeId = data[0].VehicleStatusTypeId;
     } else {
       // Create one
-      const createRes = await request("POST", "/vehicleStatusType", {
+      await request("POST", "/vehicleStatusType", {
         typeName: `Status_${Date.now()}`,
         description: "Auto-created for test"
       }, auth());
       // List again to get ID
-      const res2 = await request("GET", "/vehicleStatusTypes", null, auth());
+      const res2 = await request("GET", "/api/vehicleStatus/vehicleStatusType", null, auth());
+      assert(res2.status === 200, `Failed to get vehicle status types, got ${res2.status}`);
       state.VehicleStatusTypeId = res2.body?.data?.[0]?.VehicleStatusTypeId;
     }
     assert(state.VehicleStatusTypeId, "Failed to get or create status type");

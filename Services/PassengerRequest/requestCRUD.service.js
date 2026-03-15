@@ -488,7 +488,7 @@ const getPassengerRequest4allOrSingleUser = async ({ data }) => {
 const getDetailedJourneyData = async (passengerRequests) => {
   const { pool } = require("../../Middleware/Database.config");
  
-  if (!passengerRequests || passengerRequests.length === 0) return [];
+  if (!passengerRequests || passengerRequests.length === 0) {return [];}
 
   // --- Step 1: Separate waiting PRs (no DB queries needed) from active ones ---
   const waitingResults = [];
@@ -507,7 +507,7 @@ const getDetailedJourneyData = async (passengerRequests) => {
     }
   }
 
-  if (activePRs.length === 0) return waitingResults;
+  if (activePRs.length === 0) {return waitingResults;}
 
   // --- Step 2: Batch fetch all decisions for all active PRs (1 query) ---
   // Build WHERE clause: (passengerRequestId = X AND journeyStatusId = Y) OR ...
@@ -557,7 +557,7 @@ const getDetailedJourneyData = async (passengerRequests) => {
     );
   }
 
-  if (validPRs.length === 0) return waitingResults;
+  if (validPRs.length === 0) {return waitingResults;}
 
   // --- Step 4: Batch fetch all driver requests + user info (1 query) ---
   const allDriverRequestIds = allDecisions.map((d) => d.driverRequestId);
@@ -671,7 +671,7 @@ const getDetailedJourneyData = async (passengerRequests) => {
     const driverRequests = decisions
       .map((decision) => {
         const driver = driversByRequestId.get(decision.driverRequestId);
-        if (!driver) return null;
+        if (!driver) {return null;}
 
         return {
           ...driver,

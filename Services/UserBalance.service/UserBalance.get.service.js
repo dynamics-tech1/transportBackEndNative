@@ -21,7 +21,7 @@ async function getCommissionByTransactionUniqueId(transactionUniqueId) {
     "@transactionUniqueId in getCommissionByTransactionUniqueId " +
       transactionUniqueId,
   );
-  if (!transactionUniqueId) return null;
+  if (!transactionUniqueId) {return null;}
   let result = await getAllCommissions({
     commissionUniqueId: transactionUniqueId,
     limit: 1,
@@ -30,12 +30,12 @@ async function getCommissionByTransactionUniqueId(transactionUniqueId) {
     "@result in getCommissionByTransactionUniqueId",
     JSON.stringify(result),
   );
-  if (result?.data?.[0]) return result.data[0];
+  if (result?.data?.[0]) {return result.data[0];}
   result = await getAllCommissions({
     paymentUniqueId: transactionUniqueId,
     limit: 1,
   });
-  if (result?.data?.[0]) return result.data[0];
+  if (result?.data?.[0]) {return result.data[0];}
   result = await getAllCommissions({
     journeyDecisionUniqueId: transactionUniqueId,
     limit: 1,
@@ -102,7 +102,6 @@ const getAlluserBalances = async () => {
   const executor = transactionStorage.getStore() || pool;
   const sql = `SELECT * FROM UserBalance ORDER BY userBalanceId DESC`;
   const [results] = await executor.query(sql);
-  console.log("results of getAlluserBalances ", results);
   const enrichedResults = await Promise.all(
     results.map(enrichUserBalanceRecord),
   );
@@ -195,10 +194,10 @@ const getDriverLastBalanceByUserUniqueId = async (userUniqueId) => {
       });
       TransactionData = commissionResult?.data?.[0]
         ? {
-            ...record,
-            ...commissionResult.data[0],
-            _adjustmentForCommissionId: transactionUniqueId,
-          }
+          ...record,
+          ...commissionResult.data[0],
+          _adjustmentForCommissionId: transactionUniqueId,
+        }
         : { ...record, commissionUniqueId: transactionUniqueId };
     }
   } catch {
@@ -273,10 +272,10 @@ const getuserBalanceByDateRange = async ({
           });
           TransactionData = commissionResult?.data?.[0]
             ? {
-                ...record,
-                ...commissionResult.data[0],
-                _adjustmentForCommissionId: transactionUniqueId,
-              }
+              ...record,
+              ...commissionResult.data[0],
+              _adjustmentForCommissionId: transactionUniqueId,
+            }
             : { ...record, commissionUniqueId: transactionUniqueId };
         }
       } catch {
@@ -433,9 +432,9 @@ const getUserBalanceByFilterServices = async (query, connection) => {
           });
           transactionDetails = commissionResult?.data?.[0]
             ? {
-                ...commissionResult.data[0],
-                _adjustmentForCommissionId: transactionUniqueId,
-              }
+              ...commissionResult.data[0],
+              _adjustmentForCommissionId: transactionUniqueId,
+            }
             : { commissionUniqueId: transactionUniqueId };
         }
       } catch {

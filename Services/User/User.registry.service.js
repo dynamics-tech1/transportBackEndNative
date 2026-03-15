@@ -7,7 +7,6 @@ const { updateData } = require("../../CRUD/Update/Data.update");
 const { insertData } = require("../../CRUD/Create/CreateData");
 const { currentDate } = require("../../Utils/CurrentDate");
 const bcrypt = require("bcryptjs");
-const logger = require("../../Utils/logger");
 const { usersRoles, USER_STATUS } = require("../../Utils/ListOfSeedData");
 const AppError = require("../../Utils/AppError");
 const { transactionStorage } = require("../../Utils/TransactionContext");
@@ -142,7 +141,7 @@ const registerNewUser = async ({
     }
   }
 
-  if (!authService) authService = require("./User.auth.service");
+  if (!authService) {authService = require("./User.auth.service");}
   return await authService.handleExistingUser({
     requestedFrom,
     user: userData,
@@ -165,7 +164,7 @@ const createUser = async (body) => {
       throw new AppError("Account has been deleted", 403);
     }
     
-    if (!authService) authService = require("./User.auth.service");
+    if (!authService) {authService = require("./User.auth.service");}
     return await authService.handleExistingUser({
       requestedFrom: "user",
       user,
@@ -194,9 +193,8 @@ const createUserByAdminOrSuperAdmin = async ({ body, userUniqueId }) => {
   });
 
   if (userDataByEmail?.[0]) {
-    const targetUid = userDataByEmail[0].userUniqueId;
-    await ensureCredentialForUser({ userUniqueId: targetUid });
-    await handleUserRoleStatus(targetUid, roleId, statusId, "");
+    await ensureCredentialForUser({ userUniqueId: userDataByEmail[0].userUniqueId });
+    await handleUserRoleStatus(userDataByEmail[0].userUniqueId, roleId, statusId, "");
     if (phoneNumber && userDataByEmail[0].phoneNumber !== phoneNumber) {
       throw new AppError("There is a difference in phone number", 409);
     }
@@ -209,7 +207,6 @@ const createUserByAdminOrSuperAdmin = async ({ body, userUniqueId }) => {
   });
 
   if (userDataByPhone?.[0]) {
-    const targetUid = userDataByPhone[0].userUniqueId;
     return {
       message: "success",
       data: "User already exists with this email address",

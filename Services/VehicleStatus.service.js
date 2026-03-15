@@ -1,5 +1,4 @@
 const { insertData } = require("../CRUD/Create/CreateData");
-const deleteData = require("../CRUD/Delete/DeleteData");
 const { getData } = require("../CRUD/Read/ReadData");
 const { updateData } = require("../CRUD/Update/Data.update");
 const { pool } = require("../Middleware/Database.config");

@@ -342,60 +342,60 @@ const updatePricingByUniqueId = async (
     if (updateData[field] !== undefined && updateData[field] !== null) {
       // Field-specific validation
       switch (field) {
-        case "price":
-          const price = parseFloat(updateData[field]);
-          if (isNaN(price)) {
-            validationErrors.push("price must be a valid number");
-          } else if (price < 0) {
-            validationErrors.push("price cannot be negative");
-          } else {
-            setClauses.push("price = ?");
-            values.push(price.toFixed(2));
-          }
-          break;
+      case "price":
+        const price = parseFloat(updateData[field]);
+        if (isNaN(price)) {
+          validationErrors.push("price must be a valid number");
+        } else if (price < 0) {
+          validationErrors.push("price cannot be negative");
+        } else {
+          setClauses.push("price = ?");
+          values.push(price.toFixed(2));
+        }
+        break;
 
-        case "durationInDays":
-          const duration = parseInt(updateData[field]);
-          if (isNaN(duration)) {
-            validationErrors.push("durationInDays must be a valid integer");
-          } else if (duration <= 0) {
-            validationErrors.push("durationInDays must be greater than 0");
-          } else {
-            setClauses.push("durationInDays = ?");
-            values.push(duration);
-          }
-          break;
+      case "durationInDays":
+        const duration = parseInt(updateData[field]);
+        if (isNaN(duration)) {
+          validationErrors.push("durationInDays must be a valid integer");
+        } else if (duration <= 0) {
+          validationErrors.push("durationInDays must be greater than 0");
+        } else {
+          setClauses.push("durationInDays = ?");
+          values.push(duration);
+        }
+        break;
 
-        case "effectiveFrom":
-        case "effectiveTo":
-          const dateValue = validateAndFormatDate(updateData[field]);
-          if (dateValue === false) {
-            validationErrors.push(
-              `${field} must be a valid date in YYYY-MM-DD format or ISO string`,
-            );
-          } else if (dateValue !== null) {
-            setClauses.push(`${field} = ?`);
-            values.push(dateValue);
-          }
-          break;
-
-        case "subscriptionPlanUniqueId":
+      case "effectiveFrom":
+      case "effectiveTo":
+        const dateValue = validateAndFormatDate(updateData[field]);
+        if (dateValue === false) {
+          validationErrors.push(
+            `${field} must be a valid date in YYYY-MM-DD format or ISO string`,
+          );
+        } else if (dateValue !== null) {
           setClauses.push(`${field} = ?`);
-          values.push(updateData[field]);
-          break;
+          values.push(dateValue);
+        }
+        break;
 
-        case "isFree":
-          const isFree =
+      case "subscriptionPlanUniqueId":
+        setClauses.push(`${field} = ?`);
+        values.push(updateData[field]);
+        break;
+
+      case "isFree":
+        const isFree =
             updateData[field] === true ||
             updateData[field] === 1 ||
             String(updateData[field]).toLowerCase() === "true";
-          setClauses.push("isFree = ?");
-          values.push(isFree ? 1 : 0);
-          break;
+        setClauses.push("isFree = ?");
+        values.push(isFree ? 1 : 0);
+        break;
 
-        default:
-          setClauses.push(`${field} = ?`);
-          values.push(updateData[field]);
+      default:
+        setClauses.push(`${field} = ?`);
+        values.push(updateData[field]);
       }
     }
   });

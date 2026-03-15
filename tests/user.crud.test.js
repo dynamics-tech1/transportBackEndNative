@@ -6,7 +6,6 @@
 "use strict";
 
 require("dotenv").config();
-const { v4: uuidv4 } = require("uuid");
 const { setup, request, auth, test, assert, printResults } = require("./testHelper");
 
 const state = {
@@ -16,6 +15,7 @@ const state = {
   roleId: 2, // Driver (from ListOfSeedData.js)
   userUniqueId: null,
   token: null,
+  adminToken: null, // Added adminToken to state
 };
 
 const userAuth = () => ({ Authorization: `Bearer ${state.token}` });
@@ -26,6 +26,14 @@ const userAuth = () => ({ Authorization: `Bearer ${state.token}` });
   console.log("╚══════════════════════════════════════════════╝\n");
 
   await setup();
+
+  // Get admin token for tests that require admin privileges
+  await test("Get Admin Token", async () => {
+    const adminAuthResult = await auth();
+    assert(adminAuthResult.Authorization, "Admin token not acquired");
+    state.adminToken = adminAuthResult.Authorization.split(" ")[1]; // Extract token string
+    return "Admin token acquired";
+  });
 
   // ── AUTHENTICATION FLOW ────────────────────────────────────────────────
   await test("Create User (Driver Sign-up)", async () => {
@@ -52,7 +60,7 @@ const userAuth = () => ({ Authorization: `Bearer ${state.token}` });
     // However, verifyUserByOTP currently checks the 'usersCredential' table.
     // Let's assume the test helper or environment allows us to bypass or we fetch it.
     const { pool } = require("../Middleware/Database.config");
-    const [rows] = await pool.query("SELECT OTP FROM usersCredential WHERE userUniqueId = ?", [state.userUniqueId]);
+    await pool.query("SELECT OTP FROM usersCredential WHERE userUniqueId = ?", [state.userUniqueId]);
     
     // Note: OTP in DB is hashed. But the controller/service compares it.
     // For testing purposes, we might need a way to set a known OTP if bcrypt hashing prevents easy retrieval.
@@ -123,14 +131,13 @@ const userAuth = () => ({ Authorization: `Bearer ${state.token}` });
   });
 
   await test("Verify user hidden after deletion", async () => {
-    const res = await request(
-      "GET",
-      `/api/admin/getUserByFilterDetailed?search=${state.phoneNumber}`,
-      null,
-      auth()
-    );
+    const res = await request("GET", `/api/admin/getUserByFilterDetailed?search=${state.phoneNumber}`, null, {
+      Authorization: `Bearer ${state.adminToken}`,
+    });
+    assert(res.status === 200, "Get users failed");
     // It should not be in the results if includeDeleted is not set
-    const found = res.body?.data?.find(u => u.user.userUniqueId === state.userUniqueId);
+    const data = res.body?.data || [];
+    const found = data.find(u => u.user.userUniqueId === state.userUniqueId);
     assert(!found, "Soft-deleted user still visible in admin filter");
     return "User correctly hidden from results";
   });

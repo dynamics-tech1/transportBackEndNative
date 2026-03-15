@@ -23,7 +23,7 @@ const getCancellationNotifications = async ({
 }) => {
   try {
     const offset = (page - 1) * limit;
-     // Build WHERE conditions
+    // Build WHERE conditions
     let whereConditions = [
       "PassengerRequest.userUniqueId = ?",
       "JourneyDecisions.journeyStatusId IN (?, ?)",
@@ -269,7 +269,7 @@ const markCancellationAsSeen = async ({
     }
 
     const passengerRequestId = journeyDecision?.[0]?.passengerRequestId;
-logger.debug("@passengerRequestId => "+ passengerRequestId+"\n@userUniqueId => "+ userUniqueId);
+    logger.debug("@passengerRequestId => "+ passengerRequestId+"\n@userUniqueId => "+ userUniqueId);
     // Verify the passenger request belongs to this user
     const passengerRequest = await getData({
       tableName: "PassengerRequest",

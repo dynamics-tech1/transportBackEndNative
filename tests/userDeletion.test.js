@@ -9,7 +9,6 @@
 
 const http  = require("http");
 const https = require("https");
-const { randomBytes } = require("crypto");
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 const BASE_URL          = process.env.BASE_URL          || "http://localhost:3000";
@@ -27,7 +26,7 @@ function request(method, path, body = null, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const bodyStr = body ? JSON.stringify(body) : null;
     const headers = { "Content-Type": "application/json", ...extraHeaders };
-    if (bodyStr) headers["Content-Length"] = Buffer.byteLength(bodyStr);
+    if (bodyStr) {headers["Content-Length"] = Buffer.byteLength(bodyStr);}
 
     const req = transport.request(
       {
@@ -47,7 +46,7 @@ function request(method, path, body = null, extraHeaders = {}) {
       },
     );
     req.on("error", reject);
-    if (bodyStr) req.write(bodyStr);
+    if (bodyStr) {req.write(bodyStr);}
     req.end();
   });
 }
@@ -72,7 +71,7 @@ async function step(name, fn) {
 }
 
 function assert(cond, msg) {
-  if (!cond) throw new Error(msg);
+  if (!cond) {throw new Error(msg);}
 }
 
 // ─── Main Logic ──────────────────────────────────────────────────────────────
@@ -165,7 +164,7 @@ async function run() {
     });
 
     console.log("\n\x1b[32m\x1b[1m🎉 ALL SECURITY CHECKS PASSED!\x1b[0m");
-  } catch (error) {
+  } catch {
     console.error("\n\x1b[31m\x1b[1m💥 TEST SUITE FAILED\x1b[0m");
     process.exit(1);
   }
