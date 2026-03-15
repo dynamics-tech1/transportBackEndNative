@@ -11,6 +11,7 @@ const {
 const logger = require("../../Utils/logger");
 const AppError = require("../../Utils/AppError");
 const { transactionStorage } = require("../../Utils/TransactionContext");
+const { executeInTransaction } = require("../../Utils/DatabaseTransaction");
 // verifyPassengerStatus removed - only available via API endpoint to reduce heavy operations
 const {
   handleWaitingRequest,
@@ -486,218 +487,228 @@ const getPassengerRequest4allOrSingleUser = async ({ data }) => {
  *   - journey: Journey row (if started/completed) or empty object
  */
 const getDetailedJourneyData = async (passengerRequests) => {
-  const { pool } = require("../../Middleware/Database.config");
- 
-  if (!passengerRequests || passengerRequests.length === 0) {return [];}
+  return await executeInTransaction(async () => {
+    const executor = transactionStorage.getStore() || pool;
 
-  // --- Step 1: Separate waiting PRs (no DB queries needed) from active ones ---
-  const waitingResults = [];
-  const activePRs = [];
-
-  for (const pr of passengerRequests) {
-    if (pr.journeyStatusId === journeyStatusMap.waiting) {
-      waitingResults.push({
-        passengerRequest: pr,
-        driverRequests: [],
-        decisions: [],
-        journey: {},
-      });
-    } else {
-      activePRs.push(pr);
+    if (!passengerRequests || passengerRequests.length === 0) {
+      return [];
     }
-  }
 
-  if (activePRs.length === 0) {return waitingResults;}
+    const waitingResults = [];
+    const activePRs = [];
 
-  // --- Step 2: Batch fetch all decisions for all active PRs (1 query) ---
-  // Build WHERE clause: (passengerRequestId = X AND journeyStatusId = Y) OR ...
-  const decisionConditions = activePRs.map(
-    () => "(JourneyDecisions.passengerRequestId = ? AND JourneyDecisions.journeyStatusId = ?)",
-  );
-  const decisionValues = activePRs.flatMap((pr) => [
-    pr.passengerRequestId,
-    pr.journeyStatusId,
-  ]);
-
-  const [allDecisions] = await pool.query(
-    `SELECT * FROM JourneyDecisions WHERE ${decisionConditions.join(" OR ")}`,
-    decisionValues,
-  );
-
-  // Group decisions by passengerRequestId
-  const decisionsByPR = new Map();
-  for (const d of allDecisions) {
-    if (!decisionsByPR.has(d.passengerRequestId)) {
-      decisionsByPR.set(d.passengerRequestId, []);
-    }
-    decisionsByPR.get(d.passengerRequestId).push(d);
-  }
-
-  // --- Step 3: Auto-correct stale PRs and separate results ---
-  const stalePRIds = []; // PRs to reset to waiting
-  const validPRs = []; // PRs with matching decisions
-
-  for (const pr of activePRs) {
-    const decisions = decisionsByPR.get(pr.passengerRequestId) || [];
-    if (decisions.length === 0) {
-      // No matching decisions — auto-correct to waiting
-      if (pr.journeyStatusId !== journeyStatusMap.waiting) {
-        stalePRIds.push(pr.passengerRequestId);
-      }
-    } else {
-      validPRs.push(pr);
-    }
-  }
-
-  // Batch update stale PRs to waiting (1 query if any)
-  if (stalePRIds.length > 0) {
-    await pool.query(
-      `UPDATE PassengerRequest SET journeyStatusId = ? WHERE passengerRequestId IN (?)`,
-      [journeyStatusMap.waiting, stalePRIds],
-    );
-  }
-
-  if (validPRs.length === 0) {return waitingResults;}
-
-  // --- Step 4: Batch fetch all driver requests + user info (1 query) ---
-  const allDriverRequestIds = allDecisions.map((d) => d.driverRequestId);
-  const uniqueDriverRequestIds = [...new Set(allDriverRequestIds)];
-
-  let driversByRequestId = new Map();
-  if (uniqueDriverRequestIds.length > 0) {
-    const [allDrivers] = await pool.query(
-      `SELECT DR.*, U.userId, U.fullName, U.phoneNumber, U.email,
-              U.userCreatedAt, U.userCreatedBy, U.userDeletedAt, U.userDeletedBy,
-              U.isDeleted
-       FROM DriverRequest DR
-       JOIN Users U ON DR.userUniqueId = U.userUniqueId
-       WHERE DR.driverRequestId IN (?)`,
-      [uniqueDriverRequestIds],
-    );
-
-    for (const dr of allDrivers) {
-      driversByRequestId.set(dr.driverRequestId, dr);
-    }
-  }
-
-  // --- Step 5: Batch fetch all vehicles (1 query) ---
-  const allDriverUserIds = [
-    ...new Set(
-      [...driversByRequestId.values()].map((dr) => dr.userUniqueId),
-    ),
-  ];
-
-  let vehiclesByDriver = new Map();
-  if (allDriverUserIds.length > 0) {
-    const [allVehicles] = await pool.query(
-      `SELECT V.*, VD.vehicleDriverId, VD.vehicleDriverUniqueId,
-              VD.driverUserUniqueId, VD.assignmentStatus, VD.assignmentStartDate,
-              VD.assignmentEndDate, VD.vehicleDriverCreatedBy, VD.vehicleDriverUpdatedBy,
-              VD.vehicleDriverDeletedBy, VD.vehicleDriverCreatedAt, VD.vehicleDriverUpdatedAt,
-              VD.vehicleDriverDeletedAt,
-              VT.vehicleTypeId, VT.vehicleTypeName, VT.vehicleTypeIconName,
-              VT.vehicleTypeDescription, VT.vehicleTypeCreatedBy, VT.vehicleTypeUpdatedBy,
-              VT.vehicleTypeDeletedBy, VT.carryingCapacity, VT.vehicleTypeUpdatedAt,
-              VT.vehicleTypeCreatedAt, VT.vehicleTypeDeletedAt
-       FROM Vehicle V
-       JOIN VehicleDriver VD ON V.vehicleUniqueId = VD.vehicleUniqueId
-       JOIN VehicleTypes VT ON V.vehicleTypeUniqueId = VT.vehicleTypeUniqueId
-       WHERE VD.driverUserUniqueId IN (?)`,
-      [allDriverUserIds],
-    );
-
-    for (const v of allVehicles) {
-      vehiclesByDriver.set(v.driverUserUniqueId, v);
-    }
-  }
-
-  // --- Step 6: Batch fetch all profile photos (1 query) ---
-  let photosByDriver = new Map();
-  if (allDriverUserIds.length > 0) {
-    const [allPhotos] = await pool.query(
-      `SELECT attachedDocumentCreatedByUserId, attachedDocumentName
-       FROM AttachedDocuments
-       WHERE attachedDocumentCreatedByUserId IN (?)
-         AND documentTypeId = ?
-       ORDER BY attachedDocumentId DESC`,
-      [allDriverUserIds, listOfDocumentsTypeAndId.profilePhoto],
-    );
-
-    // Take the latest photo per driver (first result due to DESC order)
-    for (const photo of allPhotos) {
-      if (!photosByDriver.has(photo.attachedDocumentCreatedByUserId)) {
-        photosByDriver.set(
-          photo.attachedDocumentCreatedByUserId,
-          photo.attachedDocumentName,
-        );
+    // --- Step 1: Pre-filter non-active PRs (no DB hit) ---
+    for (const pr of passengerRequests) {
+      if (
+        pr.journeyStatusId === journeyStatusMap.waiting ||
+        pr.journeyStatusId === journeyStatusMap.cancelledByPassenger ||
+        pr.journeyStatusId === journeyStatusMap.cancelledByDriver 
+       ) {
+        waitingResults.push({
+          passengerRequest: pr,
+          driverRequests: [],
+          decisions: [],
+          journey: {},
+        });
+      } else {
+        activePRs.push(pr);
       }
     }
-  }
 
-  // --- Step 7: Batch fetch journey data if needed (1 query) ---
-  const journeyStatuses = [
-    journeyStatusMap.journeyStarted,
-    journeyStatusMap.journeyCompleted,
-  ];
-  const prsNeedingJourney = validPRs.filter((pr) =>
-    journeyStatuses.includes(pr.journeyStatusId),
-  );
+    if (activePRs.length === 0) {
+      return waitingResults;
+    }
 
-  let journeyByDecisionUniqueId = new Map();
-  if (prsNeedingJourney.length > 0) {
-    const journeyDecisionUniqueIds = prsNeedingJourney
-      .map((pr) => {
-        const decisions = decisionsByPR.get(pr.passengerRequestId) || [];
-        return decisions[0]?.journeyDecisionUniqueId;
-      })
-      .filter(Boolean);
+    // --- Step 2: Batch fetch all decisions for all active PRs (1 query) ---
+    const decisionConditions = activePRs.map(
+      () =>
+        "(JourneyDecisions.passengerRequestId = ? AND JourneyDecisions.journeyStatusId = ?)",
+    );
+    const decisionValues = activePRs.flatMap((pr) => [
+      pr.passengerRequestId,
+      pr.journeyStatusId,
+    ]);
 
-    if (journeyDecisionUniqueIds.length > 0) {
-      const [allJourneys] = await pool.query(
-        `SELECT * FROM Journey WHERE journeyDecisionUniqueId IN (?)`,
-        [journeyDecisionUniqueIds],
+    const [allDecisions] = await executor.query(
+      `SELECT * FROM JourneyDecisions WHERE ${decisionConditions.join(" OR ")}`,
+      decisionValues,
+    );
+
+    // Group decisions by passengerRequestId
+    const decisionsByPR = new Map();
+    for (const d of allDecisions) {
+      if (!decisionsByPR.has(d.passengerRequestId)) {
+        decisionsByPR.set(d.passengerRequestId, []);
+      }
+      decisionsByPR.get(d.passengerRequestId).push(d);
+    }
+
+    // --- Step 3: Auto-correct stale PRs and separate results ---
+    const stalePRIds = []; // PRs to reset to waiting
+    const validPRs = []; // PRs with matching decisions
+
+    for (const pr of activePRs) {
+      const decisions = decisionsByPR.get(pr.passengerRequestId) || [];
+      if (decisions.length === 0) {
+        // No matching decisions — auto-correct to waiting
+        if (pr.journeyStatusId !== journeyStatusMap.waiting) {
+          stalePRIds.push(pr.passengerRequestId);
+        }
+      } else {
+        validPRs.push(pr);
+      }
+    }
+
+    // Batch update stale PRs to waiting (1 query if any)
+    if (stalePRIds.length > 0) {
+      await executor.query(
+        `UPDATE PassengerRequest SET journeyStatusId = ? WHERE passengerRequestId IN (?)`,
+        [journeyStatusMap.waiting, stalePRIds],
+      );
+    }
+
+    if (validPRs.length === 0) {
+      return waitingResults;
+    }
+
+    // --- Step 4: Batch fetch all driver requests + user info (1 query) ---
+    const allDriverRequestIds = allDecisions.map((d) => d.driverRequestId);
+    const uniqueDriverRequestIds = [...new Set(allDriverRequestIds)];
+
+    let driversByRequestId = new Map();
+    if (uniqueDriverRequestIds.length > 0) {
+      const [allDrivers] = await executor.query(
+        `SELECT DR.*, U.userId, U.fullName, U.phoneNumber, U.email,
+                U.userCreatedAt, U.userCreatedBy, U.userDeletedAt, U.userDeletedBy,
+                U.isDeleted
+         FROM DriverRequest DR
+         JOIN Users U ON DR.userUniqueId = U.userUniqueId
+         WHERE DR.driverRequestId IN (?)`,
+        [uniqueDriverRequestIds],
       );
 
-      for (const j of allJourneys) {
-        journeyByDecisionUniqueId.set(j.journeyDecisionUniqueId, j);
+      for (const dr of allDrivers) {
+        driversByRequestId.set(dr.driverRequestId, dr);
       }
     }
-  }
 
-  // --- Step 8: Assemble results (pure JS, no queries) ---
-  const activeResults = validPRs.map((pr) => {
-    const decisions = decisionsByPR.get(pr.passengerRequestId) || [];
+    // --- Step 5: Batch fetch all vehicles (1 query) ---
+    const allDriverUserIds = [
+      ...new Set([...driversByRequestId.values()].map((dr) => dr.userUniqueId)),
+    ];
 
-    const driverRequests = decisions
-      .map((decision) => {
-        const driver = driversByRequestId.get(decision.driverRequestId);
-        if (!driver) {return null;}
+    let vehiclesByDriver = new Map();
+    if (allDriverUserIds.length > 0) {
+      const [allVehicles] = await executor.query(
+        `SELECT V.*, VD.vehicleDriverId, VD.vehicleDriverUniqueId,
+                VD.driverUserUniqueId, VD.assignmentStatus, VD.assignmentStartDate,
+                VD.assignmentEndDate, VD.vehicleDriverCreatedBy, VD.vehicleDriverUpdatedBy,
+                VD.vehicleDriverDeletedBy, VD.vehicleDriverCreatedAt, VD.vehicleDriverUpdatedAt,
+                VD.vehicleDriverDeletedAt,
+                VT.vehicleTypeId, VT.vehicleTypeName, VT.vehicleTypeIconName,
+                VT.vehicleTypeDescription, VT.vehicleTypeCreatedBy, VT.vehicleTypeUpdatedBy,
+                VT.vehicleTypeDeletedBy, VT.carryingCapacity, VT.vehicleTypeUpdatedAt,
+                VT.vehicleTypeCreatedAt, VT.vehicleTypeDeletedAt
+         FROM Vehicle V
+         JOIN VehicleDriver VD ON V.vehicleUniqueId = VD.vehicleUniqueId
+         JOIN VehicleTypes VT ON V.vehicleTypeUniqueId = VT.vehicleTypeUniqueId
+         WHERE VD.driverUserUniqueId IN (?) AND VD.assignmentStatus = 'active'`,
+        [allDriverUserIds],
+      );
 
-        return {
-          ...driver,
-          vehicleOfDriver: vehiclesByDriver.get(driver.userUniqueId) || null,
-          driverProfilePhoto: photosByDriver.get(driver.userUniqueId) || null,
-        };
-      })
-      .filter(Boolean);
-
-    const useJourney = journeyStatuses.includes(pr.journeyStatusId);
-    let journey = {};
-    if (useJourney && decisions[0]?.journeyDecisionUniqueId) {
-      journey =
-        journeyByDecisionUniqueId.get(decisions[0].journeyDecisionUniqueId) ||
-        {};
+      for (const v of allVehicles) {
+        vehiclesByDriver.set(v.driverUserUniqueId, v);
+      }
     }
 
-    return {
-      passengerRequest: pr,
-      driverRequests,
-      decisions,
-      journey,
-    };
-  });
+    // --- Step 6: Batch fetch all profile photos (1 query) ---
+    let photosByDriver = new Map();
+    if (allDriverUserIds.length > 0) {
+      const [allPhotos] = await executor.query(
+        `SELECT attachedDocumentCreatedByUserId, attachedDocumentName
+         FROM AttachedDocuments
+         WHERE attachedDocumentCreatedByUserId IN (?)
+           AND documentTypeId = ?
+         ORDER BY attachedDocumentId DESC`,
+        [allDriverUserIds, listOfDocumentsTypeAndId.profilePhoto],
+      );
 
-  return [...waitingResults, ...activeResults];
+      // Take the latest photo per driver (first result due to DESC order)
+      for (const photo of allPhotos) {
+        if (!photosByDriver.has(photo.attachedDocumentCreatedByUserId)) {
+          photosByDriver.set(
+            photo.attachedDocumentCreatedByUserId,
+            photo.attachedDocumentName,
+          );
+        }
+      }
+    }
+
+    // --- Step 7: Batch fetch journey data if needed (1 query) ---
+    const journeyStatuses = [
+      journeyStatusMap.journeyStarted,
+      journeyStatusMap.journeyCompleted,
+    ];
+    const prsNeedingJourney = validPRs.filter((pr) =>
+      journeyStatuses.includes(pr.journeyStatusId),
+    );
+
+    let journeyByDecisionUniqueId = new Map();
+    if (prsNeedingJourney.length > 0) {
+      const journeyDecisionUniqueIds = prsNeedingJourney
+        .map((pr) => {
+          const decisions = decisionsByPR.get(pr.passengerRequestId) || [];
+          return decisions[0]?.journeyDecisionUniqueId;
+        })
+        .filter(Boolean);
+
+      if (journeyDecisionUniqueIds.length > 0) {
+        const [allJourneys] = await executor.query(
+          `SELECT * FROM Journey WHERE journeyDecisionUniqueId IN (?)`,
+          [journeyDecisionUniqueIds],
+        );
+
+        for (const j of allJourneys) {
+          journeyByDecisionUniqueId.set(j.journeyDecisionUniqueId, j);
+        }
+      }
+    }
+
+    // --- Step 8: Assemble results (pure JS, no queries) ---
+    const activeResults = validPRs.map((pr) => {
+      const decisions = decisionsByPR.get(pr.passengerRequestId) || [];
+
+      const driverRequests = decisions
+        .map((decision) => {
+          const driver = driversByRequestId.get(decision.driverRequestId);
+          if (!driver) {return null;}
+
+          return {
+            ...driver,
+            vehicleOfDriver: vehiclesByDriver.get(driver.userUniqueId) || null,
+            driverProfilePhoto: photosByDriver.get(driver.userUniqueId) || null,
+          };
+        })
+        .filter(Boolean);
+
+      const useJourney = journeyStatuses.includes(pr.journeyStatusId);
+      let journey = {};
+      if (useJourney && decisions[0]?.journeyDecisionUniqueId) {
+        journey =
+          journeyByDecisionUniqueId.get(decisions[0].journeyDecisionUniqueId) ||
+          {};
+      }
+
+      return {
+        passengerRequest: pr,
+        driverRequests,
+        decisions,
+        journey,
+      };
+    });
+
+    return [...waitingResults, ...activeResults];
+  });
 };
 
 /**
