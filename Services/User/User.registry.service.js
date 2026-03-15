@@ -184,7 +184,7 @@ const createUser = async (body) => {
   });
 };
 
-const createUserByAdminOrSuperAdmin = async ({ body, userUniqueId }) => {
+const createUserByAdminOrSuperAdmin = async ({ body, userUniqueId,userRoleStatusDescription }) => {
   const { fullName, phoneNumber, email, roleId, statusId } = body;
   
   const userDataByEmail = await getData({

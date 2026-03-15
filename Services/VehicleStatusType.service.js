@@ -19,7 +19,7 @@ const createVehicleStatusType = async (data) => {
 
   const registeredType = await getData({
     tableName: "VehicleStatusTypes",
-    conditions: { VehicleStatusTypeName: statusTypeName, isDeleted: 0 },
+    conditions: { VehicleStatusTypeName: statusTypeName, VehicleStatusTypeDeletedAt: null },
   });
 
   if (registeredType?.length) {
@@ -49,7 +49,7 @@ const getAllVehicleStatusTypes = async (filters = {}) => {
   const limitNum = Number(limit) || 10;
   const offset = (pageNum - 1) * limitNum;
 
-  const where = ["isDeleted = 0"];
+  const where = ["VehicleStatusTypeDeletedAt IS NULL"];
   const params = [];
 
   if (vehicleStatusTypeUniqueId) {
@@ -112,7 +112,6 @@ const deleteVehicleStatusType = async (vehicleStatusTypeUniqueId) => {
     tableName: "VehicleStatusTypes",
     conditions: { vehicleStatusTypeUniqueId },
     updateValues: {
-      isDeleted: 1,
       VehicleStatusTypeDeletedAt: currentDate(),
     },
   });
