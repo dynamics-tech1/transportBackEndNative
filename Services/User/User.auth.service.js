@@ -39,7 +39,7 @@ const handleExistingUser = async ({
     throw new AppError("wrong user data", 400);
   }
 
-  // Update fullName if user.fullName is not provided , but fullName is provided and different to user.fullName (e.g., existing passenger without name now registering as driver)
+  // Update fullName if user.fullName is not provided before, but now fullName is provided and different to previous user.fullName (e.g., existing passenger without name now registering as driver)
   if (!user.fullName && fullName && user.fullName !== fullName) {
     await updateData({
       tableName: "Users",
