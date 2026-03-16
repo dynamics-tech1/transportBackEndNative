@@ -203,12 +203,17 @@ const createUserByAdminOrSuperAdmin = async ({ body, userUniqueId,userRoleStatus
     return { message: "success", data: "User already exists with this email address" };
   }
 
+  const userDataByPhoneNumber = await getData({
+    tableName: "Users",
+    conditions: { phoneNumber },
+  });
+
   if (userDataByPhoneNumber?.[0]) {
     const existingUser = userDataByPhoneNumber[0];
     const existingUserUniqueId = existingUser.userUniqueId;
 
-    // Update fullName if provided and different
-    if (fullName && existingUser.fullName !== fullName) {
+    // Update fullName if user.fullName is not provided before, but now fullName is provided and different
+    if (!existingUser.fullName && fullName && existingUser.fullName !== fullName) {
       await updateData({
         tableName: "Users",
         updateValues: { fullName },
