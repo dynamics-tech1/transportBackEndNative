@@ -1,5 +1,6 @@
 const axios = require("axios");
  const jwt = require("jsonwebtoken");
+ const crypto = require("crypto");
  const logger = require("./logger");
 
 /**
@@ -67,9 +68,21 @@ function getSantimPayClient() {
   // Handle literal backticks or quotes and ensure proper PEM formatting
   const formattedPrivateKey = privateKey.replace(/[`"]/g, "").trim();
 
+  // Derive public key from private key for webhook verification
+  let publicKey;
+  try {
+    publicKey = crypto.createPublicKey(formattedPrivateKey).export({
+      type: "spki",
+      format: "pem",
+    });
+  } catch (err) {
+    logger.error("Failed to derive public key from SantimPay private key", { error: err.message });
+  }
+
   return {
     merchantId,
     privateKey: formattedPrivateKey,
+    publicKey,
     baseUrl,
   };
 }
@@ -195,9 +208,48 @@ async function checkTransactionStatus(id) {
   }
 }
 
+/**
+ * Verifies the SantimPay webhook signed-token.
+ * @param {string} token - The Signed-Token from header.
+ * @param {Object} body - The webhook POST body.
+ * @returns {boolean} - True if valid, false otherwise.
+ */
+function verifyWebhookToken(token, body) {
+  try {
+    const client = getSantimPayClient();
+    if (!client.publicKey) {
+      logger.error("Public key not available for webhook verification");
+      return false;
+    }
+
+    // Verify signature using the derived public key
+    const decoded = jwt.verify(token, client.publicKey, { algorithms: ["ES256"] });
+
+    // Ensure the payload matches the body (anti-forgery)
+    // SantimPay token payload mirrors the body fields
+    const payload = typeof decoded === 'string' ? JSON.parse(decoded) : decoded;
+    
+    // Check critical fields match
+    const matches = 
+      payload.txnId === body.txnId &&
+      parseFloat(payload.amount) === parseFloat(body.amount) &&
+      payload.status === body.Status;
+
+    if (!matches) {
+       logger.warn("Webhook token payload does not match body", { payload, body });
+    }
+
+    return matches;
+  } catch (error) {
+    logger.error("Webhook token verification failed", { error: error.message });
+    return false;
+  }
+}
+
 module.exports = {
   generatePaymentUrl,
   checkTransactionStatus,
+  verifyWebhookToken,
   getSantimPayClient, // Exported for testing
-  signES256,          // Exported for testing
+  signES256, // Exported for testing
 };

@@ -813,8 +813,18 @@ const initiateSantimPayPaymentService = async ({
   };
 };
 
-const handleSantimPayWebhookService = async ({ webhookData }) => {
- 
+const handleSantimPayWebhookService = async ({ webhookData, signedToken }) => {
+  const { verifyWebhookToken } = require("../Utils/SantimPayService");
+
+  // 1. Verify the webhook token for security
+  if (!signedToken) {
+    throw new AppError("Missing Signed-Token header", 401);
+  }
+
+  if (!verifyWebhookToken(signedToken, webhookData)) {
+    throw new AppError("Invalid webhook signature", 401);
+  }
+
   const { txnId, thirdPartyId, Status, amount, paymentVia, message } =
     webhookData;
 
