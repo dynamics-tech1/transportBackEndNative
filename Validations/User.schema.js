@@ -23,7 +23,11 @@ exports.createUser = Joi.object({
     .valid(usersRoles.passengerRoleId, usersRoles.driverRoleId)
     .required(),
   statusId: Joi.number().integer().default(USER_STATUS.ACTIVE), // Default to 1 (active status) if not provided
-  fullName: Joi.string().optional(),
+  fullName: Joi.string().when("roleId", {
+    is: usersRoles.driverRoleId,
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
   email: emailSchema,
   userRoleStatusDescription: Joi.string().optional(),
   requestedFrom: Joi.string().optional(),

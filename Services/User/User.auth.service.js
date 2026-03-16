@@ -22,18 +22,44 @@ const { getPricingWithFilters } = require("../SubscriptionPlanPricing.service");
 let manageService;
 let registryService;
 
-const handleExistingUser = async ({ requestedFrom, user, roleId, statusId, userRoleStatusDescription = "no description" }) => {
-  if (!registryService) {registryService = require("./User.registry.service");}
-  
+const handleExistingUser = async ({
+  requestedFrom,
+  user,
+  fullName,
+  roleId,
+  statusId,
+  userRoleStatusDescription = "no description",
+}) => {
+  if (!registryService) {
+    registryService = require("./User.registry.service");
+  }
+
   const userUniqueId = user.userUniqueId;
-  if (!userUniqueId) {throw new AppError("wrong user data", 400);}
+  if (!userUniqueId) {
+    throw new AppError("wrong user data", 400);
+  }
+
+  // Update fullName if provided and different (e.g., existing passenger without name now registering as driver)
+  if (fullName && user.fullName !== fullName) {
+    await updateData({
+      tableName: "Users",
+      updateValues: { fullName },
+      conditions: { userUniqueId },
+    });
+    user.fullName = fullName; // Update local object for JWT/response
+  }
 
   const OTP = Math.floor(100000 + Math.random() * 900000);
   const hashedOTP = await bcrypt.hash(String(OTP), 10);
 
   const [credential] = await Promise.all([
     getData({ tableName: "usersCredential", conditions: { userUniqueId } }),
-    registryService.handleUserRoleStatus(userUniqueId, roleId, statusId, userRoleStatusDescription),
+    registryService.handleUserRoleStatus(
+      userUniqueId,
+      roleId,
+      statusId,
+      userRoleStatusDescription,
+    ),
   ]);
 
   if (credential?.length === 0) {

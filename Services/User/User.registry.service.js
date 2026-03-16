@@ -168,8 +168,10 @@ const createUser = async (body) => {
     return await authService.handleExistingUser({
       requestedFrom: "user",
       user,
+      fullName,
       roleId,
       statusId,
+      userRoleStatusDescription,
     });
   }
 
@@ -201,14 +203,18 @@ const createUserByAdminOrSuperAdmin = async ({ body, userUniqueId,userRoleStatus
     return { message: "success", data: "User already exists with this email address" };
   }
 
-  const userDataByPhoneNumber = await getData({
-    tableName: "Users",
-    conditions: { phoneNumber },
-  });
-
   if (userDataByPhoneNumber?.[0]) {
     const existingUser = userDataByPhoneNumber[0];
     const existingUserUniqueId = existingUser.userUniqueId;
+
+    // Update fullName if provided and different
+    if (fullName && existingUser.fullName !== fullName) {
+      await updateData({
+        tableName: "Users",
+        updateValues: { fullName },
+        conditions: { userUniqueId: existingUserUniqueId },
+      });
+    }
     
     // Ensure the user is registered for the new role and status
     await handleUserRoleStatus(

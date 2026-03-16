@@ -11,7 +11,7 @@ const ServerResponder = require("../Utils/ServerResponder");
 const { usersRoles } = require("../Utils/ListOfSeedData");
 const AppError = require("../Utils/AppError");
 const { executeInTransaction } = require("../Utils/DatabaseTransaction");
-
+//in create user fullname must be existe for driver roles.
 const createUser = async (req, res, next) => {
   try {
     const response = await executeInTransaction(async () => {
