@@ -45,7 +45,9 @@ const formatPhoneNumberForSantim = (phoneNumber) => {
  * Sign payload with ES256 algorithm
  */
 function signES256(payload, privateKey) {
-  return jwt.sign(JSON.stringify(payload), privateKey, { algorithm: "ES256" });
+  // SantimPay requires the payload to be a stringified JSON object before signing
+  const stringifiedPayload = typeof payload === 'string' ? payload : JSON.stringify(payload);
+  return jwt.sign(stringifiedPayload, privateKey, { algorithm: "ES256" });
 }
 
 /**
@@ -62,8 +64,8 @@ function getSantimPayClient() {
     );
   }
 
-  // Handle literal backticks from .env
-  const formattedPrivateKey = privateKey.replace(/`/g, "").trim();
+  // Handle literal backticks or quotes and ensure proper PEM formatting
+  const formattedPrivateKey = privateKey.replace(/[`"]/g, "").trim();
 
   return {
     merchantId,
@@ -75,12 +77,12 @@ function getSantimPayClient() {
 /**
  * Generate signed token for initiate payment
  */
-function generateSignedTokenForInitiatePayment(amount, paymentReason, client) {
+function generateSignedTokenForInitiatePayment(amount, reason, client) {
   const payload = {
     amount: parseFloat(amount),
-    paymentReason,
+    paymentReason: reason,
     merchantId: client.merchantId,
-    generated: null,
+    generated: Math.floor(Date.now() / 1000),
   };
   return signES256(payload, client.privateKey);
 }
@@ -123,7 +125,7 @@ async function generatePaymentUrl(id, amount, paymentReason, phoneNumber = "") {
       paymentReason,
       client,
     );
-
+logger.info("Generated Token:", token); 
     const payload = {
       id,
       amount: parseFloat(amount),
@@ -196,4 +198,6 @@ async function checkTransactionStatus(id) {
 module.exports = {
   generatePaymentUrl,
   checkTransactionStatus,
+  getSantimPayClient, // Exported for testing
+  signES256,          // Exported for testing
 };
