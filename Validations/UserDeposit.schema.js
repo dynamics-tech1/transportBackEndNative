@@ -43,7 +43,11 @@ exports.updateDepositStatus = Joi.object({
 
 exports.initiateSantimPay = Joi.object({
   depositAmount: Joi.number().min(1).required(),
-  // user info comes from token
+});
+
+exports.getSignedToken = Joi.object({
+  depositAmount: Joi.number().min(1).required(),
+  reason: Joi.string().optional(),
 }).unknown(true);
 
 exports.getDepositQuery = Joi.object({

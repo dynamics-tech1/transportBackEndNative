@@ -145,3 +145,12 @@ exports.handleSantimPayWebhook = async (req, res) => {
     );
   }
 };
+
+exports.getSignedToken = async (req, res, next) => {
+  try {
+    const result = await service.getSignedTokenService(req.body);
+    ServerResponder(res, result);
+  } catch (error) {
+    next(error);
+  }
+};

@@ -813,6 +813,34 @@ const initiateSantimPayPaymentService = async ({
   };
 };
 
+/**
+ * Generates a signed token for SantimPay checkout.
+ * 
+ * @param {Object} params - The parameters.
+ * @param {number|string} params.depositAmount - The amount to deposit.
+ * @param {string} [params.reason] - Optional reason for payment.
+ * @returns {Promise<Object>} - Object containing the signed token.
+ */
+const getSignedTokenService = async ({ depositAmount, reason }) => {
+  const { getSantimPayClient, generateSignedTokenForInitiatePayment } = require("../Utils/SantimPayService");
+  
+  const client = getSantimPayClient();
+  const paymentReason = reason || `Driver Deposit - ${depositAmount} ETB`;
+  
+  const token = generateSignedTokenForInitiatePayment(
+    depositAmount,
+    paymentReason,
+    client
+  );
+
+  return {
+    signedToken: token,
+    merchantId: client.merchantId,
+    amount: parseFloat(depositAmount),
+    reason: paymentReason
+  };
+};
+
 const handleSantimPayWebhookService = async ({ webhookData, signedToken }) => {
   const { verifyWebhookToken } = require("../Utils/SantimPayService");
 
@@ -929,5 +957,6 @@ module.exports = {
   updateUserDepositByUniqueId,
   deleteUserDepositByUniqueId,
   initiateSantimPayPaymentService,
+  getSignedTokenService,
   handleSantimPayWebhookService,
 };

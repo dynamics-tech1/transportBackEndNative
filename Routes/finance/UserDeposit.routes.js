@@ -11,6 +11,7 @@ const {
   updateUserDeposit,
   depositParams,
   initiateSantimPay,
+  getSignedToken,
   getDepositQuery,
 } = require("../../Validations/UserDeposit.schema");
 
@@ -53,6 +54,14 @@ router.post(
   verifyTokenOfAxios,
   validator(initiateSantimPay),
   controller.initiateSantimPayPayment,
+);
+
+// Get Signed Token for SantimPay
+router.post(
+  "/getSignedToken",
+  verifyTokenOfAxios,
+  validator(getSignedToken),
+  controller.getSignedToken,
 );
 
 // SantimPay webhook (no auth required - SantimPay calls this)

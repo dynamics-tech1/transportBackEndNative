@@ -132,13 +132,23 @@ async function generatePaymentUrl(id, amount, paymentReason, phoneNumber = "") {
         "SANTIMPAY_SUCCESS_REDIRECT_URL,SANTIMPAY_FAILURE_REDIRECT_URL,SANTIMPAY_CANCEL_REDIRECT_URL, and SANTIMPAY_WEBHOOK_URL are required",
       );
     }
-
-    const token = generateSignedTokenForInitiatePayment(
+    console.log("@client above token ", client);
+    let token=null
+try {
+    token = generateSignedTokenForInitiatePayment(
       amount,
       paymentReason,
       client,
     );
-logger.info("Generated Token:", token); 
+
+} catch (error) {
+  console.log("@Error generating token", {
+          message: error.message,
+            response: error?.response?.data,
+              code: error.code, })
+  
+}
+console.log("Generated Token:", token,"@client",client); 
     const payload = {
       id,
       amount: parseFloat(amount),
@@ -158,18 +168,35 @@ logger.info("Generated Token:", token);
       }
     }
 
+try {
+
     const response = await axios.post(
       `${client.baseUrl}/initiate-payment`,
       payload,
     );
+
 
     if (response.status === 200 && response.data.url) {
       return response.data.url;
     } else {
       throw new Error("Failed to initiate payment: Invalid response");
     }
+  
+} catch (error) {
+  console.log("@payload", payload);
+  console.log("@Error generating payment url /initiate-payment", {
+        message: error.message,
+        response: error?.response?.data,
+        code: error.code,
+      });
+      if (error?.response && error?.response?.data) {
+        throw error?.response?.data;
+      }
+      throw error;
+  
+}
   } catch (error) {
-    logger.error("Error generating payment url", {
+console.log("@Error generating payment url", {
       message: error.message,
       response: error?.response?.data,
       code: error.code,
@@ -251,5 +278,6 @@ module.exports = {
   checkTransactionStatus,
   verifyWebhookToken,
   getSantimPayClient, // Exported for testing
+  generateSignedTokenForInitiatePayment, // Exported for use in other services
   signES256, // Exported for testing
 };
