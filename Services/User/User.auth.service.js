@@ -2,6 +2,7 @@
 
 const { sendSms } = require("../../Utils/smsSender");
 const { sendEmail } = require("../../Utils/emailSender");
+const { getOtpMessage } = require("../../Utils/MessageTemplates");
 const createJWT = require("../../Utils/CreateJWT");
 const { currentDate } = require("../../Utils/CurrentDate");
 const bcrypt = require("bcryptjs");
@@ -95,12 +96,12 @@ const handleExistingUser = async ({
       deferredOTP = OTP;
     } else {
       try {
-        const smsMsg = `Your OTP for ${requestedFrom} login is ${OTP}. Do not share it.`;
-        const smsResult = await sendSms(user.phoneNumber, smsMsg);
+        const msgMatch = getOtpMessage(OTP, requestedFrom === "user" ? "login" : "registration");
+        const smsResult = await sendSms(user.phoneNumber, msgMatch.sms);
         
         // Also send email if available
         if (user.email) {
-          await sendEmail(user.email, `Login OTP for ${requestedFrom}`, smsMsg);
+          await sendEmail(user.email, msgMatch.emailSubject, msgMatch.sms, msgMatch.emailHtml);
         }
 
         otpDetail = (smsResult.status === "success" || smsResult.message === "success") 
@@ -178,13 +179,20 @@ const loginUser = async (phoneNumber, roleId, email = null) => {
 };
 
 const verifyUserByOTP = async (req) => {
-  const { phoneNumber, OTP, roleId } = req.body;
-  if (!OTP || !phoneNumber) {throw new AppError("OTP and phoneNumber are required", 400);}
+  const { phoneNumber, email, OTP, roleId } = req.body;
+  if (!OTP || (!phoneNumber && !email)) {
+    throw new AppError("OTP and identity (phone/email) are required", 400);
+  }
+
+  const conditions = {};
+  if (phoneNumber) conditions.phoneNumber = phoneNumber;
+  if (email) conditions.email = email;
 
   const verifyUserExistence = await performJoinSelect({
     baseTable: "Users",
     joins: [{ table: "usersCredential", on: "Users.userUniqueId = usersCredential.userUniqueId" }],
-    conditions: { phoneNumber },
+    conditions,
+    limit: 1,
   });
 
   if (!verifyUserExistence || verifyUserExistence.length === 0) {throw new AppError("user not found", 404);}

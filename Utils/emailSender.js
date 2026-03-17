@@ -9,7 +9,7 @@ const logger = require("./logger");
  * @param {string} body - Email body content
  * @returns {Promise<Object>} Status of the operation
  */
-const sendEmail = async (to, subject, body) => {
+const sendEmail = async (to, subject, body, html = null) => {
   try {
     if (!to) {
       logger.warn("Attempted to send email without recipient address");
@@ -21,7 +21,7 @@ const sendEmail = async (to, subject, body) => {
     const port = process.env.SMTP_PORT || 587;
     const user = process.env.SMTP_USER;
     const pass = process.env.SMTP_PASS;
-    const from = process.env.SMTP_FROM || `"OTP Service" <${user}>`;
+    const from = process.env.SMTP_FROM || `"Dynamics Transport" <${user}>`;
 
     // Fallback if not configured
     if (!host || !user || !pass) {
@@ -53,7 +53,7 @@ const sendEmail = async (to, subject, body) => {
       to,
       subject,
       text: body,
-      // html: `<b>${body}</b>`, // Optional: add HTML support later
+      html: html || body, // Prefer HTML if provided
     });
 
     logger.info("📧 [EMAIL SENT]", {

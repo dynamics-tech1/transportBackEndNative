@@ -9,6 +9,7 @@ const services = require("../Services/User.service");
 const { uploadToFTP } = require("../Utils/FTPHandler");
 const ServerResponder = require("../Utils/ServerResponder");
 const { usersRoles } = require("../Utils/ListOfSeedData");
+const { getOtpMessage } = require("../Utils/MessageTemplates");
 const AppError = require("../Utils/AppError");
 const { executeInTransaction } = require("../Utils/DatabaseTransaction");
 //in create user fullname must be existe for driver roles.
@@ -23,17 +24,17 @@ const createUser = async (req, res, next) => {
       const { sendSms } = require("../Utils/smsSender");
       const { sendEmail } = require("../Utils/emailSender");
       const { phoneNumber, email } = response.data || {};
-      const smsMsg = `Your OTP for user account is ${response.deferredOTP}. Do not share it.`;
+      const msgMatch = getOtpMessage(response.deferredOTP, "registration");
 
       if (phoneNumber) {
-        sendSms(phoneNumber, null, smsMsg).catch((err) => {
+        sendSms(phoneNumber, null, msgMatch.sms).catch((err) => {
           const logger = require("../Utils/logger");
           logger.warn("Deferred SMS sending failed", { phoneNumber, error: err.message });
         });
       }
 
       if (email) {
-        sendEmail(email, "Your Registration OTP", smsMsg).catch((err) => {
+        sendEmail(email, msgMatch.emailSubject, msgMatch.sms, msgMatch.emailHtml).catch((err) => {
           const logger = require("../Utils/logger");
           logger.warn("Deferred Email sending failed", { email, error: err.message });
         });

@@ -16,7 +16,11 @@ const OTPSchema = Joi.alternatives()
   .required();
 
 exports.createUser = Joi.object({
-  phoneNumber: phoneNumberSchema.required(),
+  phoneNumber: Joi.when("roleId", {
+    is: usersRoles.driverRoleId,
+    then: phoneNumberSchema.required(),
+    otherwise: phoneNumberSchema.optional(),
+  }),
   // register only 1 shipper/passengerDocumentRequirement and 2 driver
   roleId: Joi.number()
     .integer()
@@ -28,7 +32,11 @@ exports.createUser = Joi.object({
     then: Joi.required(),
     otherwise: Joi.optional(),
   }),
-  email: emailSchema,
+  email: Joi.when("phoneNumber", {
+    is: Joi.exist(),
+    then: emailSchema,
+    otherwise: emailSchema.required(), // Require email if phone is missing
+  }),
   userRoleStatusDescription: Joi.string().optional(),
   requestedFrom: Joi.string().optional(),
   // Add other fields as necessary from User.service.js
@@ -37,7 +45,11 @@ exports.createUser = Joi.object({
 exports.createUserByAdmin = Joi.object({
   fullName: Joi.string().required(),
   email: emailSchema,
-  phoneNumber: phoneNumberSchema.required(),
+  phoneNumber: phoneNumberSchema.when("roleId", {
+    is: usersRoles.driverRoleId,
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
   roleId: Joi.number()
     .integer()
     .valid(
@@ -48,10 +60,13 @@ exports.createUserByAdmin = Joi.object({
     )
     .required(),
   // ... other fields
-}).unknown(true);
+})
+  .or("phoneNumber", "email") // Require at least one
+  .unknown(true);
 
 exports.loginUser = Joi.object({
-  phoneNumber: phoneNumberSchema.required(),
+  phoneNumber: phoneNumberSchema.optional(),
+  email: emailSchema,
   roleId: Joi.number()
     .integer()
     .valid(
@@ -63,10 +78,11 @@ exports.loginUser = Joi.object({
       usersRoles.systemRoleId,
     )
     .required(),
-});
+}).or("phoneNumber", "email"); // Require at least one
 
 exports.verifyUserByOTP = Joi.object({
-  phoneNumber: phoneNumberSchema.required(),
+  phoneNumber: phoneNumberSchema.optional(),
+  email: emailSchema,
   OTP: OTPSchema,
   roleId: Joi.number()
     .integer()
@@ -79,7 +95,9 @@ exports.verifyUserByOTP = Joi.object({
       usersRoles.systemRoleId,
     )
     .optional(),
-}).unknown(true); // might have firebase tokens etc
+})
+  .or("phoneNumber", "email") // Require at least one
+  .unknown(true); // might have firebase tokens etc
 
 exports.updateUser = Joi.object({
   // Allows updating fields
