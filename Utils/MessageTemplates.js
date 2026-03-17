@@ -25,15 +25,12 @@ const getOtpMessage = (otp, type = "login") => {
           <h1 style="color: #2c3e50; margin: 0; font-size: 24px;">${brand}</h1>
         </div>
         
-        <div style="background-color: #f8fbff; padding: 40px; border-radius: 12px; text-align: center; border: 1px solid #edf2f7;">
+        <div style="background-color: #f8fbff; padding: 30px 5%; border-radius: 12px; text-align: center; border: 1px solid #edf2f7;">
           <p style="font-size: 16px; color: #4a5568; margin-bottom: 20px;">Use the verification code below for your <strong>${action}</strong>:</p>
           
-          <div style="background: #ffffff; border-radius: 8px; display: inline-block; border: 2px dashed #cbd5e0; padding: 10px 20px; margin: 10px 0;">
-            <span style="font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #2b6cb0; user-select: all; -webkit-user-select: all; -moz-user-select: all; -ms-user-select: all;" title="Click to select all">${otp}</span>
-            <img src="${copyIcon}" alt="Copy" style="width: 20px; height: 20px; margin-left: 10px; vertical-align: middle; opacity: 0.6;" />
+          <div style="background: #ffffff; border-radius: 8px; border: 2px dashed #cbd5e0; padding: 15px 10px; margin: 15px auto; max-width: 240px;">
+            <span style="font-size: 32px; font-weight: 800; letter-spacing: 6px; color: #2b6cb0; user-select: all; -webkit-user-select: all; -moz-user-select: all; -ms-user-select: all;">${otp}</span>
           </div>
-          
-          <p style="font-size: 12px; color: #a0aec0; margin-top: 5px;">(Tap the code to select and copy)</p>
           
           <div style="margin-top: 25px; padding: 15px; background-color: #fffaf0; border-left: 4px solid #ed8936; text-align: left;">
             <p style="font-size: 14px; color: #7b341e; margin: 0; line-height: 1.5;">
