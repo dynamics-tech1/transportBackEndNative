@@ -3,9 +3,9 @@
  */
 
 const getOtpMessage = (otp, type = "login") => {
-  const brand = "Dynamics Transport";
+  const brand = process.env.BRAND_NAME
   const action = type === "registration" ? "account registration" : "secure login";
-  const supportPhone = "+251983222221";
+  const supportPhone =process.env.SUPPORT_PHONE_NUMBER
   const supportPhoneClean = supportPhone.replace(/\+/g, "");
   const whatsappLink = `https://wa.me/${supportPhoneClean}`;
   const telegramLink = `https://t.me/${supportPhone}`;
@@ -13,9 +13,10 @@ const getOtpMessage = (otp, type = "login") => {
   // Icon URLs (Common CDNs)
   const whatsappIcon = "https://cdn-icons-png.flaticon.com/512/733/733585.png";
   const telegramIcon = "https://cdn-icons-png.flaticon.com/512/2111/2111646.png";
+  const copyIcon = "https://cdn-icons-png.flaticon.com/512/1621/1621635.png";
   
   return {
-    sms: `Your ${brand} OTP for ${action} is: ${otp}. Valid for 10 minutes. Do not share this code.`,
+    sms: `Dear user, your ${brand} code is: ${otp}. For your security, please do not share this with anyone. Sharing this code could give others access to your account and data.`,
     emailSubject: `${otp} is your ${brand} verification code`,
     emailHtml: `
       <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px; background-color: #ffffff;">
@@ -26,8 +27,19 @@ const getOtpMessage = (otp, type = "login") => {
         
         <div style="background-color: #f8fbff; padding: 40px; border-radius: 12px; text-align: center; border: 1px solid #edf2f7;">
           <p style="font-size: 16px; color: #4a5568; margin-bottom: 20px;">Use the verification code below for your <strong>${action}</strong>:</p>
-          <div style="font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #2b6cb0; margin: 20px 0; padding: 15px; background: #ffffff; border-radius: 8px; display: inline-block; border: 2px dashed #cbd5e0;">${otp}</div>
-          <p style="font-size: 14px; color: #718096; margin-top: 20px;">Safe & Secure: This code will expire in 10 minutes.</p>
+          
+          <div style="background: #ffffff; border-radius: 8px; display: inline-block; border: 2px dashed #cbd5e0; padding: 10px 20px; margin: 10px 0;">
+            <span style="font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #2b6cb0; user-select: all; -webkit-user-select: all; -moz-user-select: all; -ms-user-select: all;" title="Click to select all">${otp}</span>
+            <img src="${copyIcon}" alt="Copy" style="width: 20px; height: 20px; margin-left: 10px; vertical-align: middle; opacity: 0.6;" />
+          </div>
+          
+          <p style="font-size: 12px; color: #a0aec0; margin-top: 5px;">(Tap the code to select and copy)</p>
+          
+          <div style="margin-top: 25px; padding: 15px; background-color: #fffaf0; border-left: 4px solid #ed8936; text-align: left;">
+            <p style="font-size: 14px; color: #7b341e; margin: 0; line-height: 1.5;">
+              <strong>Important Security Note:</strong> Please do not share this code with anyone, including Dynamics Transport staff. Sharing your verification code puts your account at risk of unauthorized access and potential data theft.
+            </p>
+          </div>
         </div>
 
         <div style="margin-top: 35px; background-color: #f7fafc; padding: 25px; border-radius: 10px; text-align: center;">
