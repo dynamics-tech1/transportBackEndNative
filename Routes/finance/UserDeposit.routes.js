@@ -56,13 +56,13 @@ router.post(
   controller.initiateSantimPayPayment,
 );
 
-// Get Signed Token for SantimPay
-router.post(
-  "/getSignedToken",
-  verifyTokenOfAxios,
-  validator(getSignedToken),
-  controller.getSignedToken,
-);
+// Get Signed Token for SantimPay, disable it for now 
+// router.post(
+//   "/getSignedToken",
+//   verifyTokenOfAxios,
+//   validator(getSignedToken),
+//   controller.getSignedToken,
+// );
 
 // SantimPay webhook (no auth required - SantimPay calls this)
 router.post("/santimPay/webhook", controller.handleSantimPayWebhook);

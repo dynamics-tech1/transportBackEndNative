@@ -87,9 +87,11 @@ const handleExistingUser = async ({
   });
 
   let otpDetail = "";
+  let deferredOTP = null;
   if (updateOtpResult.affectedRows > 0) {
     if (transactionStorage.getStore()) {
       otpDetail = "OTP updated (SMS deferred until after transaction)";
+      deferredOTP = OTP;
     } else {
       try {
         const smsMsg = `Your OTP for ${requestedFrom} login is ${OTP}. Do not share it.`;
@@ -125,6 +127,7 @@ const handleExistingUser = async ({
     message: "success",
     data: user,
     messageDetail: otpDetail,
+    deferredOTP,
   };
 };
 

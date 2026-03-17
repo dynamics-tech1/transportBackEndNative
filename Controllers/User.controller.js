@@ -17,6 +17,22 @@ const createUser = async (req, res, next) => {
     const response = await executeInTransaction(async () => {
       return await services.createUser(req?.body);
     });
+
+    // Handle deferred SMS after transaction commit
+    if (response?.deferredOTP) {
+      const { sendSms } = require("../Utils/smsSender");
+      const { phoneNumber } = response.data || {};
+      if (phoneNumber) {
+        const smsMsg = `Your OTP for user login is ${response.deferredOTP}. Do not share it.`;
+        sendSms(phoneNumber, null, smsMsg).catch((err) => {
+          const logger = require("../Utils/logger");
+          logger.warn("Deferred SMS sending failed", { phoneNumber, error: err.message });
+        });
+      }
+      // Don't send the raw OTP back to the client
+      delete response.deferredOTP;
+    }
+
     ServerResponder(res, response);
   } catch (error) {
     next(error);
