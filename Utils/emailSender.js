@@ -1,4 +1,5 @@
 const nodemailer = require("nodemailer");
+const path = require("path");
 const logger = require("./logger");
 
 /**
@@ -54,6 +55,13 @@ const sendEmail = async (to, subject, body, html = null) => {
       subject,
       text: body,
       html: html || body, // Prefer HTML if provided
+      attachments: [
+        {
+          filename: "DynamicsIcon.png",
+          path: path.join(__dirname, "../Assets/DynamicsIcon.png"),
+          cid: "dynamics_logo", // Same CID used in the HTML template
+        },
+      ],
     });
 
     logger.info("📧 [EMAIL SENT]", {
