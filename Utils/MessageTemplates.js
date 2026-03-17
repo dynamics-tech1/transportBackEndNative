@@ -3,10 +3,10 @@
  */
 
 const getOtpMessage = (otp, type = "login") => {
-  const brand = process.env.BRAND_NAME
+  const brand = process.env.BRAND_NAME || "Dynamics Transport";
   const action = type === "registration" ? "account registration" : "secure login";
-  const supportPhone =process.env.SUPPORT_PHONE_NUMBER
-  const supportPhoneClean = supportPhone.replace(/\+/g, "");
+  const supportPhone = process.env.SUPPORT_PHONE_NUMBER || "+251983222221";
+  const supportPhoneClean = supportPhone ? supportPhone.replace(/\+/g, "") : "";
   const whatsappLink = `https://wa.me/${supportPhoneClean}`;
   const telegramLink = `https://t.me/${supportPhone}`;
   

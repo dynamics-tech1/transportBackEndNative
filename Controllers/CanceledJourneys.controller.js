@@ -187,11 +187,8 @@ const getCanceledJourneyCountsByDate = async (req, res, next) => {
       },
     };
 
-    await handleServiceResponse(
-      canceledJourneyService.getCanceledJourneyCountsByDate(filters),
-      res,
-      next,
-    );
+    const result = await canceledJourneyService.getCanceledJourneyCountsByDate(filters);
+    ServerResponder(res, result);
   } catch (error) {
     next(error);
   }
