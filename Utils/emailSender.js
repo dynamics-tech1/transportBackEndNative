@@ -1,0 +1,71 @@
+const nodemailer = require("nodemailer");
+const logger = require("./logger");
+
+/**
+ * Sends real emails using Nodemailer.
+ * Configured via environment variables for SMTP.
+ * @param {string} to - Recipient email address
+ * @param {string} subject - Email subject
+ * @param {string} body - Email body content
+ * @returns {Promise<Object>} Status of the operation
+ */
+const sendEmail = async (to, subject, body) => {
+  try {
+    if (!to) {
+      logger.warn("Attempted to send email without recipient address");
+      return { status: "error", message: "Recipient email is required" };
+    }
+
+    // SMTP Configuration from environment variables
+    const host = process.env.SMTP_HOST;
+    const port = process.env.SMTP_PORT || 587;
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+    const from = process.env.SMTP_FROM || `"OTP Service" <${user}>`;
+
+    // Fallback if not configured
+    if (!host || !user || !pass) {
+      logger.warn("📧 [EMAIL LOGGED (NOT CONFIGURED)]", {
+        to,
+        subject,
+        bodyPreview: body.substring(0, 50) + "...",
+      });
+      return { 
+        status: "success", 
+        message: "Email sending is not configured. Logged to console instead." 
+      };
+    }
+
+    // Create transporter
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port == 465, // true for 465, false for other ports
+      auth: {
+        user,
+        pass,
+      },
+    });
+
+    // Send the email
+    const info = await transporter.sendMail({
+      from,
+      to,
+      subject,
+      text: body,
+      // html: `<b>${body}</b>`, // Optional: add HTML support later
+    });
+
+    logger.info("📧 [EMAIL SENT]", {
+      messageId: info.messageId,
+      to,
+    });
+
+    return { status: "success", message: "Email sent successfully", messageId: info.messageId };
+  } catch (error) {
+    logger.error("Error in sendEmail", { error: error.message });
+    return { status: "error", message: error.message };
+  }
+};
+
+module.exports = { sendEmail };

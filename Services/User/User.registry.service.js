@@ -153,13 +153,30 @@ const registerNewUser = async ({
 const createUser = async (body) => {
   const { fullName, phoneNumber, email, roleId, statusId, userRoleStatusDescription } = body;
 
-  const existing = await getData({
-    tableName: "Users",
-    conditions: { phoneNumber },
-  });
- 
+  const filters = [];
+  if (phoneNumber) filters.push({ phoneNumber });
+  if (email) filters.push({ email });
+
+  if (filters.length === 0) {
+    throw new AppError("Phone number or email is required", 400);
+  }
+
+  // Search for existing user by either phone or email
+  let existing = [];
+  for (const filter of filters) {
+    const res = await getData({
+      tableName: "Users",
+      conditions: filter,
+      limit: 1,
+    });
+    if (res?.length > 0) {
+      existing = res;
+      break;
+    }
+  }
+
   if (existing?.length > 0) {
-    const user = existing?.[0];
+    const user = existing[0];
     if (user?.isDeleted) {
       throw new AppError("Account has been deleted", 403);
     }

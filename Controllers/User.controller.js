@@ -18,17 +18,27 @@ const createUser = async (req, res, next) => {
       return await services.createUser(req?.body);
     });
 
-    // Handle deferred SMS after transaction commit
+    // Handle deferred SMS and Email after transaction commit
     if (response?.deferredOTP) {
       const { sendSms } = require("../Utils/smsSender");
-      const { phoneNumber } = response.data || {};
+      const { sendEmail } = require("../Utils/emailSender");
+      const { phoneNumber, email } = response.data || {};
+      const smsMsg = `Your OTP for user account is ${response.deferredOTP}. Do not share it.`;
+
       if (phoneNumber) {
-        const smsMsg = `Your OTP for user login is ${response.deferredOTP}. Do not share it.`;
         sendSms(phoneNumber, null, smsMsg).catch((err) => {
           const logger = require("../Utils/logger");
           logger.warn("Deferred SMS sending failed", { phoneNumber, error: err.message });
         });
       }
+
+      if (email) {
+        sendEmail(email, "Your Registration OTP", smsMsg).catch((err) => {
+          const logger = require("../Utils/logger");
+          logger.warn("Deferred Email sending failed", { email, error: err.message });
+        });
+      }
+
       // Don't send the raw OTP back to the client
       delete response.deferredOTP;
     }
@@ -47,6 +57,7 @@ const loginUser = async (req, res, next) => {
     const response = await services?.loginUser(
       payload?.phoneNumber,
       payload?.roleId !== null ? Number(payload.roleId) : payload?.roleId,
+      payload?.email,
     );
     ServerResponder(res, response);
   } catch (error) {

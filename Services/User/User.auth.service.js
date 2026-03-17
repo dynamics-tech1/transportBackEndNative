@@ -1,6 +1,7 @@
 "use strict";
 
 const { sendSms } = require("../../Utils/smsSender");
+const { sendEmail } = require("../../Utils/emailSender");
 const createJWT = require("../../Utils/CreateJWT");
 const { currentDate } = require("../../Utils/CurrentDate");
 const bcrypt = require("bcryptjs");
@@ -96,6 +97,12 @@ const handleExistingUser = async ({
       try {
         const smsMsg = `Your OTP for ${requestedFrom} login is ${OTP}. Do not share it.`;
         const smsResult = await sendSms(user.phoneNumber, smsMsg);
+        
+        // Also send email if available
+        if (user.email) {
+          await sendEmail(user.email, `Login OTP for ${requestedFrom}`, smsMsg);
+        }
+
         otpDetail = (smsResult.status === "success" || smsResult.message === "success") 
           ? "OTP updated and sent successfully" 
           : "OTP updated but SMS sending failed";
@@ -131,13 +138,23 @@ const handleExistingUser = async ({
   };
 };
 
-const loginUser = async (phoneNumber, roleId) => {
-  if (!manageService) {manageService = require("./User.manage.service");}
-  if (!phoneNumber?.trim() || !roleId) {throw new AppError("Phone number and role ID are required.", 400);}
+const loginUser = async (phoneNumber, roleId, email = null) => {
+  if (!manageService) {
+    manageService = require("./User.manage.service");
+  }
+  
+  if (!roleId) {
+    throw new AppError("Role ID is required.", 400);
+  }
 
-  const cleanPhoneNumber = phoneNumber.trim();
+  // Check if at least one identity is provided
+  if (!phoneNumber?.trim() && !email?.trim()) {
+    throw new AppError("Phone number or email address is required.", 400);
+  }
+
+  const identity = (phoneNumber || email).trim();
   const userDataResult = await manageService.getUserByFilterDetailed({
-    search: cleanPhoneNumber,
+    search: identity,
     includeDeleted: true,
   });
 
