@@ -23,7 +23,35 @@ const {
 
 const router = express.Router();
 
-// get users by role route removed — use getUserByFilterDetailed instead
+/**
+ * @file Identity Verification & Authentication Rules:
+ * 
+ * 1. MANDATORY FIELDS:
+ *    - Both 'phoneNumber' and 'email' are mandatory for user creation.
+ *    - If 'email' is missing, the system generates a placeholder (@dynamics.com).
+ *    - 'phoneNumber' must be provided by the user (no placeholders allowed).
+ * 
+ * 2. CHANNEL INTEGRITY (Hybrid Verification):
+ *    - Phone and Email MUST be verified through their respective channels separately.
+ *    - Phone: Verified ONLY via SMS ('phoneOTP').
+ *    - Email: Verified ONLY via Email Link ('emailVerificationToken').
+ * 
+ * 3. TOKEN GENERATION & ROTATION:
+ *    - If 'phoneOTP' is missing/null, a 6-digit code is generated and stored.
+ *    - If 'emailVerificationToken' is missing/null, a secure UUID link is generated and stored.
+ * 
+ * 4. MESSAGE DELIVERY LOGIC:
+ *    - UNVERIFIED: 
+ *        - Phone not verified? Send 'phoneOTP' via SMS.
+ *        - Email not verified? Send 'emailVerificationToken' via LINK (NOT OTP).
+ *    - VERIFIED: 
+ *        - Phone verified? Send OTP not 'phoneOTP' via SMS.
+ *        - Email verified? Send OTP not 'emailOTP' via EMAIL.
+ *    - UNIFIED MODE: 
+ *        - If BOTH are verified, the SAME 6-digit OTP is sent to both channels (Phone + Email).
+ */
+
+
 
 router.post(
   "/api/user/createUser",

@@ -26,7 +26,8 @@ let registryService;
 
 const handleExistingUser = async ({
   requestedFrom,
-  user,phoneNumber,
+  user,
+  phoneNumber,
   fullName,
   email,
   roleId,
@@ -53,8 +54,8 @@ const handleExistingUser = async ({
   }
 
   // 2. Update email if it's currently missing
-  const isMissing = !user.email;
-  if (isMissing && email) {
+  const isEmailMissing = !user.email;
+  if (isEmailMissing && email) {
     await updateData({
       tableName: "Users",
       updateValues: { email },
@@ -64,8 +65,8 @@ const handleExistingUser = async ({
   }
 
   // 3. Update phoneNumber if it's currently missing
-  const isMissingPhone = !user.phoneNumber;
-  if (isMissingPhone && phoneNumber) {
+  const isPhoneMissing = !user.phoneNumber;
+  if (isPhoneMissing && phoneNumber) {
     await updateData({
       tableName: "Users",
       updateValues: { phoneNumber },
@@ -78,27 +79,32 @@ const handleExistingUser = async ({
   const isPhoneVerified = !!user.isPhoneVerified;
   const isEmailVerified = !!user.isEmailVerified;
 
-  let phoneOTP = null;
-  let emailOTP = null;
+  //we will use OTP if phone and email are verified, and otp cant be null
+const OTP= Math.floor(100000 + Math.random() * 900000);
+
+
+//we will use phoneOTP for phone verification only
+  const phoneOTP =isPhoneVerified?OTP: Math.floor(100000 + Math.random() * 900000);
+//we will use emailOTP for email verification only 
+  let emailOTP = isEmailVerified?OTP: Math.floor(100000 + Math.random() * 900000);
   let emailVerificationToken = null;
   let emailVerificationExpiresAt = null;
-
-  // GENERATE OTPs
-  phoneOTP = Math.floor(100000 + Math.random() * 900000);
-  
+ 
   if (isEmailVerified) {
-    // ONE OTP FOR ALL (if both verified)
-    emailOTP = phoneOTP; 
-  } else if (user.email) {
-    // LINK FOR EMAIL (if not verified)
+     emailOTP=OTP;
+  } else{
+   // LINK FOR EMAIL (if not verified)
     emailVerificationToken = uuidv4();
     emailVerificationExpiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
-  }
+}
+  if (isPhoneVerified) {
+      phoneOTP=OTP; 
+  }  
 
   const hashedPhoneOTP = await bcrypt.hash(String(phoneOTP), 10);
   const hashedEmailOTP = emailOTP ? await bcrypt.hash(String(emailOTP), 10) : null;
 
-  const [credential] = await Promise.all([
+  const [savedCredential,userRoleStatus] = await Promise.all([
     getData({ tableName: "usersCredential", conditions: { userUniqueId } }),
     registryService.handleUserRoleStatus(
       userUniqueId,
@@ -110,13 +116,13 @@ const handleExistingUser = async ({
 
   const credentialValues = {
     phoneOTP: hashedPhoneOTP,
-    emailOTP: hashedEmailOTP,
-    OTP: hashedPhoneOTP, // Legacy
+    emailOTP: hashedEmailOTP, 
+    OTP, // Legacy
     emailVerificationToken,
     emailVerificationExpiresAt,
   };
-
-  if (credential?.length === 0) {
+// return savedCredential;
+  if (savedCredential?.length === 0) {
     await insertData({
       tableName: "usersCredential",
       colAndVal: {
@@ -136,7 +142,7 @@ const handleExistingUser = async ({
   }
 
   if (requestedFrom === "street") {
-    return { message: "success", data: user };
+    return { message: "success", data: {...user} };
   }
 
   let otpDetail = "";

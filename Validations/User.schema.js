@@ -28,7 +28,7 @@ exports.createUser = Joi.object({
     then: Joi.required(),
     otherwise: Joi.optional(),
   }),
-  email: emailSchema.required(),
+  email: emailSchema.optional(),
   userRoleStatusDescription: Joi.string().optional(),
   requestedFrom: Joi.string().optional(),
   // Add other fields as necessary from User.service.js
@@ -36,7 +36,7 @@ exports.createUser = Joi.object({
 
 exports.createUserByAdmin = Joi.object({
   fullName: Joi.string().required(),
-  email: emailSchema.required(),
+  email: emailSchema.optional(),
   phoneNumber: phoneNumberSchema.required(),
   roleId: Joi.number()
     .integer()

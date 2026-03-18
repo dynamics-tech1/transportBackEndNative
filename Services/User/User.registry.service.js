@@ -151,37 +151,48 @@ const registerNewUser = async ({
 };
 
 const createUser = async (body) => {
-  const { fullName, phoneNumber, email, roleId, statusId, userRoleStatusDescription } = body;
+  const { fullName, phoneNumber, roleId, statusId, userRoleStatusDescription } = body;
+let email = body?.email?.trim();
+//if there is no email, generate placeholder email
+if(!email){
+  email = `${phoneNumber}@dynamics.com`;
+}
 
-  // 1. Enforce both phoneNumber and email for registration
-  if (!phoneNumber?.trim() || !email?.trim()) {
-    throw new AppError("Phone number and email are both mandatory for registration.", 400);
+  // 1. Enforce   phoneNumber  
+  if (!phoneNumber?.trim() ) {
+    throw new AppError("Phone number is mandatory for registration.", 400);
   }
 
   const cleanPhone = phoneNumber.trim();
   const cleanEmail = email.trim();
-
-  // 2. Check if EITHER identity is already taken to prevent separate accounts
+  //build conditios 
+    const conditions = {
+      phoneNumber: cleanPhone,
+      // email: cleanEmail,
+    };
+    // if email is not placeholder email, add it to conditions
+if(!cleanEmail.endsWith("@dynamics.com")){
+  conditions.email = cleanEmail;
+}
+   // 2. Check if EITHER identity is already taken to prevent separate accounts
   const { performJoinSelect } = require("../../CRUD/Read/ReadData");
   const existing = await performJoinSelect({
     baseTable: "Users",
-    conditions: {
-      phoneNumber: cleanPhone,
-      email: cleanEmail,
-    },
+  conditions,
     operator: "OR",
     limit: 1,
   });
-
+// return existing
   if (existing?.length > 0) {
     const user = existing[0];
    
     // 3. Security Check: Prevent "Identity Hijacking"
     // If we found a matching phone but different email (or vice versa), block it.
-    if (user?.email &&user?.email !== cleanEmail) {
+const isSavedEmailPlaceholder = user?.email?.endsWith("@dynamics.com");
+    if (user?.email&&!isSavedEmailPlaceholder &&user?.email !== cleanEmail) {
       throw new AppError("This phone number is already registered with a different email address.", 403);
     }
-    
+    //phone dont have placeholder
     if (user?.phoneNumber && user?.phoneNumber !== cleanPhone) {
       throw new AppError("This email address is already registered with a different phone number.", 403);
     }
@@ -191,7 +202,7 @@ const createUser = async (body) => {
     }
     // User already has an account, handle OTP login
     if (!authService) { authService = require("./User.auth.service"); }
-    return await authService.handleExistingUser({
+    const userData = {
       requestedFrom: "user",
       user,
       phoneNumber: cleanPhone,
@@ -200,7 +211,10 @@ const createUser = async (body) => {
       roleId,
       statusId,
       userRoleStatusDescription,
-    });
+    }
+    // return userData;
+      
+    return await authService.handleExistingUser(userData);
   }
 
   return await registerNewUser({
