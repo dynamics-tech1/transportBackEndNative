@@ -18,7 +18,6 @@ const createUser = async (req, res, next) => {
     const response = await executeInTransaction(async () => {
       return await services.createUser(req?.body);
     });
-
     // Handle deferred SMS and Email after transaction commit
     if (response?.deferredOTP) {
       const { sendSms } = require("../Utils/smsSender");

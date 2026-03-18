@@ -28,6 +28,7 @@ const handleExistingUser = async ({
   requestedFrom,
   user,
   fullName,
+  email,
   roleId,
   statusId,
   userRoleStatusDescription = "no description",
@@ -41,14 +42,25 @@ const handleExistingUser = async ({
     throw new AppError("wrong user data", 400);
   }
 
-  // Update fullName if user.fullName is not provided before, but now fullName is provided and different to previous user.fullName (e.g., existing passenger without name now registering as driver)
-  if (!user.fullName && fullName && user.fullName !== fullName) {
+  // 1. Update fullName if it's a new or missing name
+  if ((!user.fullName || user.fullName !== fullName) && fullName) {
     await updateData({
       tableName: "Users",
       updateValues: { fullName },
       conditions: { userUniqueId },
     });
-    user.fullName = fullName; // Update local object for JWT/response
+    user.fullName = fullName;
+  }
+
+  // 2. Update email if it's currently a placeholder or missing
+  const isPlaceholder = user.email?.includes('@placeholder.com') || !user.email;
+  if (isPlaceholder && email && user.email !== email) {
+    await updateData({
+      tableName: "Users",
+      updateValues: { email },
+      conditions: { userUniqueId },
+    });
+    user.email = email;
   }
 
   const OTP = Math.floor(100000 + Math.random() * 900000);
@@ -173,6 +185,7 @@ const loginUser = async (phoneNumber, roleId, email = null) => {
   return await handleExistingUser({
     requestedFrom: "user",
     user: userData,
+    email: email || userData.email, // Use provided email to potentially upgrade placeholder
     roleId,
     statusId: roleEntry.userRoleStatuses?.statusId,
   });

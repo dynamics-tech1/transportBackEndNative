@@ -153,39 +153,52 @@ const registerNewUser = async ({
 const createUser = async (body) => {
   const { fullName, phoneNumber, email, roleId, statusId, userRoleStatusDescription } = body;
 
-  const filters = [];
-  if (phoneNumber) filters.push({ phoneNumber });
-  if (email) filters.push({ email });
-
-  if (filters.length === 0) {
-    throw new AppError("Phone number or email is required", 400);
+  // 1. Enforce both phoneNumber and email for registration
+  if (!phoneNumber?.trim() || !email?.trim()) {
+    throw new AppError("Phone number and email are both mandatory for registration.", 400);
   }
 
-  // Search for existing user by either phone or email
-  let existing = [];
-  for (const filter of filters) {
-    const res = await getData({
-      tableName: "Users",
-      conditions: filter,
-      limit: 1,
-    });
-    if (res?.length > 0) {
-      existing = res;
-      break;
-    }
-  }
+  const cleanPhone = phoneNumber.trim();
+  const cleanEmail = email.trim();
+
+  // 2. Check if EITHER identity is already taken to prevent separate accounts
+  const { performJoinSelect } = require("../../CRUD/Read/ReadData");
+  const existing = await performJoinSelect({
+    baseTable: "Users",
+    conditions: {
+      phoneNumber: cleanPhone,
+      email: cleanEmail,
+    },
+    operator: "OR",
+    limit: 1,
+  });
 
   if (existing?.length > 0) {
     const user = existing[0];
-    if (user?.isDeleted) {
-      throw new AppError("Account has been deleted", 403);
+   
+    // 3. Security Check: Prevent "Identity Hijacking"
+    // If we found a matching phone but different email (or vice versa), block it.
+    // EXCEPTION: Allow "upgrading" if the existing email is a temporary placeholder.
+    const isPlaceholder = user?.email?.includes('@placeholder.com');
+
+    if (user?.email !== cleanEmail && !isPlaceholder) {
+      throw new AppError("This phone number is already registered with a different email address.", 403);
     }
     
-    if (!authService) {authService = require("./User.auth.service");}
+    if (user?.phoneNumber !== cleanPhone) {
+      throw new AppError("This email address is already registered with a different phone number.", 403);
+    }
+    //check if user is deleted
+     if (user?.isDeleted || user?.userDeletedAt) {
+      throw new AppError("Account has been deleted", 403);
+    }
+    // User already has an account, handle OTP login
+    if (!authService) { authService = require("./User.auth.service"); }
     return await authService.handleExistingUser({
       requestedFrom: "user",
       user,
-      fullName,
+      fullName: fullName || user.fullName,
+      email: cleanEmail,
       roleId,
       statusId,
       userRoleStatusDescription,
