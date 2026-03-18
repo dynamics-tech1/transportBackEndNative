@@ -43,7 +43,7 @@ const createUser = async (req, res, next) => {
             logger.warn("Deferred Email OTP sending failed", { email, error: err.message });
           });
         } else if (emailVerificationToken) {
-          const baseUrl = process.env.SANTIMPAY_WEBHOOK_URL?.split("/api")[0] || "http://localhost:3000";
+          const baseUrl = process.env.APP_API_URL || "https://transport-back-end-native.vercel.app";
           const link = `${baseUrl}/api/user/verify-email?token=${emailVerificationToken}`;
           const linkMsg = getEmailVerificationLinkMessage(link);
           sendEmail(email, linkMsg.emailSubject, "Verify your email", linkMsg.emailHtml).catch((err) => {

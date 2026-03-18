@@ -160,7 +160,7 @@ const handleExistingUser = async ({
           otpDetail = "Unified OTP sent to phone and email";
         } else {
           // Send Verification Link
-          const baseUrl = process.env.SANTIMPAY_WEBHOOK_URL?.split("/api")[0] || "http://localhost:3000";
+          const baseUrl = process.env.APP_API_URL || "https://transport-back-end-native.vercel.app";
           const link = `${baseUrl}/api/user/verify-email?token=${emailVerificationToken}`;
           const linkMsg = getEmailVerificationLinkMessage(link);
           await sendEmail(user.email, linkMsg.emailSubject, "Verify your email", linkMsg.emailHtml);

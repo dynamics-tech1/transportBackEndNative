@@ -24,4 +24,5 @@ module.exports = {
   getUserByFilterDetailed: manageService.getUserByFilterDetailed,
   updateUser: manageService.updateUser,
   deleteUser: manageService.deleteUser,
+  verifyEmailByToken: authService.verifyEmailByToken,
 };
