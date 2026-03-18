@@ -22,17 +22,50 @@ const ensureCredentialForUser = async ({ userUniqueId, rawPassword }) => {
     throw new AppError("userUniqueId required", 400);
   }
   const OTP = rawPassword || Math.floor(100000 + Math.random() * 900000);
-  const hashed = await bcrypt.hash(String(OTP), 10);
-  
+  const hashedOTP = await bcrypt.hash(String(OTP), 10);
+  const conditions = { userUniqueId };
   const existing = await getData({
     tableName: "usersCredential",
-    conditions: { userUniqueId },
+    conditions,
   });
-  
+  const hashedPhoneOTP = await bcrypt.hash(
+    String(Math.floor(100000 + Math.random() * 900000)),
+    10,
+  );
+  const hashedEmailOTP = await bcrypt.hash(
+    String(Math.floor(100000 + Math.random() * 900000)),
+    10,
+  );
+  const emailVerificationToken = uuidv4();
+  const emailVerificationExpiresAt = currentDate();
+
   if (existing && existing.length > 0) {
+    const credentialColAndValues = {
+      OTP: hashedOTP,
+      hashedPassword: hashedOTP,
+    };
+    const user = existing?.[0];
+    const isPhoneVerified = user?.isPhoneVerified;
+    const isEmailVerified = user?.isEmailVerified;
+    //if phone is verified update hashedPhoneOTP to hashedOTP
+    if (isPhoneVerified) {
+      credentialColAndValues.hashedPhoneOTP = hashedOTP;
+    } else {
+      credentialColAndValues.hashedPhoneOTP = hashedPhoneOTP;
+    }
+    //if email is verified update hashedEmailOTP to hashedOTP
+    if (isEmailVerified) {
+      credentialColAndValues.hashedEmailOTP = hashedOTP;
+    } else {
+      credentialColAndValues.emailVerificationToken = emailVerificationToken;
+      credentialColAndValues.emailVerificationExpiresAt =
+        emailVerificationExpiresAt;
+      credentialColAndValues.hashedEmailOTP = hashedEmailOTP;
+    }
+
     const upd = await updateData({
       tableName: "usersCredential",
-      updateValues: { OTP: hashed, hashedPassword: hashed },
+      updateValues: { ...credentialColAndValues },
       conditions: { userUniqueId },
     });
     if (upd?.affectedRows === 0) {
@@ -40,26 +73,38 @@ const ensureCredentialForUser = async ({ userUniqueId, rawPassword }) => {
     }
     return { message: "success" };
   }
-  
+
+  const credentialColAndVal = {
+    userUniqueId,
+    credentialUniqueId: uuidv4(),
+    phoneOTP: hashedPhoneOTP,
+    emailOTP: hashedEmailOTP,
+    OTP: hashedOTP, // Legacy
+    emailVerificationToken,
+    emailVerificationExpiresAt,
+    hashedPassword: hashedOTP,
+    usersCredentialCreatedBy: userUniqueId,
+    usersCredentialCreatedAt: currentDate(),
+  };
   const ins = await insertData({
     tableName: "usersCredential",
     colAndVal: {
-      credentialUniqueId: uuidv4(),
-      userUniqueId,
-      OTP: hashed,
-      hashedPassword: hashed,
-      usersCredentialCreatedBy: userUniqueId,
-      usersCredentialCreatedAt: currentDate(),
+      ...credentialColAndVal,
     },
   });
-  
+
   if (ins?.affectedRows === 0) {
     throw new AppError("Unable to create credential", 500);
   }
   return { message: "success" };
 };
 
-const handleUserRoleStatus = async (userUniqueId, roleId, statusId, description = "") => {
+const handleUserRoleStatus = async (
+  userUniqueId,
+  roleId,
+  statusId,
+  description = "",
+) => {
   const executor = transactionStorage.getStore() || pool;
 
   const [existingRoles] = await executor.query(
@@ -87,7 +132,14 @@ const handleUserRoleStatus = async (userUniqueId, roleId, statusId, description 
   if (existingStatus.length === 0) {
     await executor.query(
       "INSERT INTO UserRoleStatusCurrent (userRoleStatusUniqueId, userRoleId, statusId, userRoleStatusDescription, userRoleStatusCreatedAt, userRoleStatusCreatedBy) VALUES (?, ?, ?, ?, ?, ?)",
-      [uuidv4(), userRoleId, statusId, description, currentDate(), userUniqueId],
+      [
+        uuidv4(),
+        userRoleId,
+        statusId,
+        description,
+        currentDate(),
+        userUniqueId,
+      ],
     );
   } else {
     await executor.query(
@@ -119,8 +171,17 @@ const registerNewUser = async ({
 
   const executor = transactionStorage.getStore() || pool;
   const [userIns] = await executor.query(
-    "INSERT INTO Users (userUniqueId, fullName, phoneNumber, email, userCreatedAt, userCreatedBy) VALUES (?, ?, ?, ?, ?, ?)",
-    [userUniqueId, fullName, phoneNumber, email, userData.userCreatedAt, userData.userCreatedBy]
+    "INSERT INTO Users (userUniqueId, fullName, phoneNumber, email, userCreatedAt, userCreatedBy,isEmailVerified,isPhoneVerified) VALUES (?, ?, ?, ?, ?, ?,?,?)",
+    [
+      userUniqueId,
+      fullName,
+      phoneNumber,
+      email,
+      userData.userCreatedAt,
+      userData.userCreatedBy,
+      false,
+      false,
+    ],
   );
 
   if (userIns.affectedRows === 0) {
@@ -128,20 +189,28 @@ const registerNewUser = async ({
   }
 
   await ensureCredentialForUser({ userUniqueId });
-  await handleUserRoleStatus(userUniqueId, roleId, statusId, userRoleStatusDescription);
+  await handleUserRoleStatus(
+    userUniqueId,
+    roleId,
+    statusId,
+    userRoleStatusDescription,
+  );
 
   if (roleId === usersRoles.driverRoleId) {
     const pricing = await getPricingWithFilters({ isFree: true });
     if (pricing?.data?.[0]) {
       await createUserSubscription({
         driverUniqueId: userUniqueId,
-        subscriptionPlanPricingUniqueId: pricing.data[0].subscriptionPlanPricingUniqueId,
+        subscriptionPlanPricingUniqueId:
+          pricing.data[0].subscriptionPlanPricingUniqueId,
         userSubscriptionCreatedBy: userUniqueId,
       });
     }
   }
 
-  if (!authService) {authService = require("./User.auth.service");}
+  if (!authService) {
+    authService = require("./User.auth.service");
+  }
   return await authService.handleExistingUser({
     requestedFrom,
     user: userData,
@@ -151,57 +220,66 @@ const registerNewUser = async ({
 };
 
 const createUser = async (body) => {
-  const { fullName, phoneNumber, roleId, statusId, userRoleStatusDescription } = body;
-let email = body?.email?.trim();
-//if there is no email, generate placeholder email
-if(!email){
-  email = `${phoneNumber}@dynamics.com`;
-}
+  const { fullName, phoneNumber, roleId, statusId, userRoleStatusDescription } =
+    body;
+  let email = body?.email?.trim();
+  //if there is no email, generate placeholder email
+  if (!email) {
+    email = `${phoneNumber}@dynamics.com`;
+  }
 
-  // 1. Enforce   phoneNumber  
-  if (!phoneNumber?.trim() ) {
+  // 1. Enforce   phoneNumber
+  if (!phoneNumber?.trim()) {
     throw new AppError("Phone number is mandatory for registration.", 400);
   }
 
   const cleanPhone = phoneNumber.trim();
   const cleanEmail = email.trim();
-  //build conditios 
-    const conditions = {
-      phoneNumber: cleanPhone,
-      // email: cleanEmail,
-    };
-    // if email is not placeholder email, add it to conditions
-if(!cleanEmail.endsWith("@dynamics.com")){
-  conditions.email = cleanEmail;
-}
-   // 2. Check if EITHER identity is already taken to prevent separate accounts
+  //build conditios
+  const conditions = {
+    phoneNumber: cleanPhone,
+    // email: cleanEmail,
+  };
+  // if email is not placeholder email, add it to conditions
+  if (!cleanEmail.endsWith("@dynamics.com")) {
+    conditions.email = cleanEmail;
+  }
+  // 2. Check if EITHER identity is already taken to prevent separate accounts
   const { performJoinSelect } = require("../../CRUD/Read/ReadData");
   const existing = await performJoinSelect({
     baseTable: "Users",
-  conditions,
+    conditions,
     operator: "OR",
     limit: 1,
   });
-// return existing
+  // return existing
   if (existing?.length > 0) {
     const user = existing[0];
-   
+
     // 3. Security Check: Prevent "Identity Hijacking"
     // If we found a matching phone but different email (or vice versa), block it.
-const isSavedEmailPlaceholder = user?.email?.endsWith("@dynamics.com");
-    if (user?.email&&!isSavedEmailPlaceholder &&user?.email !== cleanEmail) {
-      throw new AppError("This phone number is already registered with a different email address.", 403);
+    const isSavedEmailPlaceholder = user?.email?.endsWith("@dynamics.com");
+    if (user?.email && !isSavedEmailPlaceholder && user?.email !== cleanEmail) {
+      throw new AppError(
+        "This phone number is already registered with a different email address.",
+        403,
+      );
     }
     //phone dont have placeholder
     if (user?.phoneNumber && user?.phoneNumber !== cleanPhone) {
-      throw new AppError("This email address is already registered with a different phone number.", 403);
+      throw new AppError(
+        "This email address is already registered with a different phone number.",
+        403,
+      );
     }
     //check if user is deleted
-     if (user?.isDeleted || user?.userDeletedAt) {
+    if (user?.isDeleted || user?.userDeletedAt) {
       throw new AppError("Account has been deleted", 403);
     }
     // User already has an account, handle OTP login
-    if (!authService) { authService = require("./User.auth.service"); }
+    if (!authService) {
+      authService = require("./User.auth.service");
+    }
     const userData = {
       requestedFrom: "user",
       user,
@@ -211,9 +289,9 @@ const isSavedEmailPlaceholder = user?.email?.endsWith("@dynamics.com");
       roleId,
       statusId,
       userRoleStatusDescription,
-    }
+    };
     // return userData;
-      
+
     return await authService.handleExistingUser(userData);
   }
 
@@ -228,21 +306,35 @@ const isSavedEmailPlaceholder = user?.email?.endsWith("@dynamics.com");
   });
 };
 
-const createUserByAdminOrSuperAdmin = async ({ body, userUniqueId,userRoleStatusDescription }) => {
+const createUserByAdminOrSuperAdmin = async ({
+  body,
+  userUniqueId,
+  userRoleStatusDescription,
+}) => {
   const { fullName, phoneNumber, email, roleId, statusId } = body;
-  
+
   const userDataByEmail = await getData({
     tableName: "Users",
     conditions: { email },
   });
 
   if (userDataByEmail?.[0]) {
-    await ensureCredentialForUser({ userUniqueId: userDataByEmail[0].userUniqueId });
-    await handleUserRoleStatus(userDataByEmail[0].userUniqueId, roleId, statusId, "");
+    await ensureCredentialForUser({
+      userUniqueId: userDataByEmail[0].userUniqueId,
+    });
+    await handleUserRoleStatus(
+      userDataByEmail[0].userUniqueId,
+      roleId,
+      statusId,
+      "",
+    );
     if (phoneNumber && userDataByEmail[0].phoneNumber !== phoneNumber) {
       throw new AppError("There is a difference in phone number", 409);
     }
-    return { message: "success", data: "User already exists with this email address" };
+    return {
+      message: "success",
+      data: "User already exists with this email address",
+    };
   }
 
   const userDataByPhoneNumber = await getData({
@@ -255,14 +347,18 @@ const createUserByAdminOrSuperAdmin = async ({ body, userUniqueId,userRoleStatus
     const existingUserUniqueId = existingUser.userUniqueId;
 
     // Update fullName if user.fullName is not provided before, but now fullName is provided and different
-    if (!existingUser.fullName && fullName && existingUser.fullName !== fullName) {
+    if (
+      !existingUser.fullName &&
+      fullName &&
+      existingUser.fullName !== fullName
+    ) {
       await updateData({
         tableName: "Users",
         updateValues: { fullName },
         conditions: { userUniqueId: existingUserUniqueId },
       });
     }
-    
+
     // Ensure the user is registered for the new role and status
     await handleUserRoleStatus(
       existingUserUniqueId,
@@ -310,7 +406,8 @@ const createUserSystem = async () => {
       email,
       roleId,
       statusId,
-      userRoleStatusDescription: "this can manage things by itself based on written programs",
+      userRoleStatusDescription:
+        "this can manage things by itself based on written programs",
     },
     userUniqueId: "system",
   });
@@ -322,7 +419,8 @@ const createUserSystem = async () => {
       email: "supperAdmin@supperAdmin.com",
       roleId: usersRoles.supperAdminRoleId,
       statusId: USER_STATUS.ACTIVE,
-      userRoleStatusDescription: "Supper Admin can manage drivers passengers and admin using api requests",
+      userRoleStatusDescription:
+        "Supper Admin can manage drivers passengers and admin using api requests",
     },
     userUniqueId: "Supper Admin",
   });
