@@ -331,6 +331,16 @@ const verifyUserByOTP = async (req) => {
     throw new AppError("Account has been deleted", 403);
   }
 
+  //check if phone from user and phone from database is same
+  if (phoneNumber && userRow?.phoneNumber !== phoneNumber) {
+    throw new AppError("Phone number does not match", 401);
+  }
+
+  //check if email from user and email from database is same
+  if (email && userRow?.email !== email) {
+    throw new AppError("Email does not match", 401);
+  }
+
   const isPhoneVerified = userRow?.isPhoneVerified;
   const isEmailVerified = userRow?.isEmailVerified;
   const savedOTP = userRow?.OTP;
@@ -340,43 +350,54 @@ const verifyUserByOTP = async (req) => {
   // 1. Check which identity the OTP matches
   let phoneMatched = false;
   let emailMatched = false;
-  //if phone number is given from user and phone otp from database is existed then check phone otp is equal to user given otp
-  if (phoneNumber && userRow?.phoneOTP) {
-    try {
-      await verifyPassword({
-        //if phone is verified then check saved otp else check phone otp
-        hashedPassword: isPhoneVerified ? savedOTP : phoneOTP,
-        notHashedPassword: String(OTP),
-      });
-      phoneMatched = true;
-    } catch (e) {
-      /* ignore and check email */
+
+  //if phone number is given from user
+  if (phoneNumber) {
+    const hashToCheck = isPhoneVerified ? savedOTP : phoneOTP;
+    if (hashToCheck) {
+      try {
+        await verifyPassword({
+          hashedPassword: hashToCheck,
+          notHashedPassword: String(OTP),
+        });
+        phoneMatched = true;
+      } catch (e) {
+        /* ignore */
+      }
     }
   }
 
-  if (email && userRow?.emailOTP) {
-    try {
-      await verifyPassword({
-        //if email is verified then check saved otp else check email otp
-        hashedPassword: isEmailVerified ? savedOTP : emailOTP,
-        notHashedPassword: String(OTP),
-      });
-      emailMatched = true;
-    } catch (e) {
-      /* ignore */
+  //if email is given from user but phone is not matched
+  if (email && !phoneMatched) {
+    const hashToCheck = isEmailVerified ? savedOTP : emailOTP;
+    if (hashToCheck) {
+      try {
+        await verifyPassword({
+          hashedPassword: hashToCheck,
+          notHashedPassword: String(OTP),
+        });
+        emailMatched = true;
+      } catch (e) {
+        /* ignore */
+      }
     }
   }
 
   // Fallback for legacy OTP column (if neither specific OTP matched)
-  if (!phoneMatched && !emailMatched && userRow.OTP) {
-    await verifyPassword({
-      hashedPassword: userRow.OTP,
-      notHashedPassword: String(OTP),
-    });
-    // If legacy matches, we assume phone for now as it was the default
-    phoneMatched = true;
+  if (!phoneMatched && !emailMatched && savedOTP) {
+    try {
+      await verifyPassword({
+        hashedPassword: savedOTP,
+        notHashedPassword: String(OTP),
+      });
+      // If legacy matches, we assign it based on what the user provided, favoring phone since legacy was SMS
+      if (phoneNumber) phoneMatched = true;
+      else if (email) emailMatched = true;
+    } catch (e) {
+      /* ignore */
+    }
   }
-
+  //if phone and email are not matched then throw error
   if (!phoneMatched && !emailMatched) {
     throw new AppError(
       "Invalid OTP. Please check the code and try again.",
