@@ -2,7 +2,7 @@
 
 const { sendSms } = require("../../Utils/smsSender");
 const { sendEmail } = require("../../Utils/emailSender");
-const { getOtpMessage } = require("../../Utils/MessageTemplates");
+const { getOtpMessage, getEmailVerificationLinkMessage } = require("../../Utils/MessageTemplates");
 const createJWT = require("../../Utils/CreateJWT");
 const { currentDate } = require("../../Utils/CurrentDate");
 const bcrypt = require("bcryptjs");
@@ -26,7 +26,7 @@ let registryService;
 
 const handleExistingUser = async ({
   requestedFrom,
-  user,
+  user,phoneNumber,
   fullName,
   email,
   roleId,
@@ -52,9 +52,9 @@ const handleExistingUser = async ({
     user.fullName = fullName;
   }
 
-  // 2. Update email if it's currently a placeholder or missing
-  const isPlaceholder = user.email?.includes('@placeholder.com') || !user.email;
-  if (isPlaceholder && email && user.email !== email) {
+  // 2. Update email if it's currently missing
+  const isMissing = !user.email;
+  if (isMissing && email) {
     await updateData({
       tableName: "Users",
       updateValues: { email },
@@ -63,8 +63,40 @@ const handleExistingUser = async ({
     user.email = email;
   }
 
-  const OTP = Math.floor(100000 + Math.random() * 900000);
-  const hashedOTP = await bcrypt.hash(String(OTP), 10);
+  // 3. Update phoneNumber if it's currently missing
+  const isMissingPhone = !user.phoneNumber;
+  if (isMissingPhone && phoneNumber) {
+    await updateData({
+      tableName: "Users",
+      updateValues: { phoneNumber },
+      conditions: { userUniqueId },
+    });
+    user.phoneNumber = phoneNumber;
+  }
+
+  // 3. Separate Identity Verification (OTP or Link Generation)
+  const isPhoneVerified = !!user.isPhoneVerified;
+  const isEmailVerified = !!user.isEmailVerified;
+
+  let phoneOTP = null;
+  let emailOTP = null;
+  let emailVerificationToken = null;
+  let emailVerificationExpiresAt = null;
+
+  // GENERATE OTPs
+  phoneOTP = Math.floor(100000 + Math.random() * 900000);
+  
+  if (isEmailVerified) {
+    // ONE OTP FOR ALL (if both verified)
+    emailOTP = phoneOTP; 
+  } else if (user.email) {
+    // LINK FOR EMAIL (if not verified)
+    emailVerificationToken = uuidv4();
+    emailVerificationExpiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
+  }
+
+  const hashedPhoneOTP = await bcrypt.hash(String(phoneOTP), 10);
+  const hashedEmailOTP = emailOTP ? await bcrypt.hash(String(emailOTP), 10) : null;
 
   const [credential] = await Promise.all([
     getData({ tableName: "usersCredential", conditions: { userUniqueId } }),
@@ -76,16 +108,30 @@ const handleExistingUser = async ({
     ),
   ]);
 
+  const credentialValues = {
+    phoneOTP: hashedPhoneOTP,
+    emailOTP: hashedEmailOTP,
+    OTP: hashedPhoneOTP, // Legacy
+    emailVerificationToken,
+    emailVerificationExpiresAt,
+  };
+
   if (credential?.length === 0) {
     await insertData({
       tableName: "usersCredential",
       colAndVal: {
         credentialUniqueId: uuidv4(),
         userUniqueId,
-        OTP: hashedOTP,
-        hashedPassword: hashedOTP,
+        ...credentialValues,
+        hashedPassword: hashedPhoneOTP,
         usersCredentialCreatedAt: currentDate(),
       },
+    });
+  } else {
+    await updateData({
+      tableName: "usersCredential",
+      updateValues: credentialValues,
+      conditions: { userUniqueId },
     });
   }
 
@@ -93,36 +139,39 @@ const handleExistingUser = async ({
     return { message: "success", data: user };
   }
 
-  // Update OTP
-  const updateOtpResult = await updateData({
-    tableName: "usersCredential",
-    updateValues: { OTP: hashedOTP },
-    conditions: { userUniqueId },
-  });
-
   let otpDetail = "";
   let deferredOTP = null;
-  if (updateOtpResult.affectedRows > 0) {
-    if (transactionStorage.getStore()) {
-      otpDetail = "OTP updated (SMS deferred until after transaction)";
-      deferredOTP = OTP;
-    } else {
-      try {
-        const msgMatch = getOtpMessage(OTP, requestedFrom === "user" ? "login" : "registration");
-        const smsResult = await sendSms(user.phoneNumber, msgMatch.sms);
-        
-        // Also send email if available
-        if (user.email) {
-          await sendEmail(user.email, msgMatch.emailSubject, msgMatch.sms, msgMatch.emailHtml);
-        }
 
-        otpDetail = (smsResult.status === "success" || smsResult.message === "success") 
-          ? "OTP updated and sent successfully" 
-          : "OTP updated but SMS sending failed";
-      } catch (smsError) {
-        logger.warn("SMS sending failed during OTP update", { phoneNumber: user.phoneNumber, error: smsError.message });
-        otpDetail = `OTP updated but SMS sending failed: ${smsError.message}`;
+  if (transactionStorage.getStore()) {
+    otpDetail = "Verification data generated (Sent deferred)";
+    deferredOTP = { phoneOTP, emailOTP, emailVerificationToken };
+  } else {
+    try {
+      // 1. Send SMS (Always OTP)
+      const phoneMsg = getOtpMessage(phoneOTP, requestedFrom === "user" ? "login" : "registration");
+      await sendSms(user.phoneNumber, phoneMsg.sms);
+      
+      // 2. Send Email (OTP or Link)
+      if (user.email) {
+        if (isEmailVerified) {
+          // Send Unified OTP
+          const emailMsg = getOtpMessage(emailOTP, requestedFrom === "user" ? "login" : "registration");
+          await sendEmail(user.email, emailMsg.emailSubject, emailMsg.sms, emailMsg.emailHtml);
+          otpDetail = "Unified OTP sent to phone and email";
+        } else {
+          // Send Verification Link
+          const baseUrl = process.env.SANTIMPAY_WEBHOOK_URL?.split("/api")[0] || "http://localhost:3000";
+          const link = `${baseUrl}/api/user/verify-email?token=${emailVerificationToken}`;
+          const linkMsg = getEmailVerificationLinkMessage(link);
+          await sendEmail(user.email, linkMsg.emailSubject, "Verify your email", linkMsg.emailHtml);
+          otpDetail = "OTP sent to phone, Verification Link sent to email";
+        }
+      } else {
+        otpDetail = "OTP sent to phone (No email provided)";
       }
+    } catch (error) {
+      logger.warn("Verification sending failed", { error: error.message });
+      otpDetail = `Failed to send verification: ${error.message}`;
     }
   }
 
@@ -213,7 +262,47 @@ const verifyUserByOTP = async (req) => {
   const userRow = verifyUserExistence[0];
   if (userRow.isDeleted || userRow.userDeletedAt) {throw new AppError("Account has been deleted", 403);}
 
-  await verifyPassword({ hashedPassword: userRow.OTP, notHashedPassword: String(OTP) });
+  // 1. Check which identity the OTP matches
+  let phoneMatched = false;
+  let emailMatched = false;
+
+  if (userRow.phoneOTP) {
+    try {
+      await verifyPassword({ hashedPassword: userRow.phoneOTP, notHashedPassword: String(OTP) });
+      phoneMatched = true;
+    } catch (e) { /* ignore and check email */ }
+  }
+
+  if (!phoneMatched && userRow.emailOTP) {
+    try {
+      await verifyPassword({ hashedPassword: userRow.emailOTP, notHashedPassword: String(OTP) });
+      emailMatched = true;
+    } catch (e) { /* ignore */ }
+  }
+
+  // Fallback for legacy OTP column (if neither specific OTP matched)
+  if (!phoneMatched && !emailMatched && userRow.OTP) {
+    await verifyPassword({ hashedPassword: userRow.OTP, notHashedPassword: String(OTP) });
+    // If legacy matches, we assume phone for now as it was the default
+    phoneMatched = true; 
+  }
+
+  if (!phoneMatched && !emailMatched) {
+    throw new AppError("Invalid OTP. Please check the code and try again.", 401);
+  }
+
+  // 2. Update verification status in the database
+  const updateValues = {};
+  if (phoneMatched) updateValues.isPhoneVerified = true;
+  if (emailMatched) updateValues.isEmailVerified = true;
+
+  if (Object.keys(updateValues).length > 0) {
+    await updateData({
+      tableName: "Users",
+      updateValues,
+      conditions: { userUniqueId: userRow.userUniqueId },
+    });
+  }
 
   const userInRoleId = await getData({
     tableName: "UserRole",
@@ -228,12 +317,18 @@ const verifyUserByOTP = async (req) => {
     phoneNumber: userRow.phoneNumber,
     email: userRow.email,
     roleId,
+    isPhoneVerified: phoneMatched || !!userRow.isPhoneVerified,
+    isEmailVerified: emailMatched || !!userRow.isEmailVerified,
   });
 
   const resData = {
     message: "success",
     token: tokenData.token,
     data: "OTP verified successfully",
+    verificationStatus: {
+      phoneVerified: phoneMatched || !!userRow.isPhoneVerified,
+      emailVerified: emailMatched || !!userRow.isEmailVerified,
+    }
   };
 
   if (Number(roleId) === usersRoles.driverRoleId) {
@@ -254,9 +349,41 @@ const verifyUserByOTP = async (req) => {
   return resData;
 };
 
+const verifyEmailByToken = async (token) => {
+  if (!token) throw new AppError("Invalid or missing token", 400);
+
+  const [credential] = await getData({
+    tableName: "usersCredential",
+    conditions: { emailVerificationToken: token },
+  });
+
+  if (!credential) throw new AppError("Verification link is invalid or has expired.", 400);
+
+  const now = new Date();
+  const expiry = new Date(credential.emailVerificationExpiresAt);
+  if (now > expiry) throw new AppError("Verification link has expired. Please log in again to receive a new one.", 400);
+
+  // Mark as verified
+  await Promise.all([
+    updateData({
+      tableName: "Users",
+      updateValues: { isEmailVerified: true },
+      conditions: { userUniqueId: credential.userUniqueId },
+    }),
+    updateData({
+      tableName: "usersCredential",
+      updateValues: { emailVerificationToken: null, emailVerificationExpiresAt: null },
+      conditions: { userUniqueId: credential.userUniqueId },
+    }),
+  ]);
+
+  return { message: "Email verified successfully! You can now use all features of the app." };
+};
+
 module.exports = {
   loginUser,
   verifyUserByOTP,
   handleExistingUser,
+  verifyEmailByToken,
 };
 

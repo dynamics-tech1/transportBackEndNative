@@ -257,6 +257,8 @@ const getUserByFilterDetailed = async (
           userDeletedAt: row.userDeletedAt,
           isDeleted: row.isDeleted,
           userDeletedBy: row.userDeletedBy,
+          isPhoneVerified: row.isPhoneVerified,
+          isEmailVerified: row.isEmailVerified,
         },
         rolesAndStatuses: [],
         banUniqueId: null, // Will be set if any role has a ban

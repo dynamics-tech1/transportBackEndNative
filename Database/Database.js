@@ -13,8 +13,10 @@ CREATE TABLE IF NOT EXISTS Users (
     userId INT AUTO_INCREMENT PRIMARY KEY,
     userUniqueId VARCHAR(36) UNIQUE NOT NULL,  -- UUID for the user
     fullName VARCHAR(255),  -- Full name of the user
-    phoneNumber VARCHAR(15) NOT NULL UNIQUE,  -- Phone number of the user
-    email VARCHAR(55),  -- Email of the user
+    phoneNumber VARCHAR(20) NOT NULL UNIQUE,  -- Phone number of the user
+    email VARCHAR(255) NOT NULL UNIQUE,  -- Email of the user
+    isPhoneVerified BOOLEAN NOT NULL DEFAULT FALSE, -- True if the user has successfully entered a phone OTP
+    isEmailVerified BOOLEAN NOT NULL DEFAULT FALSE, -- True if the user has clicked their email verification link
     userCreatedAt DATETIME NOT NULL,  -- When the user was created
     userCreatedBy VARCHAR(36) NOT NULL,  -- Who created the user
     userDeletedAt DATETIME NULL,  -- When the user was deleted
@@ -84,8 +86,8 @@ CREATE TABLE IF NOT EXISTS UsersHistory (
     userHistoryId INT AUTO_INCREMENT PRIMARY KEY,
     userUniqueId VARCHAR(36) NOT NULL,  -- UUID of the user, foreign key to Users table
     fullName VARCHAR(255) NOT NULL,  -- Full name of the user
-    phoneNumber VARCHAR(15) NOT NULL,  -- Phone number of the user
-    email VARCHAR(55) NOT NULL,  -- Email of the user
+    phoneNumber VARCHAR(20) NOT NULL,  -- Phone number of the user
+    email VARCHAR(255) NOT NULL,  -- Email of the user
     actionType ENUM('UPDATED', 'DELETED') NOT NULL,  -- Action that triggered this record
     actionBy VARCHAR(36) NULL,  -- User who triggered the update/delete action
     actionAt DATETIME NOT NULL,  -- When the action was taken
@@ -98,8 +100,15 @@ CREATE TABLE IF NOT EXISTS usersCredential (
     credentialId INT AUTO_INCREMENT PRIMARY KEY,
     credentialUniqueId VARCHAR(36) UNIQUE NOT NULL,  -- UUID for credentials
     userUniqueId VARCHAR(36) NOT NULL,  -- Foreign key to Users
-    OTP VARCHAR(255) NOT NULL,  -- OTP for the user
-    hashedPassword VARCHAR(255) NOT NULL,  -- Hashed password for the user
+    -- Hybrid Verification Logic Overview:
+    -- 1. Unverified: Phone gets phoneOTP (SMS), Email gets emailVerificationToken (Link).
+    -- 2. Verified: Both get the same emailOTP/phoneOTP (Unified OTP mode).
+    OTP VARCHAR(255) NOT NULL,              -- Legacy fallback (usually stores hashed phoneOTP)
+    phoneOTP VARCHAR(255) NULL,             -- Hashed 6-digit code sent via SMS
+    emailOTP VARCHAR(255) NULL,             -- Hashed 6-digit code sent via Email (Unified mode only)
+    emailVerificationToken VARCHAR(255) NULL,      -- Secret UUID for the "Click to Verify" email link
+    emailVerificationExpiresAt DATETIME NULL,      -- Link expiration time (standard 2 hours)
+    hashedPassword VARCHAR(255) NOT NULL,   -- Storeshashed OTP (used for the initial login/verification)
     usersCredentialCreatedBy VARCHAR(36) NULL,  -- Who created the credential (nullable for initial seeding)
     usersCredentialUpdatedBy VARCHAR(36) NULL,  -- Who updated the credential
     usersCredentialDeletedBy VARCHAR(36) NULL,  -- Who deleted the credential

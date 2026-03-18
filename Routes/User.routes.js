@@ -54,6 +54,11 @@ router.post(
   controller.verifyUserByOTP,
 );
 
+router.get(
+  "/api/user/verify-email",
+  controller.verifyEmail,
+);
+
 router.put(
   "/api/user/updateUser/:ownerUserUniqueId",
   verifyTokenOfAxios,

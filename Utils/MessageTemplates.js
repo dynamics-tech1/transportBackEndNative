@@ -64,6 +64,57 @@ const getOtpMessage = (otp, type = "login") => {
   };
 };
 
+const getEmailVerificationLinkMessage = (verificationLink) => {
+  const brand = process.env.BRAND_NAME || "Dynamics Transport";
+  const supportPhone = process.env.SUPPORT_PHONE_NUMBER || "+251983222221";
+  const supportPhoneClean = supportPhone ? supportPhone.replace(/\+/g, "") : "";
+  const whatsappLink = `https://wa.me/${supportPhoneClean}`;
+  const telegramLink = `https://t.me/${supportPhone}`;
+  
+  const whatsappIcon = "https://cdn-icons-png.flaticon.com/512/733/733585.png";
+  const telegramIcon = "https://cdn-icons-png.flaticon.com/512/2111/2111646.png";
+
+  return {
+    emailSubject: `Verify your ${brand} Email Address`,
+    emailHtml: `
+      <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px; background-color: #ffffff;">
+        <div style="text-align: center; margin-bottom: 25px;">
+          <img src="cid:dynamics_logo" alt="${brand}" style="width: 100px; height: auto; margin-bottom: 5px;" />
+          <h1 style="color: #2c3e50; margin: 0; font-size: 24px;">${brand}</h1>
+        </div>
+        
+        <div style="background-color: #f8fbff; padding: 30px 5%; border-radius: 12px; text-align: center; border: 1px solid #edf2f7;">
+          <p style="font-size: 18px; color: #2c3e50; margin-bottom: 10px; font-weight: 700;">Verify your email address</p>
+          <p style="font-size: 15px; color: #4a5568; margin-bottom: 25px; line-height: 1.6;">Welcome to ${brand}! To complete your registration and secure your account, please verify your email address by clicking the button below.</p>
+          
+          <a href="${verificationLink}" style="display: inline-block; padding: 14px 30px; background-color: #2b6cb0; color: #ffffff; text-decoration: none; font-weight: bold; border-radius: 8px; font-size: 16px; box-shadow: 0 4px 6px rgba(43, 108, 176, 0.2);">Verify Email Address</a>
+          
+          <p style="font-size: 13px; color: #718096; margin-top: 25px;">This link will expire in 2 hours. If the button doesn't work, copy and paste this link into your browser:</p>
+          <p style="font-size: 12px; color: #2b6cb0; word-break: break-all; margin-top: 5px;">${verificationLink}</p>
+        </div>
+
+        <div style="margin-top: 35px; background-color: #f7fafc; padding: 25px; border-radius: 10px; text-align: center;">
+          <p style="font-size: 15px; color: #2d3748; margin-bottom: 15px; font-weight: 600;">Need help? Contact us directly:</p>
+          <div style="margin-bottom: 10px;">
+            <a href="${whatsappLink}" style="text-decoration: none; margin: 0 15px; display: inline-block;">
+              <img src="${whatsappIcon}" alt="WhatsApp" style="width: 32px; height: 32px; vertical-align: middle;" />
+            </a>
+            <a href="${telegramLink}" style="text-decoration: none; margin: 0 15px; display: inline-block;">
+              <img src="${telegramIcon}" alt="Telegram" style="width: 32px; height: 32px; vertical-align: middle;" />
+            </a>
+          </div>
+        </div>
+
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #edf2f7; font-size: 12px; color: #a0aec0; text-align: center;">
+          <p style="margin-bottom: 8px;">If you didn't create an account with ${brand}, please ignore this email.</p>
+          <p>&copy; 2026 ${brand}. All rights reserved.</p>
+        </div>
+      </div>
+    `
+  };
+};
+
 module.exports = {
-  getOtpMessage
+  getOtpMessage,
+  getEmailVerificationLinkMessage
 };

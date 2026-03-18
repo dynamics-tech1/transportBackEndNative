@@ -178,14 +178,11 @@ const createUser = async (body) => {
    
     // 3. Security Check: Prevent "Identity Hijacking"
     // If we found a matching phone but different email (or vice versa), block it.
-    // EXCEPTION: Allow "upgrading" if the existing email is a temporary placeholder.
-    const isPlaceholder = user?.email?.includes('@placeholder.com');
-
-    if (user?.email !== cleanEmail && !isPlaceholder) {
+    if (user?.email &&user?.email !== cleanEmail) {
       throw new AppError("This phone number is already registered with a different email address.", 403);
     }
     
-    if (user?.phoneNumber !== cleanPhone) {
+    if (user?.phoneNumber && user?.phoneNumber !== cleanPhone) {
       throw new AppError("This email address is already registered with a different phone number.", 403);
     }
     //check if user is deleted
@@ -197,7 +194,8 @@ const createUser = async (body) => {
     return await authService.handleExistingUser({
       requestedFrom: "user",
       user,
-      fullName: fullName || user.fullName,
+      phoneNumber: cleanPhone,
+      fullName: fullName,
       email: cleanEmail,
       roleId,
       statusId,
@@ -283,7 +281,7 @@ const createUserByAdminOrSuperAdmin = async ({ body, userUniqueId,userRoleStatus
     createdBy: userUniqueId,
   });
 };
-
+//some jobs can be done by system itself by written codes not by admin or supper admin or users
 const createUserSystem = async () => {
   const fullName = "system";
   const phoneNumber = "+251922112480";
