@@ -396,6 +396,12 @@ const updateUser = async (body) => {
     }
   }
 
+  // Fetch the latest user info to get verification flags
+  const [updatedUser] = await getData({
+    tableName: "Users",
+    conditions: { userUniqueId },
+  });
+
   // Create new token with updated information
   const tokenData = createJWT({
     userUniqueId,
@@ -404,6 +410,8 @@ const updateUser = async (body) => {
     email: email || updateValues.email,
     roleId: roleId,
     statusId: statusId,
+    isPhoneVerified: !!updatedUser?.isPhoneVerified,
+    isEmailVerified: !!updatedUser?.isEmailVerified,
   });
 
   if (tokenData.message === "error") {

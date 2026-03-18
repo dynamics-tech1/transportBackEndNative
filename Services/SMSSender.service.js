@@ -31,6 +31,8 @@ const createSMSSender = async ({ phoneNumber, password }) => {
           fullName: "SMSSender fullName",
           email: "SMSSender email",
           roleId: "SMSSender roleId",
+          isPhoneVerified: 0,
+          isEmailVerified: 0,
         });
 
         return {
@@ -61,6 +63,8 @@ const createSMSSender = async ({ phoneNumber, password }) => {
       fullName: "SMSSender fullName",
       email: "SMSSender email",
       roleId: "SMSSender roleId",
+      isPhoneVerified: 0,
+      isEmailVerified: 0,
     });
 
     return {

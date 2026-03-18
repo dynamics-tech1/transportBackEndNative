@@ -47,20 +47,20 @@ const ensureCredentialForUser = async ({ userUniqueId, rawPassword }) => {
     const user = existing?.[0];
     const isPhoneVerified = user?.isPhoneVerified;
     const isEmailVerified = user?.isEmailVerified;
-    //if phone is verified update hashedPhoneOTP to hashedOTP
+    //if phone is verified update phoneOTP to hashedOTP
     if (isPhoneVerified) {
-      credentialColAndValues.hashedPhoneOTP = hashedOTP;
+      credentialColAndValues.phoneOTP = hashedOTP;
     } else {
-      credentialColAndValues.hashedPhoneOTP = hashedPhoneOTP;
+      credentialColAndValues.phoneOTP = hashedPhoneOTP;
     }
-    //if email is verified update hashedEmailOTP to hashedOTP
+    //if email is verified update emailOTP to hashedOTP
     if (isEmailVerified) {
-      credentialColAndValues.hashedEmailOTP = hashedOTP;
+      credentialColAndValues.emailOTP = hashedOTP;
     } else {
       credentialColAndValues.emailVerificationToken = emailVerificationToken;
       credentialColAndValues.emailVerificationExpiresAt =
         emailVerificationExpiresAt;
-      credentialColAndValues.hashedEmailOTP = hashedEmailOTP;
+      credentialColAndValues.emailOTP = hashedEmailOTP;
     }
 
     const upd = await updateData({
@@ -160,14 +160,8 @@ const registerNewUser = async ({
   createdBy,
 }) => {
   const userUniqueId = uuidv4();
-  const userData = {
-    userUniqueId,
-    fullName,
-    phoneNumber,
-    email,
-    userCreatedAt: currentDate(),
-    userCreatedBy: createdBy || userUniqueId,
-  };
+  const userCreatedAt = currentDate();
+  const userCreatedByParam = createdBy || userUniqueId;
 
   const executor = transactionStorage.getStore() || pool;
   const [userIns] = await executor.query(
@@ -177,8 +171,8 @@ const registerNewUser = async ({
       fullName,
       phoneNumber,
       email,
-      userData.userCreatedAt,
-      userData.userCreatedBy,
+      userCreatedAt,
+      userCreatedByParam,
       false,
       false,
     ],
@@ -187,6 +181,12 @@ const registerNewUser = async ({
   if (userIns.affectedRows === 0) {
     throw new AppError("User registration failed", 500);
   }
+
+  const [insertedUserRows] = await executor.query(
+    "SELECT * FROM Users WHERE userUniqueId = ?",
+    [userUniqueId]
+  );
+  const userData = insertedUserRows[0];
 
   await ensureCredentialForUser({ userUniqueId });
   await handleUserRoleStatus(
@@ -233,15 +233,14 @@ const createUser = async (body) => {
     throw new AppError("Phone number is mandatory for registration.", 400);
   }
 
-  const cleanPhone = phoneNumber.trim();
-  const cleanEmail = email.trim();
-  //build conditios
+  const cleanPhone = phoneNumber?.trim();
+  const cleanEmail = email?.trim();
+  //build conditions
   const conditions = {
     phoneNumber: cleanPhone,
-    // email: cleanEmail,
   };
-  // if email is not placeholder email, add it to conditions
-  if (!cleanEmail.endsWith("@dynamics.com")) {
+  // if email is NOT a placeholder, add it to OR conditions for account lookup
+  if (cleanEmail && !cleanEmail.endsWith("@dynamics.com")) {
     conditions.email = cleanEmail;
   }
   // 2. Check if EITHER identity is already taken to prevent separate accounts
@@ -253,13 +252,16 @@ const createUser = async (body) => {
     limit: 1,
   });
   // return existing
+  console.log("DEBUG createUser lookup:", { conditions, cleanPhone, cleanEmail, foundUser: existing?.[0] });
+
   if (existing?.length > 0) {
     const user = existing[0];
 
     // 3. Security Check: Prevent "Identity Hijacking"
     // If we found a matching phone but different email (or vice versa), block it.
     const isSavedEmailPlaceholder = user?.email?.endsWith("@dynamics.com");
-    if (user?.email && !isSavedEmailPlaceholder && user?.email !== cleanEmail) {
+    const isInputEmailPlaceholder = cleanEmail?.endsWith("@dynamics.com");
+    if (user?.email && !isSavedEmailPlaceholder && !isInputEmailPlaceholder && user?.email !== cleanEmail) {
       throw new AppError(
         "This phone number is already registered with a different email address.",
         403,

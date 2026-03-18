@@ -2,7 +2,10 @@
 
 const { sendSms } = require("../../Utils/smsSender");
 const { sendEmail } = require("../../Utils/emailSender");
-const { getOtpMessage, getEmailVerificationLinkMessage } = require("../../Utils/MessageTemplates");
+const {
+  getOtpMessage,
+  getEmailVerificationLinkMessage,
+} = require("../../Utils/MessageTemplates");
 const createJWT = require("../../Utils/CreateJWT");
 const { currentDate } = require("../../Utils/CurrentDate");
 const bcrypt = require("bcryptjs");
@@ -11,13 +14,17 @@ const logger = require("../../Utils/logger");
 const { usersRoles } = require("../../Utils/ListOfSeedData");
 const AppError = require("../../Utils/AppError");
 const { transactionStorage } = require("../../Utils/TransactionContext");
-const { sendSocketIONotificationToAdmin } = require("../../Utils/Notifications");
+const {
+  sendSocketIONotificationToAdmin,
+} = require("../../Utils/Notifications");
 const { getData, performJoinSelect } = require("../../CRUD/Read/ReadData");
 const { updateData } = require("../../CRUD/Update/Data.update");
 const { insertData } = require("../../CRUD/Create/CreateData");
 const { v4: uuidv4 } = require("uuid");
 
-const { driversDocumentVehicleRequirement } = require("../RoleDocumentRequirements.service");
+const {
+  driversDocumentVehicleRequirement,
+} = require("../RoleDocumentRequirements.service");
 const { createUserSubscription } = require("../UserSubscription.service");
 const { getPricingWithFilters } = require("../SubscriptionPlanPricing.service");
 
@@ -53,9 +60,9 @@ const handleExistingUser = async ({
     user.fullName = fullName;
   }
 
-  // 2. Update email if it's currently missing
-  const isEmailMissing = !user.email;
-  if (isEmailMissing && email) {
+  // 2. Update email if it's currently missing OR it's a placeholder
+  const isEmailMissing = !user.email || user.email.endsWith("@dynamics.com");
+  if (isEmailMissing && email && !email.endsWith("@dynamics.com")) {
     await updateData({
       tableName: "Users",
       updateValues: { email },
@@ -78,33 +85,14 @@ const handleExistingUser = async ({
   // 3. Separate Identity Verification (OTP or Link Generation)
   const isPhoneVerified = !!user.isPhoneVerified;
   const isEmailVerified = !!user.isEmailVerified;
+  console.log("DEBUG AUTH SERVICE flags:", {
+    isPhoneVerified,
+    isEmailVerified,
+    fetchPhone: user.isPhoneVerified,
+    fetchEmail: user.isEmailVerified,
+  });
 
-  //we will use OTP if phone and email are verified, and otp cant be null
-const OTP= Math.floor(100000 + Math.random() * 900000);
-
-
-//we will use phoneOTP for phone verification only
-  const phoneOTP =isPhoneVerified?OTP: Math.floor(100000 + Math.random() * 900000);
-//we will use emailOTP for email verification only 
-  let emailOTP = isEmailVerified?OTP: Math.floor(100000 + Math.random() * 900000);
-  let emailVerificationToken = null;
-  let emailVerificationExpiresAt = null;
- 
-  if (isEmailVerified) {
-     emailOTP=OTP;
-  } else{
-   // LINK FOR EMAIL (if not verified)
-    emailVerificationToken = uuidv4();
-    emailVerificationExpiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
-}
-  if (isPhoneVerified) {
-      phoneOTP=OTP; 
-  }  
-
-  const hashedPhoneOTP = await bcrypt.hash(String(phoneOTP), 10);
-  const hashedEmailOTP = emailOTP ? await bcrypt.hash(String(emailOTP), 10) : null;
-
-  const [savedCredential,userRoleStatus] = await Promise.all([
+  const [savedCredentialRows, userRoleStatus] = await Promise.all([
     getData({ tableName: "usersCredential", conditions: { userUniqueId } }),
     registryService.handleUserRoleStatus(
       userUniqueId,
@@ -113,16 +101,47 @@ const OTP= Math.floor(100000 + Math.random() * 900000);
       userRoleStatusDescription,
     ),
   ]);
+  const savedCredential = savedCredentialRows?.[0] || {};
+
+  // Rule 3: Use Legacy OTP if both verified, otherwise generate primary session OTP
+  const OTP = Math.floor(100000 + Math.random() * 900000);
+
+  // Rule 4: Logic for Phone - If verified, use session OTP; else generate new verification phoneOTP
+  let phoneOTP = isPhoneVerified
+    ? OTP
+    : Math.floor(100000 + Math.random() * 900000);
+
+  // Rule 4: Logic for Email - If verified, use session OTP; else manage link
+  let emailOTP = isEmailVerified ? OTP : null;
+  let emailVerificationToken = savedCredential.emailVerificationToken;
+  let emailVerificationExpiresAt = savedCredential.emailVerificationExpiresAt;
+
+  if (!isEmailVerified) {
+    // If link is missing or expired, generate a new one
+    const isExpired =
+      emailVerificationExpiresAt &&
+      new Date(emailVerificationExpiresAt) < new Date();
+    if (!emailVerificationToken || isExpired) {
+      emailVerificationToken = uuidv4();
+      emailVerificationExpiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
+    }
+  }
+
+  const hashedOTP = await bcrypt.hash(String(OTP), 10);
+  const hashedPhoneOTP = isPhoneVerified
+    ? hashedOTP
+    : await bcrypt.hash(String(phoneOTP), 10);
+  const hashedEmailOTP = isEmailVerified ? hashedOTP : null;
 
   const credentialValues = {
     phoneOTP: hashedPhoneOTP,
-    emailOTP: hashedEmailOTP, 
-    OTP, // Legacy
+    emailOTP: hashedEmailOTP,
+    OTP: hashedOTP, // Legacy
     emailVerificationToken,
     emailVerificationExpiresAt,
   };
-// return savedCredential;
-  if (savedCredential?.length === 0) {
+
+  if (!savedCredential.credentialUniqueId) {
     await insertData({
       tableName: "usersCredential",
       colAndVal: {
@@ -142,7 +161,7 @@ const OTP= Math.floor(100000 + Math.random() * 900000);
   }
 
   if (requestedFrom === "street") {
-    return { message: "success", data: {...user} };
+    return { message: "success", data: { ...user } };
   }
 
   let otpDetail = "";
@@ -154,22 +173,40 @@ const OTP= Math.floor(100000 + Math.random() * 900000);
   } else {
     try {
       // 1. Send SMS (Always OTP)
-      const phoneMsg = getOtpMessage(phoneOTP, requestedFrom === "user" ? "login" : "registration");
+      const phoneMsg = getOtpMessage(
+        phoneOTP,
+        requestedFrom === "user" ? "login" : "registration",
+      );
       await sendSms(user.phoneNumber, phoneMsg.sms);
-      
+
       // 2. Send Email (OTP or Link)
       if (user.email) {
         if (isEmailVerified) {
           // Send Unified OTP
-          const emailMsg = getOtpMessage(emailOTP, requestedFrom === "user" ? "login" : "registration");
-          await sendEmail(user.email, emailMsg.emailSubject, emailMsg.sms, emailMsg.emailHtml);
+          const emailMsg = getOtpMessage(
+            emailOTP,
+            requestedFrom === "user" ? "login" : "registration",
+          );
+          await sendEmail(
+            user.email,
+            emailMsg.emailSubject,
+            emailMsg.sms,
+            emailMsg.emailHtml,
+          );
           otpDetail = "Unified OTP sent to phone and email";
         } else {
           // Send Verification Link
-          const baseUrl = process.env.APP_API_URL || "https://transport-back-end-native.vercel.app";
+          const baseUrl =
+            process.env.APP_API_URL ||
+            "https://transport-back-end-native.vercel.app";
           const link = `${baseUrl}/api/user/verify-email?token=${emailVerificationToken}`;
           const linkMsg = getEmailVerificationLinkMessage(link);
-          await sendEmail(user.email, linkMsg.emailSubject, "Verify your email", linkMsg.emailHtml);
+          await sendEmail(
+            user.email,
+            linkMsg.emailSubject,
+            "Verify your email",
+            linkMsg.emailHtml,
+          );
           otpDetail = "OTP sent to phone, Verification Link sent to email";
         }
       } else {
@@ -185,17 +222,22 @@ const OTP= Math.floor(100000 + Math.random() * 900000);
   try {
     if (Number(roleId) === usersRoles.driverRoleId) {
       const plansRes = await getPricingWithFilters();
-      const freePlan = (plansRes?.data || []).find((p) => p?.isFree === true || p?.isFree === 1);
+      const freePlan = (plansRes?.data || []).find(
+        (p) => p?.isFree === true || p?.isFree === 1,
+      );
       if (freePlan?.subscriptionPlanPricingUniqueId) {
         await createUserSubscription({
           driverUniqueId: userUniqueId,
-          subscriptionPlanPricingUniqueId: freePlan.subscriptionPlanPricingUniqueId,
+          subscriptionPlanPricingUniqueId:
+            freePlan.subscriptionPlanPricingUniqueId,
           userSubscriptionCreatedBy: userUniqueId,
         });
       }
     }
   } catch (e) {
-    logger.warn("Error creating free gift during sign-up for existing user", { error: e.message });
+    logger.warn("Error creating free gift during sign-up for existing user", {
+      error: e.message,
+    });
   }
 
   return {
@@ -210,7 +252,7 @@ const loginUser = async (phoneNumber, roleId, email = null) => {
   if (!manageService) {
     manageService = require("./User.manage.service");
   }
-  
+
   if (!roleId) {
     throw new AppError("Role ID is required.", 400);
   }
@@ -227,15 +269,27 @@ const loginUser = async (phoneNumber, roleId, email = null) => {
   });
 
   if (!userDataResult?.data?.[0]?.user) {
-    throw new AppError("User not found at this phone/email address. Please sign up first.", 404);
+    throw new AppError(
+      "User not found at this phone/email address. Please sign up first.",
+      404,
+    );
   }
 
   const userEntry = userDataResult.data[0];
   const userData = userEntry.user;
-  if (userData?.isDeleted || userData?.userDeletedAt) {throw new AppError("Account has been deleted", 403);}
+  if (userData?.isDeleted || userData?.userDeletedAt) {
+    throw new AppError("Account has been deleted", 403);
+  }
 
-  const roleEntry = userEntry.rolesAndStatuses?.find((rs) => rs?.userRoles?.roleId === roleId);
-  if (!roleEntry) {throw new AppError("User not found at this role. Please sign up for this role first.", 404);}
+  const roleEntry = userEntry.rolesAndStatuses?.find(
+    (rs) => rs?.userRoles?.roleId === roleId,
+  );
+  if (!roleEntry) {
+    throw new AppError(
+      "User not found at this role. Please sign up for this role first.",
+      404,
+    );
+  }
 
   return await handleExistingUser({
     requestedFrom: "user",
@@ -258,43 +312,76 @@ const verifyUserByOTP = async (req) => {
 
   const verifyUserExistence = await performJoinSelect({
     baseTable: "Users",
-    joins: [{ table: "usersCredential", on: "Users.userUniqueId = usersCredential.userUniqueId" }],
+    joins: [
+      {
+        table: "usersCredential",
+        on: "Users.userUniqueId = usersCredential.userUniqueId",
+      },
+    ],
     conditions,
     limit: 1,
   });
+  console.log("@verifyUserExistence", verifyUserExistence);
+  if (!verifyUserExistence || verifyUserExistence.length === 0) {
+    throw new AppError("user not found", 404);
+  }
 
-  if (!verifyUserExistence || verifyUserExistence.length === 0) {throw new AppError("user not found", 404);}
-  
-  const userRow = verifyUserExistence[0];
-  if (userRow.isDeleted || userRow.userDeletedAt) {throw new AppError("Account has been deleted", 403);}
+  const userRow = verifyUserExistence?.[0];
+  if (userRow?.isDeleted || userRow?.userDeletedAt) {
+    throw new AppError("Account has been deleted", 403);
+  }
+
+  const isPhoneVerified = userRow?.isPhoneVerified;
+  const isEmailVerified = userRow?.isEmailVerified;
+  const savedOTP = userRow?.OTP;
+  const phoneOTP = userRow?.phoneOTP;
+  const emailOTP = userRow?.emailOTP;
 
   // 1. Check which identity the OTP matches
   let phoneMatched = false;
   let emailMatched = false;
-
-  if (userRow.phoneOTP) {
+  //if phone number is given from user and phone otp from database is existed then check phone otp is equal to user given otp
+  if (phoneNumber && userRow?.phoneOTP) {
     try {
-      await verifyPassword({ hashedPassword: userRow.phoneOTP, notHashedPassword: String(OTP) });
+      await verifyPassword({
+        //if phone is verified then check saved otp else check phone otp
+        hashedPassword: isPhoneVerified ? savedOTP : phoneOTP,
+        notHashedPassword: String(OTP),
+      });
       phoneMatched = true;
-    } catch (e) { /* ignore and check email */ }
+    } catch (e) {
+      /* ignore and check email */
+    }
   }
 
-  if (!phoneMatched && userRow.emailOTP) {
+  if (email && userRow?.emailOTP) {
     try {
-      await verifyPassword({ hashedPassword: userRow.emailOTP, notHashedPassword: String(OTP) });
+      await verifyPassword({
+        //if email is verified then check saved otp else check email otp
+        hashedPassword: isEmailVerified ? savedOTP : emailOTP,
+        notHashedPassword: String(OTP),
+      });
       emailMatched = true;
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      /* ignore */
+    }
   }
 
   // Fallback for legacy OTP column (if neither specific OTP matched)
   if (!phoneMatched && !emailMatched && userRow.OTP) {
-    await verifyPassword({ hashedPassword: userRow.OTP, notHashedPassword: String(OTP) });
+    await verifyPassword({
+      hashedPassword: userRow.OTP,
+      notHashedPassword: String(OTP),
+    });
     // If legacy matches, we assume phone for now as it was the default
-    phoneMatched = true; 
+    phoneMatched = true;
   }
 
   if (!phoneMatched && !emailMatched) {
-    throw new AppError("Invalid OTP. Please check the code and try again.", 401);
+    throw new AppError(
+      "Invalid OTP. Please check the code and try again.",
+      401,
+    );
   }
 
   // 2. Update verification status in the database
@@ -315,7 +402,9 @@ const verifyUserByOTP = async (req) => {
     conditions: { roleId, userUniqueId: userRow.userUniqueId },
   });
 
-  if (userInRoleId.length === 0) {throw new AppError("user not found in this role", 401);}
+  if (userInRoleId.length === 0) {
+    throw new AppError("user not found in this role", 401);
+  }
 
   const tokenData = createJWT({
     userUniqueId: userRow.userUniqueId,
@@ -334,7 +423,7 @@ const verifyUserByOTP = async (req) => {
     verificationStatus: {
       phoneVerified: phoneMatched || !!userRow.isPhoneVerified,
       emailVerified: emailMatched || !!userRow.isEmailVerified,
-    }
+    },
   };
 
   if (Number(roleId) === usersRoles.driverRoleId) {
@@ -343,10 +432,16 @@ const verifyUserByOTP = async (req) => {
       user: userRow,
     });
 
-    if (docReq?.message === "error") {throw new AppError(docReq.error || "Failed to check requirements", 500);}
+    if (docReq?.message === "error") {
+      throw new AppError(docReq.error || "Failed to check requirements", 500);
+    }
 
     const { unAttachedDocumentTypes, attachedDocumentsByStatus } = docReq;
-    if (attachedDocumentsByStatus?.PENDING?.length > 0 || attachedDocumentsByStatus?.REJECTED?.length > 0 || unAttachedDocumentTypes?.length > 0) {
+    if (
+      attachedDocumentsByStatus?.PENDING?.length > 0 ||
+      attachedDocumentsByStatus?.REJECTED?.length > 0 ||
+      unAttachedDocumentTypes?.length > 0
+    ) {
       sendSocketIONotificationToAdmin({ message: { ...docReq } });
     }
     resData.documentAndVehicleOfDriver = docReq;
@@ -363,11 +458,16 @@ const verifyEmailByToken = async (token) => {
     conditions: { emailVerificationToken: token },
   });
 
-  if (!credential) throw new AppError("Verification link is invalid or has expired.", 400);
+  if (!credential)
+    throw new AppError("Verification link is invalid or has expired.", 400);
 
   const now = new Date();
   const expiry = new Date(credential.emailVerificationExpiresAt);
-  if (now > expiry) throw new AppError("Verification link has expired. Please log in again to receive a new one.", 400);
+  if (now > expiry)
+    throw new AppError(
+      "Verification link has expired. Please log in again to receive a new one.",
+      400,
+    );
 
   // Mark as verified
   await Promise.all([
@@ -378,12 +478,18 @@ const verifyEmailByToken = async (token) => {
     }),
     updateData({
       tableName: "usersCredential",
-      updateValues: { emailVerificationToken: null, emailVerificationExpiresAt: null },
+      updateValues: {
+        emailVerificationToken: null,
+        emailVerificationExpiresAt: null,
+      },
       conditions: { userUniqueId: credential.userUniqueId },
     }),
   ]);
 
-  return { message: "Email verified successfully! You can now use all features of the app." };
+  return {
+    message:
+      "Email verified successfully! You can now use all features of the app.",
+  };
 };
 
 module.exports = {
@@ -392,4 +498,3 @@ module.exports = {
   handleExistingUser,
   verifyEmailByToken,
 };
-
