@@ -23,6 +23,12 @@ const formatDateTime = (date) => {
 
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
+
+const addHours = (dateStr, h) => {
+  const date = new Date(dateStr.replace(" ", "T") + "Z"); // Convert to ISO-like for parsing
+  date.setUTCHours(date.getUTCHours() + h);
+  return formatDateTime(date);
+};
 const toDateOnly = (dateStr) =>
   dateStr && typeof dateStr === "string" ? dateStr.trim().slice(0, 10) : null;
-module.exports = { currentDate, formatDateTime, toDateOnly };
+module.exports = { currentDate, formatDateTime, toDateOnly, addHours };

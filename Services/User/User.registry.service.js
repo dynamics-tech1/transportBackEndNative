@@ -5,7 +5,7 @@ const { pool } = require("../../Middleware/Database.config");
 const { getData } = require("../../CRUD/Read/ReadData");
 const { updateData } = require("../../CRUD/Update/Data.update");
 const { insertData } = require("../../CRUD/Create/CreateData");
-const { currentDate } = require("../../Utils/CurrentDate");
+const { currentDate, addHours } = require("../../Utils/CurrentDate");
 const bcrypt = require("bcryptjs");
 const { usersRoles, USER_STATUS } = require("../../Utils/ListOfSeedData");
 const AppError = require("../../Utils/AppError");
@@ -13,7 +13,10 @@ const { transactionStorage } = require("../../Utils/TransactionContext");
 const generateOTP = require("../../Utils/GenerateOTP");
 const { createUserSubscription } = require("../UserSubscription.service");
 const { getPricingWithFilters } = require("../SubscriptionPlanPricing.service");
-const { getPlaceholderEmail, isPlaceholderEmail } = require("../../Utils/GetPlaceholderEmail");
+const {
+  getPlaceholderEmail,
+  isPlaceholderEmail,
+} = require("../../Utils/GetPlaceholderEmail");
 
 // Circular dependency handling
 let authService;
@@ -38,7 +41,7 @@ const ensureCredentialForUser = async ({ userUniqueId, rawPassword }) => {
     10,
   );
   const emailVerificationToken = uuidv4();
-  const emailVerificationExpiresAt = currentDate();
+  const emailVerificationExpiresAt = addHours(currentDate(), 24);
 
   if (existing && existing.length > 0) {
     const credentialColAndValues = {
@@ -164,8 +167,11 @@ const registerNewUser = async ({
   const userCreatedAt = currentDate();
   const userCreatedByParam = createdBy || userUniqueId;
 
-  // Placeholder email if none provided (prevents DB null constraints)
-  const cleanEmail = getPlaceholderEmail(phoneNumber || email);
+  // Use provided email or generate a placeholder if none exists
+  const cleanEmail =
+    email && !isPlaceholderEmail(email)
+      ? email
+      : getPlaceholderEmail(phoneNumber);
 
   const executor = transactionStorage.getStore() || pool;
   const [userIns] = await executor.query(
@@ -188,7 +194,7 @@ const registerNewUser = async ({
 
   const [insertedUserRows] = await executor.query(
     "SELECT * FROM Users WHERE userUniqueId = ?",
-    [userUniqueId]
+    [userUniqueId],
   );
   const userData = insertedUserRows[0];
 
@@ -244,8 +250,8 @@ const createUser = async (body) => {
    * IDENTITY LOOKUP STRATEGY:
    * 1. Always look up by Phone (Primary Identity).
    * 2. Only look up by Email if it's NOT a system-generated placeholder.
-   *    This avoids identifying different users who might happen to have 
-   *    placeholder emails (though placeholders are designed to be unique 
+   *    This avoids identifying different users who might happen to have
+   *    placeholder emails (though placeholders are designed to be unique
    *    per phone, this is a safety measure).
    */
   const conditions = {
@@ -263,22 +269,20 @@ const createUser = async (body) => {
     operator: "OR",
     limit: 1,
   });
-  // return existing
-  console.log("DEBUG createUser lookup:", { conditions, cleanPhone, cleanEmail, foundUser: existing?.[0] });
 
   if (existing?.length > 0) {
     const user = existing[0];
 
     /**
      * SECURITY CHECK: Prevent "Identity Hijacking"
-     * 
-     * If the phone number exists but is tied to a DIFFERENT real email, 
+     *
+     * If the phone number exists but is tied to a DIFFERENT real email,
      * we block the request to prevent account takeover.
-     * 
+     *
      * SPECIAL CASE: "Street Hailing" (takeFromStreet)
-     * If a driver is registering a passenger from the street, we allow 
-     * using the existing phone record even if it has a different email. 
-     * This ensures the driver isn't blocked by the passenger's app privacy 
+     * If a driver is registering a passenger from the street, we allow
+     * using the existing phone record even if it has a different email.
+     * This ensures the driver isn't blocked by the passenger's app privacy
      * settings while on the road.
      */
     const isSavedEmailPlaceholder = isPlaceholderEmail(user?.email);

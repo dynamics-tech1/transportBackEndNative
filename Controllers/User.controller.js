@@ -69,6 +69,10 @@ const createUser = async (req, res, next) => {
             "https://transport-back-end-native.vercel.app";
           const link = `${baseUrl}/api/user/verify-email?token=${emailVerificationToken}`;
           const linkMsg = getEmailVerificationLinkMessage(link);
+          logger.debug("Sending Deferred Email Verification Link", {
+            to: email,
+            subject: linkMsg.emailSubject,
+          });
           sendEmail(
             email,
             linkMsg.emailSubject,

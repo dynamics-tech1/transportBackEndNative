@@ -29,7 +29,10 @@ const {
 } = require("../RoleDocumentRequirements.service");
 const { createUserSubscription } = require("../UserSubscription.service");
 const { getPricingWithFilters } = require("../SubscriptionPlanPricing.service");
-const { getPlaceholderEmail, isPlaceholderEmail } = require("../../Utils/GetPlaceholderEmail");
+const {
+  getPlaceholderEmail,
+  isPlaceholderEmail,
+} = require("../../Utils/GetPlaceholderEmail");
 
 let manageService;
 let registryService;
@@ -73,7 +76,12 @@ const handleExistingUser = async ({
   // 2. Update email if it's currently missing OR it's a placeholder
   const isEmailMissing = !user.email || isPlaceholderEmail(user.email);
   const placeholderEmail = getPlaceholderEmail(user.phoneNumber);
-  if (isEmailMissing && email && email !== placeholderEmail && !isPlaceholderEmail(email)) {
+  if (
+    isEmailMissing &&
+    email &&
+    email !== placeholderEmail &&
+    !isPlaceholderEmail(email)
+  ) {
     await updateData({
       tableName: "Users",
       updateValues: { email },
@@ -96,12 +104,6 @@ const handleExistingUser = async ({
   // 3. Separate Identity Verification (OTP or Link Generation)
   const isPhoneVerified = !!user.isPhoneVerified;
   const isEmailVerified = !!user.isEmailVerified;
-  console.log("DEBUG AUTH SERVICE flags:", {
-    isPhoneVerified,
-    isEmailVerified,
-    fetchPhone: user.isPhoneVerified,
-    fetchEmail: user.isEmailVerified,
-  });
 
   const [savedCredentialRows, userRoleStatus] = await Promise.all([
     getData({ tableName: "usersCredential", conditions: { userUniqueId } }),
@@ -249,7 +251,6 @@ const handleExistingUser = async ({
               requestedFrom === "user" ? "login" : "registration",
             );
           }
-
           await sendEmail(
             user.email,
             emailMsg.emailSubject,
@@ -266,6 +267,10 @@ const handleExistingUser = async ({
             "https://transport-back-end-native.vercel.app";
           const link = `${baseUrl}/api/user/verify-email?token=${emailVerificationToken}`;
           const linkMsg = getEmailVerificationLinkMessage(link);
+          logger.debug("Sending Email Verification Link", {
+            to: user.email,
+            subject: linkMsg.emailSubject,
+          });
           await sendEmail(
             user.email,
             linkMsg.emailSubject,
@@ -309,7 +314,7 @@ const handleExistingUser = async ({
     message: "success",
     data: user,
     messageDetail: otpDetail,
-    // deferredOTP,
+    deferredOTP,
   };
 };
 
