@@ -13,7 +13,7 @@ const { transactionStorage } = require("../../Utils/TransactionContext");
 const generateOTP = require("../../Utils/GenerateOTP");
 const { createUserSubscription } = require("../UserSubscription.service");
 const { getPricingWithFilters } = require("../SubscriptionPlanPricing.service");
-const getPlaceholderEmail = require("../../Utils/GetPlaceholderEmail");
+const { getPlaceholderEmail, isPlaceholderEmail } = require("../../Utils/GetPlaceholderEmail");
 
 // Circular dependency handling
 let authService;
@@ -237,14 +237,22 @@ const createUser = async (body) => {
     throw new AppError("Phone number is mandatory for registration.", 400);
   }
 
-  const cleanPhone = phoneNumber?.trim();
-  const cleanEmail = email?.trim();
-  //build conditions
+  const cleanPhone = String(phoneNumber).trim().replace(/\s/g, "");
+  const cleanEmail = email ? String(email).trim().toLowerCase() : null;
+
+  /**
+   * IDENTITY LOOKUP STRATEGY:
+   * 1. Always look up by Phone (Primary Identity).
+   * 2. Only look up by Email if it's NOT a system-generated placeholder.
+   *    This avoids identifying different users who might happen to have 
+   *    placeholder emails (though placeholders are designed to be unique 
+   *    per phone, this is a safety measure).
+   */
   const conditions = {
     phoneNumber: cleanPhone,
   };
   // if email is NOT a placeholder, add it to OR conditions for account lookup
-  if (cleanEmail && !cleanEmail.endsWith("@dynamics.com")) {
+  if (cleanEmail && !isPlaceholderEmail(cleanEmail)) {
     conditions.email = cleanEmail;
   }
   // 2. Check if EITHER identity is already taken to prevent separate accounts
@@ -261,11 +269,29 @@ const createUser = async (body) => {
   if (existing?.length > 0) {
     const user = existing[0];
 
-    // 3. Security Check: Prevent "Identity Hijacking"
-    // If we found a matching phone but different email (or vice versa), block it.
-    const isSavedEmailPlaceholder = user?.email?.endsWith("@dynamics.com");
-    const isInputEmailPlaceholder = cleanEmail?.endsWith("@dynamics.com");
-    if (user?.email && !isSavedEmailPlaceholder && !isInputEmailPlaceholder && user?.email !== cleanEmail) {
+    /**
+     * SECURITY CHECK: Prevent "Identity Hijacking"
+     * 
+     * If the phone number exists but is tied to a DIFFERENT real email, 
+     * we block the request to prevent account takeover.
+     * 
+     * SPECIAL CASE: "Street Hailing" (takeFromStreet)
+     * If a driver is registering a passenger from the street, we allow 
+     * using the existing phone record even if it has a different email. 
+     * This ensures the driver isn't blocked by the passenger's app privacy 
+     * settings while on the road.
+     */
+    const isSavedEmailPlaceholder = isPlaceholderEmail(user?.email);
+    const isInputEmailPlaceholder = isPlaceholderEmail(cleanEmail);
+    const isStreetEntry = body?.requestedFrom === "street";
+
+    if (
+      !isStreetEntry &&
+      user?.email &&
+      !isSavedEmailPlaceholder &&
+      !isInputEmailPlaceholder &&
+      user?.email !== cleanEmail
+    ) {
       throw new AppError(
         "This phone number is already registered with a different email address.",
         403,

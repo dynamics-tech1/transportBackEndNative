@@ -29,7 +29,7 @@ const {
 } = require("../RoleDocumentRequirements.service");
 const { createUserSubscription } = require("../UserSubscription.service");
 const { getPricingWithFilters } = require("../SubscriptionPlanPricing.service");
-const getPlaceholderEmail = require("../../Utils/GetPlaceholderEmail");
+const { getPlaceholderEmail, isPlaceholderEmail } = require("../../Utils/GetPlaceholderEmail");
 
 let manageService;
 let registryService;
@@ -63,10 +63,17 @@ const handleExistingUser = async ({
     user.fullName = fullName;
   }
 
+  /**
+   * IDENTITY UPDATE STRATEGY:
+   * We only update the user's email if the current record is missing
+   * OR if it's a system-level placeholder (@dynamics.com).
+   * This allows "upgrading" a phone-only account to a full account
+   * when the user finally joins the app and provides a real email.
+   */
   // 2. Update email if it's currently missing OR it's a placeholder
+  const isEmailMissing = !user.email || isPlaceholderEmail(user.email);
   const placeholderEmail = getPlaceholderEmail(user.phoneNumber);
-  const isEmailMissing = !user.email || user.email === placeholderEmail;
-  if (isEmailMissing && email && email !== placeholderEmail) {
+  if (isEmailMissing && email && email !== placeholderEmail && !isPlaceholderEmail(email)) {
     await updateData({
       tableName: "Users",
       updateValues: { email },
@@ -107,13 +114,26 @@ const handleExistingUser = async ({
   ]);
   const savedCredential = savedCredentialRows?.[0] || {};
 
+  /**
+   * HYBRID CHANNEL LOGIC:
+   * To prevent "channel leakage", we ensure OTPs are dedicated to
+   * their specific communication channels.
+   *
+   * 1. Phone Logic:
+   *    - Unverified: Gets phoneVerificationOTP (SMS).
+   *    - Verified: Gets shared login OTP (SMS).
+   *
+   * 2. Email Logic:
+   *    - Unverified: Gets a Verification Link (UUID).
+   *    - Verified: Gets shared login OTP (Email).
+   *
+   * 3. Admin Assignment:
+   *    - Gets a specialized Welcome Message (SMS + Email).
+   */
   // Rule 3: Use Legacy OTP if both verified, otherwise generate primary session OTP
   const OTP = generateOTP();
 
   /**
-   * HYBRID CHANNEL LOGIC:
-   * To prevent "channel leakage", unverified identities must use their own dedicated OTPs.
-   *
    * 1. Phone Logic: If phoneNumber is unverified, it gets a unique phoneVerificationOTP (SMS).
    *    If already verified, it uses the shared login OTP.
    */
