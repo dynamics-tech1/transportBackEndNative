@@ -5,7 +5,7 @@ const { usersRoles, USER_STATUS } = require("../Utils/ListOfSeedData");
 const phoneNumberSchema = Joi.string()
   .pattern(/^\+?[0-9\s-]{10,20}$/)
   .messages({ "string.pattern.base": "Invalid phone number format" });
-const emailSchema = Joi.string().email();
+const emailSchema = Joi.string().email().allow("", null).optional();
 const OTPSchema = Joi.alternatives()
   .try(
     Joi.string()
