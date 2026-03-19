@@ -9,9 +9,14 @@ const services = require("../Services/User.service");
 const { uploadToFTP } = require("../Utils/FTPHandler");
 const ServerResponder = require("../Utils/ServerResponder");
 const { usersRoles } = require("../Utils/ListOfSeedData");
-const { getOtpMessage, getEmailVerificationLinkMessage } = require("../Utils/MessageTemplates");
+const {
+  getOtpMessage,
+  getEmailVerificationLinkMessage,
+  getSuccessEmailVerificationHtml,
+} = require("../Utils/MessageTemplates");
 const AppError = require("../Utils/AppError");
 const { executeInTransaction } = require("../Utils/DatabaseTransaction");
+const logger = require("../Utils/logger");
 //in create user fullname must be existe for driver roles.
 const createUser = async (req, res, next) => {
   try {
@@ -24,14 +29,21 @@ const createUser = async (req, res, next) => {
       const { sendSms } = require("../Utils/smsSender");
       const { sendEmail } = require("../Utils/emailSender");
       const { phoneNumber, email, isEmailVerified } = response.data || {};
-      const { phoneVerificationOTP, emailVerificationOTP, emailVerificationToken } = response.deferredOTP;
+      const {
+        phoneVerificationOTP,
+        emailVerificationOTP,
+        emailVerificationToken,
+      } = response.deferredOTP;
 
       // 1. Send SMS (Always OTP)
       if (phoneNumber && phoneVerificationOTP) {
         const phoneMsg = getOtpMessage(phoneVerificationOTP, "registration");
         sendSms(phoneNumber, null, phoneMsg.sms).catch((err) => {
           const logger = require("../Utils/logger");
-          logger.warn("Deferred SMS sending failed", { phoneNumber, error: err.message });
+          logger.warn("Deferred SMS sending failed", {
+            phoneNumber,
+            error: err.message,
+          });
         });
       }
 
@@ -39,17 +51,35 @@ const createUser = async (req, res, next) => {
       if (email) {
         if (isEmailVerified && emailVerificationOTP) {
           const emailMsg = getOtpMessage(emailVerificationOTP, "registration");
-          sendEmail(email, emailMsg.emailSubject, emailMsg.sms, emailMsg.emailHtml).catch((err) => {
+          sendEmail(
+            email,
+            emailMsg.emailSubject,
+            emailMsg.sms,
+            emailMsg.emailHtml,
+          ).catch((err) => {
             const logger = require("../Utils/logger");
-            logger.warn("Deferred Email OTP sending failed", { email, error: err.message });
+            logger.warn("Deferred Email OTP sending failed", {
+              email,
+              error: err.message,
+            });
           });
         } else if (emailVerificationToken) {
-          const baseUrl = process.env.APP_API_URL || "https://transport-back-end-native.vercel.app";
+          const baseUrl =
+            process.env.APP_API_URL ||
+            "https://transport-back-end-native.vercel.app";
           const link = `${baseUrl}/api/user/verify-email?token=${emailVerificationToken}`;
           const linkMsg = getEmailVerificationLinkMessage(link);
-          sendEmail(email, linkMsg.emailSubject, "Verify your email", linkMsg.emailHtml).catch((err) => {
+          sendEmail(
+            email,
+            linkMsg.emailSubject,
+            "Verify your email",
+            linkMsg.emailHtml,
+          ).catch((err) => {
             const logger = require("../Utils/logger");
-            logger.warn("Deferred Email Link sending failed", { email, error: err.message });
+            logger.warn("Deferred Email Link sending failed", {
+              email,
+              error: err.message,
+            });
           });
         }
       }
@@ -98,6 +128,7 @@ const verifyUserByOTP = async (req, res, next) => {
     });
     ServerResponder(res, result);
   } catch (error) {
+    logger.error("Error in verifyUserByOTP", error);
     next(error);
   }
 };
@@ -121,7 +152,8 @@ const deleteUser = async (req, res, next) => {
       throw new AppError("you can't delete this user", 403);
     }
 
-    const retainFiles = req.query?.retainFiles !== "false" && req.query?.retainFiles !== false;
+    const retainFiles =
+      req.query?.retainFiles !== "false" && req.query?.retainFiles !== false;
     const response = await executeInTransaction(async () => {
       return await services.deleteUser({
         userUniqueId,
@@ -188,9 +220,14 @@ const updateUser = async (req, res, next) => {
         const fileExtension = path.extname(file.originalname);
         const uniqueFilename = `${user.userId}_${uuidv4()}${fileExtension}`;
 
-        const fileUrl = await uploadToFTP(file.buffer, uniqueFilename).catch((err) => {
-          throw new AppError(`User information updated, but failed to upload profile image to server: ${err.message}`, 500);
-        });
+        const fileUrl = await uploadToFTP(file.buffer, uniqueFilename).catch(
+          (err) => {
+            throw new AppError(
+              `User information updated, but failed to upload profile image to server: ${err.message}`,
+              500,
+            );
+          },
+        );
 
         // Validate attachedDocumentUniqueId
         if (
@@ -243,17 +280,9 @@ const verifyEmail = async (req, res, next) => {
   try {
     const { token } = req.query;
     const response = await services.verifyEmailByToken(token);
-    
-    // Send a nice HTML success page instead of raw JSON if preferred
-    res.send(`
-      <div style="font-family: sans-serif; text-align: center; padding: 50px;">
-        <h1 style="color: #2b6cb0;">✅ Email Verified!</h1>
-        <p style="color: #4a5568; font-size: 18px;">Your email has been successfully verified. You can now return to the app.</p>
-        <div style="margin-top: 30px;">
-           <span style="font-size: 50px;">🌟</span>
-        </div>
-      </div>
-    `);
+
+    // Send a professional HTML success page with the login OTP
+    res.send(getSuccessEmailVerificationHtml(response.data.OTP));
   } catch (error) {
     // If it's an API error, send a nice error page
     res.status(error.statusCode || 500).send(`

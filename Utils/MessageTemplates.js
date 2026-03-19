@@ -114,7 +114,62 @@ const getEmailVerificationLinkMessage = (verificationLink) => {
   };
 };
 
+const getSuccessEmailVerificationHtml = (otp) => {
+  const brand = process.env.BRAND_NAME || "Dynamics Transport";
+  const supportPhone = process.env.SUPPORT_PHONE_NUMBER || "+251983222221";
+  const supportPhoneClean = supportPhone ? supportPhone.replace(/\+/g, "") : "";
+  const whatsappLink = `https://wa.me/${supportPhoneClean}`;
+  const telegramLink = `https://t.me/${supportPhone}`;
+  
+  const whatsappIcon = "https://cdn-icons-png.flaticon.com/512/733/733585.png";
+  const telegramIcon = "https://cdn-icons-png.flaticon.com/512/2111/2111646.png";
+  
+  return `
+    <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 30px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #ffffff; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+      <div style="margin-bottom: 25px;">
+        <h1 style="color: #2b6cb0; margin: 0; font-size: 28px;">${brand}</h1>
+      </div>
+      
+      <div style="background-color: #f0fff4; border: 1px solid #c6f6d5; padding: 20px; border-radius: 10px; margin-bottom: 25px;">
+        <h2 style="color: #2f855a; margin: 0 0 10px 0; font-size: 20px;">✅ Email Verified!</h2>
+        <p style="color: #276749; margin: 0; font-size: 16px;">Your email has been successfully verified.</p>
+      </div>
+
+      <p style="font-size: 16px; color: #4a5568; margin-bottom: 20px;">Use the verification code below for your secure login in the app:</p>
+      
+      <div style="background: #f8fbff; border-radius: 8px; border: 2px dashed #cbd5e0; padding: 20px 10px; margin: 20px auto; max-width: 260px;">
+        <span style="font-size: 42px; font-weight: 800; letter-spacing: 8px; color: #2b6cb0;">${otp}</span>
+      </div>
+      
+      <div style="margin-top: 30px; padding: 20px; background-color: #fffaf0; border-left: 5px solid #ed8936; text-align: left;">
+        <p style="font-size: 14px; color: #7b341e; margin: 0; line-height: 1.6;">
+          <strong>Important Security Note:</strong> Please do not share this code with anyone, including ${brand} staff. Sharing your verification code puts your account at risk of unauthorized access and potential data theft.
+        </p>
+      </div>
+
+      <div style="margin-top: 35px; background-color: #f7fafc; padding: 20px; border-radius: 10px; text-align: center;">
+        <p style="font-size: 15px; color: #2d3748; margin-bottom: 15px; font-weight: 600;">Need help? Contact us directly:</p>
+        <div style="margin-bottom: 10px;">
+          <a href="${whatsappLink}" style="text-decoration: none; margin: 0 15px; display: inline-block;">
+            <img src="${whatsappIcon}" alt="WhatsApp" style="width: 32px; height: 32px; vertical-align: middle;" />
+          </a>
+          <a href="${telegramLink}" style="text-decoration: none; margin: 0 15px; display: inline-block;">
+            <img src="${telegramIcon}" alt="Telegram" style="width: 32px; height: 32px; vertical-align: middle;" />
+          </a>
+        </div>
+      </div>
+
+      <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #edf2f7; font-size: 13px; color: #718096;">
+        <p>You can now return to the app and enter this code to complete your login.</p>
+        <div style="margin-top: 20px; font-size: 50px;">🌟</div>
+        <p style="margin-top: 20px;">&copy; 2026 ${brand}. All rights reserved.</p>
+      </div>
+    </div>
+  `;
+};
+
 module.exports = {
   getOtpMessage,
-  getEmailVerificationLinkMessage
+  getEmailVerificationLinkMessage,
+  getSuccessEmailVerificationHtml
 };

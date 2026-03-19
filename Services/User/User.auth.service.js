@@ -108,9 +108,7 @@ const handleExistingUser = async ({
   const OTP = generateOTP();
 
   // Rule 4: Logic for Phone - If verified, use session OTP; else generate new verification phoneVerificationOTP
-  let phoneVerificationOTP = isPhoneVerified
-    ? OTP
-    : generateOTP();
+  let phoneVerificationOTP = isPhoneVerified ? OTP : generateOTP();
 
   // Rule 4: Logic for Email - If verified, use session OTP; else manage link
   let emailVerificationOTP = isEmailVerified ? OTP : null;
@@ -170,7 +168,11 @@ const handleExistingUser = async ({
 
   if (transactionStorage.getStore()) {
     otpDetail = "Verification data generated (Sent deferred)";
-    deferredOTP = { phoneVerificationOTP, emailVerificationOTP, emailVerificationToken };
+    deferredOTP = {
+      phoneVerificationOTP,
+      emailVerificationOTP,
+      emailVerificationToken,
+    };
   } else {
     try {
       // 1. Send SMS (Always OTP)
@@ -303,18 +305,18 @@ const loginUser = async (phoneNumber, roleId, email = null) => {
 
 /**
  * Core business logic for verifying a user's OTP and issuing an authentication token.
- * 
+ *
  * ### Hybrid Verification Logic:
- * - **Channel Specific:** Checks the specific OTP tied to the channel the user initiated. 
- *   If the channel is fully verified (`isPhoneVerified=1` or `isEmailVerified=1`), it compares 
- *   against the unified `savedOTP`. If unverified, it compares against the channel-specific 
+ * - **Channel Specific:** Checks the specific OTP tied to the channel the user initiated.
+ *   If the channel is fully verified (`isPhoneVerified=1` or `isEmailVerified=1`), it compares
+ *   against the unified `savedOTP`. If unverified, it compares against the channel-specific
  *   `phoneOTP` or `emailOTP`.
- * - **Multi-channel Request:** If the user payload contains BOTH phone and email, it sequentially 
- *   checks the phone block first. If phone matches, it skips the email check to securely only mark 
+ * - **Multi-channel Request:** If the user payload contains BOTH phone and email, it sequentially
+ *   checks the phone block first. If phone matches, it skips the email check to securely only mark
  *   the explicitly proven channel as verified.
  * - **Legacy Fallback:** If specific channel OTPs are missing but the legacy `OTP` column exists,
  *   it gracefully falls back, assigning the match to the submitted identity (preferring SMS).
- * 
+ *
  * @param {Object} req - The Express request object.
  * @param {Object} req.body - The request payload containing authentication parameters.
  * @param {string} [req.body.phoneNumber] - The user's phone number.
@@ -386,7 +388,7 @@ const verifyUserByOTP = async (req) => {
         });
         phoneMatched = true;
       } catch (e) {
-        /* ignore */
+        logger.error("Error in verifyPassword", e);
       }
     }
   }
@@ -402,7 +404,7 @@ const verifyUserByOTP = async (req) => {
         });
         emailMatched = true;
       } catch (e) {
-        /* ignore */
+        logger.error("Error in verifyPassword", e);
       }
     }
   }
@@ -418,7 +420,7 @@ const verifyUserByOTP = async (req) => {
       if (phoneNumber) phoneMatched = true;
       else if (email) emailMatched = true;
     } catch (e) {
-      /* ignore */
+      logger.error("Error in verifyPassword", e);
     }
   }
   //if phone and email are not matched then throw error
@@ -541,12 +543,7 @@ const verifyEmailByToken = async (token) => {
     emailVerificationExpiresAt: null,
     emailVerificationOTP: hashedOTP,
   };
-
-  // If their phone is already verified, sync the unified OTP mode!
-  if (isPhoneVerified) {
-    credentialUpdateValues.sharedOTP = hashedOTP;
-    credentialUpdateValues.phoneVerificationOTP = hashedOTP;
-  }
+  credentialUpdateValues.sharedOTP = hashedOTP;
 
   await updateData({
     tableName: "usersCredential",
@@ -570,10 +567,14 @@ const verifyEmailByToken = async (token) => {
       });
     }
   }
-
+  //let users get the otp in res immediately as they are verified
   return {
-    message:
-      "✅ Email Verified!\nYour email has been successfully verified. We have automatically sent a 6-digit OTP to your email. You can now return to the app to log in!\n\n🌟",
+    message: "success",
+    data: {
+      OTP,
+      phoneVerified: isPhoneVerified,
+      emailVerified: true,
+    },
   };
 };
 
