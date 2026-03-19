@@ -239,52 +239,63 @@ const handleExistingUser = async ({
       }
 
       // 2. Send SMS
-      await sendSms(user.phoneNumber, phoneMsg.sms);
+      try {
+        await sendSms(user.phoneNumber, phoneMsg.sms);
+        otpDetail = "OTP sent to phone";
+      } catch (smsError) {
+        logger.warn("SMS sending failed inline", { error: smsError.message });
+        otpDetail = `SMS failed (${smsError.message})`;
+      }
 
       // 3. Send Email (OTP, Assignment, or Link)
       if (user.email) {
-        if (isEmailVerified || isAdminAssignment) {
-          // Send either Assignment or Unified OTP
-          if (!isAdminAssignment) {
-            emailMsg = getOtpMessage(
-              emailVerificationOTP,
-              requestedFrom === "user" ? "login" : "registration",
+        try {
+          if (isEmailVerified || isAdminAssignment) {
+            // Send either Assignment or Unified OTP
+            if (!isAdminAssignment) {
+              emailMsg = getOtpMessage(
+                emailVerificationOTP,
+                requestedFrom === "user" ? "login" : "registration",
+              );
+            }
+            await sendEmail(
+              user.email,
+              emailMsg.emailSubject,
+              emailMsg.sms,
+              emailMsg.emailHtml,
             );
+            otpDetail += isAdminAssignment
+              ? " and Admin assignment notification sent to email"
+              : " and Unified OTP sent to email";
+          } else {
+            // Send Verification Link
+            const baseUrl =
+              process.env.APP_API_URL ||
+              "https://transport-back-end-native.vercel.app";
+            const link = `${baseUrl}/api/user/verify-email?token=${emailVerificationToken}`;
+            const linkMsg = getEmailVerificationLinkMessage(link);
+            logger.debug("Sending Email Verification Link", {
+              to: user.email,
+              subject: linkMsg.emailSubject,
+            });
+            await sendEmail(
+              user.email,
+              linkMsg.emailSubject,
+              "Verify your email",
+              linkMsg.emailHtml,
+            );
+            otpDetail += ", Verification Link sent to email";
           }
-          await sendEmail(
-            user.email,
-            emailMsg.emailSubject,
-            emailMsg.sms,
-            emailMsg.emailHtml,
-          );
-          otpDetail = isAdminAssignment
-            ? "Admin assignment notification sent to phone and email"
-            : "Unified OTP sent to phone and email";
-        } else {
-          // Send Verification Link
-          const baseUrl =
-            process.env.APP_API_URL ||
-            "https://transport-back-end-native.vercel.app";
-          const link = `${baseUrl}/api/user/verify-email?token=${emailVerificationToken}`;
-          const linkMsg = getEmailVerificationLinkMessage(link);
-          logger.debug("Sending Email Verification Link", {
-            to: user.email,
-            subject: linkMsg.emailSubject,
-          });
-          await sendEmail(
-            user.email,
-            linkMsg.emailSubject,
-            "Verify your email",
-            linkMsg.emailHtml,
-          );
-          otpDetail = "OTP sent to phone, Verification Link sent to email";
+        } catch (emailError) {
+          logger.warn("Email sending failed inline", { error: emailError.message });
+          otpDetail += `, Email failed (${emailError.message})`;
         }
       } else {
-        otpDetail = "OTP sent to phone (No email provided)";
+        otpDetail += " (No email provided)";
       }
     } catch (error) {
-      logger.warn("Verification sending failed", { error: error.message });
-      otpDetail = `Failed to send verification: ${error.message}`;
+      logger.warn("Verification setup failed", { error: error.message });
+      otpDetail = `Failed to process verification: ${error.message}`;
     }
   }
 
