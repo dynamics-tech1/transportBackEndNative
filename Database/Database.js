@@ -101,11 +101,11 @@ CREATE TABLE IF NOT EXISTS usersCredential (
     credentialUniqueId VARCHAR(36) UNIQUE NOT NULL,  -- UUID for credentials
     userUniqueId VARCHAR(36) NOT NULL,  -- Foreign key to Users
     -- Hybrid Verification Logic Overview:
-    -- 1. Unverified: Phone gets phoneOTP (SMS), Email gets emailVerificationToken (Link).
-    -- 2. Verified: Both get the same emailOTP/phoneOTP (Unified OTP mode).
-    OTP VARCHAR(255) NOT NULL,              -- Legacy fallback (usually stores hashed phoneOTP)
-    phoneOTP VARCHAR(255) NULL,             -- Hashed 6-digit code sent via SMS
-    emailOTP VARCHAR(255) NULL,             -- Hashed 6-digit code sent via Email (Unified mode only)
+    -- 1. Unverified: Phone gets phoneVerificationOTP (SMS), Email gets emailVerificationToken (Link).
+    -- 2. Verified: Both get the same emailVerificationOTP/phoneVerificationOTP (Unified OTP mode).
+    sharedOTP VARCHAR(255) NOT NULL,              -- Legacy fallback (usually stores hashed phoneVerificationOTP)
+    phoneVerificationOTP VARCHAR(255) NULL,             -- Hashed 6-digit code sent via SMS
+    emailVerificationOTP VARCHAR(255) NULL,             -- Hashed 6-digit code sent via Email (Unified mode only)
     emailVerificationToken VARCHAR(255) NULL,      -- Secret UUID for the "Click to Verify" email link
     emailVerificationExpiresAt DATETIME NULL,      -- Link expiration time (standard 2 hours)
     hashedPassword VARCHAR(255) NOT NULL,   -- Storeshashed OTP (used for the initial login/verification)

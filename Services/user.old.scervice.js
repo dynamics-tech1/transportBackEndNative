@@ -1,5 +1,6 @@
 // services/userService.js
 const { v4: uuidv4 } = require("uuid");
+const generateOTP = require("../../Utils/GenerateOTP");
 const { pool } = require("../Middleware/Database.config");
 const { getData, performJoinSelect } = require("../CRUD/Read/ReadData");
 const { updateData } = require("../CRUD/Update/Data.update");
@@ -73,7 +74,7 @@ const ensureCredentialForUser = async ({ userUniqueId, rawPassword }) => {
   if (!userUniqueId) {
     throw new AppError("userUniqueId required", 400);
   }
-  const OTP = rawPassword || Math.floor(100000 + Math.random() * 900000);
+  const OTP = rawPassword || generateOTP();
   const hashed = await bcrypt.hash(String(OTP), 10);
   const existing = await getData({
     tableName: "usersCredential",
@@ -82,7 +83,7 @@ const ensureCredentialForUser = async ({ userUniqueId, rawPassword }) => {
   if (existing && existing.length > 0) {
     const upd = await updateData({
       tableName: "usersCredential",
-      updateValues: { OTP: hashed, hashedPassword: hashed },
+      updateValues: { sharedOTP: hashed, hashedPassword: hashed },
       conditions: { userUniqueId },
     });
     if (upd?.affectedRows === 0) {
@@ -95,7 +96,7 @@ const ensureCredentialForUser = async ({ userUniqueId, rawPassword }) => {
     colAndVal: {
       credentialUniqueId: uuidv4(),
       userUniqueId,
-      OTP: hashed,
+      sharedOTP: hashed,
       hashedPassword: hashed,
       usersCredentialCreatedBy: userUniqueId,
       usersCredentialCreatedAt: currentDate(),
@@ -120,7 +121,7 @@ const handleExistingUser = async ({
   }
 
   // Generate OTP
-  const OTP = Math.floor(100000 + Math.random() * 900000);
+  const OTP = generateOTP();
 
   const [credential] = await Promise.all([
     getData({
@@ -145,7 +146,7 @@ const handleExistingUser = async ({
       colAndVal: {
         credentialUniqueId: uuidv4(),
         userUniqueId,
-        OTP: hashedOtps,
+        sharedOTP: hashedOtps,
         hashedPassword: hashedOtps,
         usersCredentialCreatedAt: currentDate(),
       },
@@ -217,7 +218,7 @@ const registerNewUser = async ({
 }) => {
   const userUniqueId = uuidv4();
   const credentialUniqueId = uuidv4();
-  const OTP = Math.floor(100000 + Math.random() * 900000);
+  const OTP = generateOTP();
   const hashedOtps = await bcrypt.hash(String(OTP), 10);
 
   const dataOfPassenger = {
@@ -249,7 +250,7 @@ const registerNewUser = async ({
     const credentialData = {
       credentialUniqueId,
       userUniqueId,
-      OTP: hashedOtps,
+      sharedOTP: hashedOtps,
       hashedPassword: hashedOtps,
       usersCredentialCreatedBy: isValidUUID ? createdBy : userUniqueId,
       usersCredentialCreatedAt: currentDate(),
@@ -577,7 +578,7 @@ const updateOtpForUser = async ({
 }) => {
   const updateOtpResult = await updateData({
     tableName: "usersCredential",
-    updateValues: { OTP: hashedOTP },
+    updateValues: { sharedOTP: hashedOTP },
     conditions: { userUniqueId }
   });
 

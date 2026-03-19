@@ -10,7 +10,7 @@ const bcrypt = require("bcryptjs");
 const { usersRoles, USER_STATUS } = require("../../Utils/ListOfSeedData");
 const AppError = require("../../Utils/AppError");
 const { transactionStorage } = require("../../Utils/TransactionContext");
-
+const generateOTP = require("../../Utils/GenerateOTP");
 const { createUserSubscription } = require("../UserSubscription.service");
 const { getPricingWithFilters } = require("../SubscriptionPlanPricing.service");
 
@@ -21,19 +21,19 @@ const ensureCredentialForUser = async ({ userUniqueId, rawPassword }) => {
   if (!userUniqueId) {
     throw new AppError("userUniqueId required", 400);
   }
-  const OTP = rawPassword || Math.floor(100000 + Math.random() * 900000);
+  const OTP = rawPassword || generateOTP();
   const hashedOTP = await bcrypt.hash(String(OTP), 10);
   const conditions = { userUniqueId };
   const existing = await getData({
     tableName: "usersCredential",
     conditions,
   });
-  const hashedPhoneOTP = await bcrypt.hash(
-    String(Math.floor(100000 + Math.random() * 900000)),
+  const hashedPhoneVerificationOTP = await bcrypt.hash(
+    String(generateOTP()),
     10,
   );
-  const hashedEmailOTP = await bcrypt.hash(
-    String(Math.floor(100000 + Math.random() * 900000)),
+  const hashedEmailVerificationOTP = await bcrypt.hash(
+    String(generateOTP()),
     10,
   );
   const emailVerificationToken = uuidv4();
@@ -41,26 +41,26 @@ const ensureCredentialForUser = async ({ userUniqueId, rawPassword }) => {
 
   if (existing && existing.length > 0) {
     const credentialColAndValues = {
-      OTP: hashedOTP,
+      sharedOTP: hashedOTP,
       hashedPassword: hashedOTP,
     };
     const user = existing?.[0];
     const isPhoneVerified = user?.isPhoneVerified;
     const isEmailVerified = user?.isEmailVerified;
-    //if phone is verified update phoneOTP to hashedOTP
+    //if phone is verified update phoneVerificationOTP to hashedOTP
     if (isPhoneVerified) {
-      credentialColAndValues.phoneOTP = hashedOTP;
+      credentialColAndValues.phoneVerificationOTP = hashedOTP;
     } else {
-      credentialColAndValues.phoneOTP = hashedPhoneOTP;
+      credentialColAndValues.phoneVerificationOTP = hashedPhoneVerificationOTP;
     }
-    //if email is verified update emailOTP to hashedOTP
+    //if email is verified update emailVerificationOTP to hashedOTP
     if (isEmailVerified) {
-      credentialColAndValues.emailOTP = hashedOTP;
+      credentialColAndValues.emailVerificationOTP = hashedOTP;
     } else {
       credentialColAndValues.emailVerificationToken = emailVerificationToken;
       credentialColAndValues.emailVerificationExpiresAt =
         emailVerificationExpiresAt;
-      credentialColAndValues.emailOTP = hashedEmailOTP;
+      credentialColAndValues.emailVerificationOTP = hashedEmailVerificationOTP;
     }
 
     const upd = await updateData({
@@ -77,9 +77,9 @@ const ensureCredentialForUser = async ({ userUniqueId, rawPassword }) => {
   const credentialColAndVal = {
     userUniqueId,
     credentialUniqueId: uuidv4(),
-    phoneOTP: hashedPhoneOTP,
-    emailOTP: hashedEmailOTP,
-    OTP: hashedOTP, // Legacy
+    phoneVerificationOTP: hashedPhoneVerificationOTP,
+    emailVerificationOTP: hashedEmailVerificationOTP,
+    sharedOTP: hashedOTP, // Legacy
     emailVerificationToken,
     emailVerificationExpiresAt,
     hashedPassword: hashedOTP,

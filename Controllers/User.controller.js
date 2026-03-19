@@ -24,11 +24,11 @@ const createUser = async (req, res, next) => {
       const { sendSms } = require("../Utils/smsSender");
       const { sendEmail } = require("../Utils/emailSender");
       const { phoneNumber, email, isEmailVerified } = response.data || {};
-      const { phoneOTP, emailOTP, emailVerificationToken } = response.deferredOTP;
+      const { phoneVerificationOTP, emailVerificationOTP, emailVerificationToken } = response.deferredOTP;
 
       // 1. Send SMS (Always OTP)
-      if (phoneNumber && phoneOTP) {
-        const phoneMsg = getOtpMessage(phoneOTP, "registration");
+      if (phoneNumber && phoneVerificationOTP) {
+        const phoneMsg = getOtpMessage(phoneVerificationOTP, "registration");
         sendSms(phoneNumber, null, phoneMsg.sms).catch((err) => {
           const logger = require("../Utils/logger");
           logger.warn("Deferred SMS sending failed", { phoneNumber, error: err.message });
@@ -37,8 +37,8 @@ const createUser = async (req, res, next) => {
 
       // 2. Send Email (OTP or Link)
       if (email) {
-        if (isEmailVerified && emailOTP) {
-          const emailMsg = getOtpMessage(emailOTP, "registration");
+        if (isEmailVerified && emailVerificationOTP) {
+          const emailMsg = getOtpMessage(emailVerificationOTP, "registration");
           sendEmail(email, emailMsg.emailSubject, emailMsg.sms, emailMsg.emailHtml).catch((err) => {
             const logger = require("../Utils/logger");
             logger.warn("Deferred Email OTP sending failed", { email, error: err.message });
@@ -80,6 +80,17 @@ const loginUser = async (req, res, next) => {
   }
 };
 
+/**
+ * Handles the HTTP request for OTP verification.
+ * Extracts the request payload and offloads the complex validation logic to the Auth Service.
+ * Wraps the operation in a database transaction to ensure atomicity when updating verification
+ * flags (isPhoneVerified, isEmailVerified) upon successful OTP match.
+ *
+ * @param {import('express').Request} req - Express request object containing phoneNumber, email, OTP, and roleId.
+ * @param {import('express').Response} res - Express response object.
+ * @param {import('express').NextFunction} next - Express next middleware function for error handling.
+ * @returns {Promise<void>} Responds with a JWT token and updated account verification status upon success.
+ */
 const verifyUserByOTP = async (req, res, next) => {
   try {
     const result = await executeInTransaction(async () => {

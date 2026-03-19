@@ -75,6 +75,19 @@ router.post(
   controller.loginUser,
 );
 
+/**
+ * @route POST /api/user/verifyUserByOTP
+ * @description Verifies user identity using a 6-digit OTP. Supports hybrid identity verification.
+ * Depending on the user's verification state, the system may require a channel-specific OTP
+ * or accept a unified OTP.
+ * 
+ * @body {string} [phoneNumber] - The user's registered phone number (required if email is absent).
+ * @body {string} [email] - The user's registered email (required if phoneNumber is absent).
+ * @body {string} OTP - The 6-digit verification code.
+ * @body {number} roleId - The role ID the user is attempting to log in as.
+ * 
+ * @access Public
+ */
 router.post(
   "/api/user/verifyUserByOTP",
   // loginRateLimiter({ limit: 5 }), // Stricter limit for OTP attempts

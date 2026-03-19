@@ -6,6 +6,7 @@ const {
   getOtpMessage,
   getEmailVerificationLinkMessage,
 } = require("../../Utils/MessageTemplates");
+const generateOTP = require("../../Utils/GenerateOTP");
 const createJWT = require("../../Utils/CreateJWT");
 const { currentDate } = require("../../Utils/CurrentDate");
 const bcrypt = require("bcryptjs");
@@ -104,15 +105,15 @@ const handleExistingUser = async ({
   const savedCredential = savedCredentialRows?.[0] || {};
 
   // Rule 3: Use Legacy OTP if both verified, otherwise generate primary session OTP
-  const OTP = Math.floor(100000 + Math.random() * 900000);
+  const OTP = generateOTP();
 
-  // Rule 4: Logic for Phone - If verified, use session OTP; else generate new verification phoneOTP
-  let phoneOTP = isPhoneVerified
+  // Rule 4: Logic for Phone - If verified, use session OTP; else generate new verification phoneVerificationOTP
+  let phoneVerificationOTP = isPhoneVerified
     ? OTP
-    : Math.floor(100000 + Math.random() * 900000);
+    : generateOTP();
 
   // Rule 4: Logic for Email - If verified, use session OTP; else manage link
-  let emailOTP = isEmailVerified ? OTP : null;
+  let emailVerificationOTP = isEmailVerified ? OTP : null;
   let emailVerificationToken = savedCredential.emailVerificationToken;
   let emailVerificationExpiresAt = savedCredential.emailVerificationExpiresAt;
 
@@ -128,15 +129,15 @@ const handleExistingUser = async ({
   }
 
   const hashedOTP = await bcrypt.hash(String(OTP), 10);
-  const hashedPhoneOTP = isPhoneVerified
+  const hashedPhoneVerificationOTP = isPhoneVerified
     ? hashedOTP
-    : await bcrypt.hash(String(phoneOTP), 10);
-  const hashedEmailOTP = isEmailVerified ? hashedOTP : null;
+    : await bcrypt.hash(String(phoneVerificationOTP), 10);
+  const hashedEmailVerificationOTP = isEmailVerified ? hashedOTP : null;
 
   const credentialValues = {
-    phoneOTP: hashedPhoneOTP,
-    emailOTP: hashedEmailOTP,
-    OTP: hashedOTP, // Legacy
+    phoneVerificationOTP: hashedPhoneVerificationOTP,
+    emailVerificationOTP: hashedEmailVerificationOTP,
+    sharedOTP: hashedOTP, // Legacy
     emailVerificationToken,
     emailVerificationExpiresAt,
   };
@@ -148,7 +149,7 @@ const handleExistingUser = async ({
         credentialUniqueId: uuidv4(),
         userUniqueId,
         ...credentialValues,
-        hashedPassword: hashedPhoneOTP,
+        hashedPassword: hashedPhoneVerificationOTP,
         usersCredentialCreatedAt: currentDate(),
       },
     });
@@ -169,12 +170,12 @@ const handleExistingUser = async ({
 
   if (transactionStorage.getStore()) {
     otpDetail = "Verification data generated (Sent deferred)";
-    deferredOTP = { phoneOTP, emailOTP, emailVerificationToken };
+    deferredOTP = { phoneVerificationOTP, emailVerificationOTP, emailVerificationToken };
   } else {
     try {
       // 1. Send SMS (Always OTP)
       const phoneMsg = getOtpMessage(
-        phoneOTP,
+        phoneVerificationOTP,
         requestedFrom === "user" ? "login" : "registration",
       );
       await sendSms(user.phoneNumber, phoneMsg.sms);
@@ -184,7 +185,7 @@ const handleExistingUser = async ({
         if (isEmailVerified) {
           // Send Unified OTP
           const emailMsg = getOtpMessage(
-            emailOTP,
+            emailVerificationOTP,
             requestedFrom === "user" ? "login" : "registration",
           );
           await sendEmail(
@@ -300,6 +301,29 @@ const loginUser = async (phoneNumber, roleId, email = null) => {
   });
 };
 
+/**
+ * Core business logic for verifying a user's OTP and issuing an authentication token.
+ * 
+ * ### Hybrid Verification Logic:
+ * - **Channel Specific:** Checks the specific OTP tied to the channel the user initiated. 
+ *   If the channel is fully verified (`isPhoneVerified=1` or `isEmailVerified=1`), it compares 
+ *   against the unified `savedOTP`. If unverified, it compares against the channel-specific 
+ *   `phoneOTP` or `emailOTP`.
+ * - **Multi-channel Request:** If the user payload contains BOTH phone and email, it sequentially 
+ *   checks the phone block first. If phone matches, it skips the email check to securely only mark 
+ *   the explicitly proven channel as verified.
+ * - **Legacy Fallback:** If specific channel OTPs are missing but the legacy `OTP` column exists,
+ *   it gracefully falls back, assigning the match to the submitted identity (preferring SMS).
+ * 
+ * @param {Object} req - The Express request object.
+ * @param {Object} req.body - The request payload containing authentication parameters.
+ * @param {string} [req.body.phoneNumber] - The user's phone number.
+ * @param {string} [req.body.email] - The user's email address.
+ * @param {string} req.body.OTP - The user-provided 6-digit code.
+ * @param {number} req.body.roleId - The requested role to log into.
+ * @returns {Promise<Object>} An object containing the JWT token, success message, and exact `verificationStatus` flags.
+ * @throws {AppError} 401 Unauthorized if OTP doesn't match; 404 if user not found; 403 if deleted.
+ */
 const verifyUserByOTP = async (req) => {
   const { phoneNumber, email, OTP, roleId } = req.body;
   if (!OTP || (!phoneNumber && !email)) {
@@ -343,9 +367,9 @@ const verifyUserByOTP = async (req) => {
 
   const isPhoneVerified = userRow?.isPhoneVerified;
   const isEmailVerified = userRow?.isEmailVerified;
-  const savedOTP = userRow?.OTP;
-  const phoneOTP = userRow?.phoneOTP;
-  const emailOTP = userRow?.emailOTP;
+  const savedOTP = userRow?.sharedOTP;
+  const phoneVerificationOTP = userRow?.phoneVerificationOTP;
+  const emailVerificationOTP = userRow?.emailVerificationOTP;
 
   // 1. Check which identity the OTP matches
   let phoneMatched = false;
@@ -353,7 +377,7 @@ const verifyUserByOTP = async (req) => {
 
   //if phone number is given from user
   if (phoneNumber) {
-    const hashToCheck = isPhoneVerified ? savedOTP : phoneOTP;
+    const hashToCheck = isPhoneVerified ? savedOTP : phoneVerificationOTP;
     if (hashToCheck) {
       try {
         await verifyPassword({
@@ -369,7 +393,7 @@ const verifyUserByOTP = async (req) => {
 
   //if email is given from user but phone is not matched
   if (email && !phoneMatched) {
-    const hashToCheck = isEmailVerified ? savedOTP : emailOTP;
+    const hashToCheck = isEmailVerified ? savedOTP : emailVerificationOTP;
     if (hashToCheck) {
       try {
         await verifyPassword({
@@ -490,26 +514,66 @@ const verifyEmailByToken = async (token) => {
       400,
     );
 
+  const userUniqueId = credential.userUniqueId;
+
   // Mark as verified
-  await Promise.all([
-    updateData({
-      tableName: "Users",
-      updateValues: { isEmailVerified: true },
-      conditions: { userUniqueId: credential.userUniqueId },
-    }),
-    updateData({
-      tableName: "usersCredential",
-      updateValues: {
-        emailVerificationToken: null,
-        emailVerificationExpiresAt: null,
-      },
-      conditions: { userUniqueId: credential.userUniqueId },
-    }),
-  ]);
+  await updateData({
+    tableName: "Users",
+    updateValues: { isEmailVerified: true },
+    conditions: { userUniqueId },
+  });
+
+  // Fetch the user to get their email and phone verification status
+  const [userRow] = await getData({
+    tableName: "Users",
+    conditions: { userUniqueId },
+  });
+
+  const email = userRow?.email;
+  const isPhoneVerified = !!userRow?.isPhoneVerified;
+
+  // Generate an automatic OTP for them to log in smoothly
+  const OTP = generateOTP();
+  const hashedOTP = await bcrypt.hash(String(OTP), 10);
+
+  const credentialUpdateValues = {
+    emailVerificationToken: null,
+    emailVerificationExpiresAt: null,
+    emailVerificationOTP: hashedOTP,
+  };
+
+  // If their phone is already verified, sync the unified OTP mode!
+  if (isPhoneVerified) {
+    credentialUpdateValues.sharedOTP = hashedOTP;
+    credentialUpdateValues.phoneVerificationOTP = hashedOTP;
+  }
+
+  await updateData({
+    tableName: "usersCredential",
+    updateValues: credentialUpdateValues,
+    conditions: { userUniqueId },
+  });
+
+  // Automatically dispatch the OTP to their email
+  if (email) {
+    try {
+      const emailMsg = getOtpMessage(OTP, "login");
+      await sendEmail(
+        email,
+        emailMsg.emailSubject,
+        emailMsg.sms,
+        emailMsg.emailHtml,
+      );
+    } catch (e) {
+      logger.warn("Failed to auto-send OTP after email verification", {
+        error: e.message,
+      });
+    }
+  }
 
   return {
     message:
-      "Email verified successfully! You can now use all features of the app.",
+      "✅ Email Verified!\nYour email has been successfully verified. We have automatically sent a 6-digit OTP to your email. You can now return to the app to log in!\n\n🌟",
   };
 };
 
