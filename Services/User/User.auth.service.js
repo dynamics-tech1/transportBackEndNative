@@ -5,6 +5,7 @@ const { sendEmail } = require("../../Utils/emailSender");
 const {
   getOtpMessage,
   getEmailVerificationLinkMessage,
+  getAdminAssignmentMessage,
 } = require("../../Utils/MessageTemplates");
 const generateOTP = require("../../Utils/GenerateOTP");
 const createJWT = require("../../Utils/CreateJWT");
@@ -28,6 +29,7 @@ const {
 } = require("../RoleDocumentRequirements.service");
 const { createUserSubscription } = require("../UserSubscription.service");
 const { getPricingWithFilters } = require("../SubscriptionPlanPricing.service");
+const getPlaceholderEmail = require("../../Utils/GetPlaceholderEmail");
 
 let manageService;
 let registryService;
@@ -62,8 +64,9 @@ const handleExistingUser = async ({
   }
 
   // 2. Update email if it's currently missing OR it's a placeholder
-  const isEmailMissing = !user.email || user.email.endsWith("@dynamics.com");
-  if (isEmailMissing && email && !email.endsWith("@dynamics.com")) {
+  const placeholderEmail = getPlaceholderEmail(user.phoneNumber);
+  const isEmailMissing = !user.email || user.email === placeholderEmail;
+  if (isEmailMissing && email && email !== placeholderEmail) {
     await updateData({
       tableName: "Users",
       updateValues: { email },
@@ -184,28 +187,55 @@ const handleExistingUser = async ({
     };
   } else {
     try {
-      // 1. Send SMS (Always OTP)
-      const phoneMsg = getOtpMessage(
-        phoneVerificationOTP,
-        requestedFrom === "user" ? "login" : "registration",
-      );
+      // 1. Determine message type (Standard OTP vs Admin Assignment)
+      const isAdminAssignment = requestedFrom === "Supper Admin/Admin";
+      
+      let phoneMsg, emailMsg;
+
+      if (isAdminAssignment) {
+        const roleNameMap = {
+          [usersRoles.passengerRoleId]: "Passenger",
+          [usersRoles.driverRoleId]: "Driver",
+          [usersRoles.adminRoleId]: "Admin",
+          [usersRoles.vehicleOwnerRoleId]: "Vehicle Owner",
+          [usersRoles.systemRoleId]: "System",
+          [usersRoles.supperAdminRoleId]: "Supper Admin",
+        };
+        const roleName = roleNameMap[roleId] || "Admin";
+        
+        const assignmentMsg = getAdminAssignmentMessage(phoneVerificationOTP, roleName);
+        phoneMsg = assignmentMsg;
+        emailMsg = assignmentMsg;
+      } else {
+        phoneMsg = getOtpMessage(
+          phoneVerificationOTP,
+          requestedFrom === "user" ? "login" : "registration",
+        );
+      }
+
+      // 2. Send SMS
       await sendSms(user.phoneNumber, phoneMsg.sms);
 
-      // 2. Send Email (OTP or Link)
+      // 3. Send Email (OTP, Assignment, or Link)
       if (user.email) {
-        if (isEmailVerified) {
-          // Send Unified OTP
-          const emailMsg = getOtpMessage(
-            emailVerificationOTP,
-            requestedFrom === "user" ? "login" : "registration",
-          );
+        if (isEmailVerified || isAdminAssignment) {
+          // Send either Assignment or Unified OTP
+          if (!isAdminAssignment) {
+            emailMsg = getOtpMessage(
+              emailVerificationOTP,
+              requestedFrom === "user" ? "login" : "registration",
+            );
+          }
+          
           await sendEmail(
             user.email,
             emailMsg.emailSubject,
             emailMsg.sms,
             emailMsg.emailHtml,
           );
-          otpDetail = "Unified OTP sent to phone and email";
+          otpDetail = isAdminAssignment 
+            ? "Admin assignment notification sent to phone and email"
+            : "Unified OTP sent to phone and email";
         } else {
           // Send Verification Link
           const baseUrl =

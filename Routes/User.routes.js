@@ -28,7 +28,7 @@ const router = express.Router();
  * 
  * 1. MANDATORY FIELDS:
  *    - Both 'phoneNumber' and 'email' are mandatory for user creation.
- *    - If 'email' is missing, the system generates a placeholder (@dynamics.com).
+ *    - If 'email' is missing, the system generates a standard placeholder (see Utils/GetPlaceholderEmail.js).
  *    - 'phoneNumber' must be provided by the user (no placeholders allowed).
  * 
  * 2. CHANNEL INTEGRITY (Hybrid Verification):

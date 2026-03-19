@@ -183,8 +183,69 @@ const getSuccessEmailVerificationHtml = (otp) => {
   `;
 };
 
+const getAdminAssignmentMessage = (otp, roleName = "Admin") => {
+  const brand = process.env.BRAND_NAME || "Dynamics Transport";
+  const supportPhone = process.env.SUPPORT_PHONE_NUMBER || "+251983222221";
+  const supportPhoneClean = supportPhone ? supportPhone.replace(/\+/g, "") : "";
+  
+  const whatsappLink = `https://wa.me/${supportPhoneClean}`;
+  const telegramLink = `https://t.me/${supportPhone}`;
+  const phoneLink = `tel:${supportPhone}`;
+  
+  return {
+    sms: `Welcome! You have been officially assigned as a ${roleName} for ${brand}. Use this secure code to access your administrative dashboard: ${otp}. For your security, never share this code with anyone.`,
+    emailSubject: `Welcome to the Team! You've been assigned as a ${roleName} at ${brand}`,
+    emailHtml: `
+      <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px; background-color: #ffffff;">
+        <div style="text-align: center; margin-bottom: 25px;">
+          <img src="cid:dynamics_logo" alt="${brand}" style="width: 100px; height: auto; margin-bottom: 5px;" />
+          <h1 style="color: #2c3e50; margin: 0; font-size: 24px;">Welcome to ${brand}</h1>
+        </div>
+        
+        <div style="background-color: #f8fbff; padding: 30px 5%; border-radius: 12px; text-align: center; border: 1px solid #edf2f7;">
+          <p style="font-size: 18px; color: #2d3748; margin-bottom: 15px; font-weight: 700;">Administrative Role Assignment: ${roleName}</p>
+          <p style="font-size: 15px; color: #4a5568; margin-bottom: 25px; line-height: 1.6;">
+            You have been officially assigned as a <strong>${roleName}</strong> within the ${brand} ecosystem. 
+            To activate your administrative access and secure your workspace, please use the unique verification code below:
+          </p>
+          
+          <div style="background: #ffffff; border-radius: 8px; border: 2px dashed #2b6cb0; padding: 20px 10px; margin: 20px auto; max-width: 260px;">
+            <span style="font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #2b6cb0;">${otp}</span>
+          </div>
+          
+          <div style="margin-top: 25px; padding: 15px; background-color: #fffaf0; border-left: 4px solid #ed8936; text-align: left;">
+            <p style="font-size: 14px; color: #7b341e; margin: 0; line-height: 1.5;">
+              <strong>Security Protocol:</strong> Your account now holds administrative privileges. This code is confidential and should never be shared with anyone, including other staff members.
+            </p>
+          </div>
+        </div>
+
+        <div style="margin-top: 35px; background-color: #f7fafc; padding: 25px; border-radius: 10px; text-align: center;">
+          <p style="font-size: 15px; color: #2d3748; margin-bottom: 15px; font-weight: 600;">System Support & Feedback</p>
+          <div style="margin-bottom: 15px;">
+            <a href="${phoneLink}" style="text-decoration: none; margin: 0 10px; display: inline-block;">
+              <img src="${PHONE_ICON}" alt="Phone" style="width: 32px; height: 32px; vertical-align: middle;" />
+            </a>
+            <a href="${whatsappLink}" style="text-decoration: none; margin: 0 10px; display: inline-block;">
+              <img src="${WHATSAPP_ICON}" alt="WhatsApp" style="width: 32px; height: 32px; vertical-align: middle;" />
+            </a>
+            <a href="${telegramLink}" style="text-decoration: none; margin: 0 10px; display: inline-block;">
+              <img src="${TELEGRAM_ICON}" alt="Telegram" style="width: 32px; height: 32px; vertical-align: middle;" />
+            </a>
+          </div>
+        </div>
+
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #edf2f7; font-size: 12px; color: #a0aec0; text-align: center;">
+          <p>&copy; 2026 ${brand} Admin Services. This message contains confidential information.</p>
+        </div>
+      </div>
+    `
+  };
+};
+
 module.exports = {
   getOtpMessage,
   getEmailVerificationLinkMessage,
-  getSuccessEmailVerificationHtml
+  getSuccessEmailVerificationHtml,
+  getAdminAssignmentMessage
 };

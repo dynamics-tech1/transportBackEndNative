@@ -13,6 +13,7 @@ const { transactionStorage } = require("../../Utils/TransactionContext");
 const generateOTP = require("../../Utils/GenerateOTP");
 const { createUserSubscription } = require("../UserSubscription.service");
 const { getPricingWithFilters } = require("../SubscriptionPlanPricing.service");
+const getPlaceholderEmail = require("../../Utils/GetPlaceholderEmail");
 
 // Circular dependency handling
 let authService;
@@ -163,6 +164,9 @@ const registerNewUser = async ({
   const userCreatedAt = currentDate();
   const userCreatedByParam = createdBy || userUniqueId;
 
+  // Placeholder email if none provided (prevents DB null constraints)
+  const cleanEmail = getPlaceholderEmail(phoneNumber || email);
+
   const executor = transactionStorage.getStore() || pool;
   const [userIns] = await executor.query(
     "INSERT INTO Users (userUniqueId, fullName, phoneNumber, email, userCreatedAt, userCreatedBy,isEmailVerified,isPhoneVerified) VALUES (?, ?, ?, ?, ?, ?,?,?)",
@@ -170,7 +174,7 @@ const registerNewUser = async ({
       userUniqueId,
       fullName,
       phoneNumber,
-      email,
+      cleanEmail,
       userCreatedAt,
       userCreatedByParam,
       false,
@@ -225,7 +229,7 @@ const createUser = async (body) => {
   let email = body?.email?.trim();
   //if there is no email, generate placeholder email
   if (!email) {
-    email = `${phoneNumber}@dynamics.com`;
+    email = getPlaceholderEmail(phoneNumber);
   }
 
   // 1. Enforce   phoneNumber
@@ -313,7 +317,13 @@ const createUserByAdminOrSuperAdmin = async ({
   userUniqueId,
   userRoleStatusDescription,
 }) => {
-  const { fullName, phoneNumber, email, roleId, statusId } = body;
+  const { fullName, phoneNumber, roleId, statusId } = body;
+  let email = body?.email?.trim();
+
+  // Placeholder email if none provided
+  if (!email) {
+    email = getPlaceholderEmail(phoneNumber);
+  }
 
   const userDataByEmail = await getData({
     tableName: "Users",
