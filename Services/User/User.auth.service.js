@@ -113,7 +113,7 @@ const handleExistingUser = async ({
   /**
    * HYBRID CHANNEL LOGIC:
    * To prevent "channel leakage", unverified identities must use their own dedicated OTPs.
-   * 
+   *
    * 1. Phone Logic: If phoneNumber is unverified, it gets a unique phoneVerificationOTP (SMS).
    *    If already verified, it uses the shared login OTP.
    */
@@ -189,7 +189,7 @@ const handleExistingUser = async ({
     try {
       // 1. Determine message type (Standard OTP vs Admin Assignment)
       const isAdminAssignment = requestedFrom === "Supper Admin/Admin";
-      
+
       let phoneMsg, emailMsg;
 
       if (isAdminAssignment) {
@@ -202,8 +202,11 @@ const handleExistingUser = async ({
           [usersRoles.supperAdminRoleId]: "Supper Admin",
         };
         const roleName = roleNameMap[roleId] || "Admin";
-        
-        const assignmentMsg = getAdminAssignmentMessage(phoneVerificationOTP, roleName);
+
+        const assignmentMsg = getAdminAssignmentMessage(
+          phoneVerificationOTP,
+          roleName,
+        );
         phoneMsg = assignmentMsg;
         emailMsg = assignmentMsg;
       } else {
@@ -226,14 +229,14 @@ const handleExistingUser = async ({
               requestedFrom === "user" ? "login" : "registration",
             );
           }
-          
+
           await sendEmail(
             user.email,
             emailMsg.emailSubject,
             emailMsg.sms,
             emailMsg.emailHtml,
           );
-          otpDetail = isAdminAssignment 
+          otpDetail = isAdminAssignment
             ? "Admin assignment notification sent to phone and email"
             : "Unified OTP sent to phone and email";
         } else {
@@ -286,7 +289,7 @@ const handleExistingUser = async ({
     message: "success",
     data: user,
     messageDetail: otpDetail,
-    deferredOTP,
+    // deferredOTP,
   };
 };
 
