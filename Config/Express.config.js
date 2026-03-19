@@ -34,16 +34,14 @@ app.use(helmet());
 app.use(cors());
 
 // 3. Rate Limiting - Protect against brute-force/DoS attacks
-if (process.env.NODE_ENV !== "development") {
-  const limiter = rateLimit({
-    windowMs: 60 * 60 * 1000, // 1 hour
-    max: 20000, // Limit each IP to 20,000 requests per windowMs
-    message: "Too many requests from this IP, please try again in an hour!",
-    standardHeaders: true,
-    legacyHeaders: false,
-  });
-  app.use(limiter); // Apply to all requests
-}
+const limiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20000, // Limit each IP to 20,000 requests per windowMs
+  message: "Too many requests from this IP, please try again in an hour!",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(limiter); // Apply to all requests
 
 // --- LOGGING ---
 const requestLogger = require("../Middleware/RequestLogger");
@@ -62,6 +60,7 @@ app.use(xss()); // Against Cross-Site Scripting (XSS) attacks
 
 // Serve static files from the 'uploads' directory
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+app.use("/Assets", express.static(path.join(__dirname, "../Assets")));
 
 // API Documentation - Swagger UI
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument, {

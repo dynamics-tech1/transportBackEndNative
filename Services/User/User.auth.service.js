@@ -107,10 +107,19 @@ const handleExistingUser = async ({
   // Rule 3: Use Legacy OTP if both verified, otherwise generate primary session OTP
   const OTP = generateOTP();
 
-  // Rule 4: Logic for Phone - If verified, use session OTP; else generate new verification phoneVerificationOTP
+  /**
+   * HYBRID CHANNEL LOGIC:
+   * To prevent "channel leakage", unverified identities must use their own dedicated OTPs.
+   * 
+   * 1. Phone Logic: If phoneNumber is unverified, it gets a unique phoneVerificationOTP (SMS).
+   *    If already verified, it uses the shared login OTP.
+   */
   let phoneVerificationOTP = isPhoneVerified ? OTP : generateOTP();
 
-  // Rule 4: Logic for Email - If verified, use session OTP; else manage link
+  /**
+   * 2. Email Logic: If email is unverified, it focuses on the Verification Link.
+   *    If verified, it uses the shared login OTP.
+   */
   let emailVerificationOTP = isEmailVerified ? OTP : null;
   let emailVerificationToken = savedCredential.emailVerificationToken;
   let emailVerificationExpiresAt = savedCredential.emailVerificationExpiresAt;
@@ -373,11 +382,18 @@ const verifyUserByOTP = async (req) => {
   const phoneVerificationOTP = userRow?.phoneVerificationOTP;
   const emailVerificationOTP = userRow?.emailVerificationOTP;
 
+  /**
+   * CHANNEL VALIDATION LOGIC:
+   * 1. If an identity (Phone/Email) is ALREADY verified, it matches against the unified 'sharedOTP' (savedOTP).
+   * 2. If it is UNVERIFIED, it MUST match its specific verification OTP column.
+   * 3. This prevents a user from using an Email OTP to verify an unverified Phone (security integrity).
+   */
+
   // 1. Check which identity the OTP matches
   let phoneMatched = false;
   let emailMatched = false;
 
-  //if phone number is given from user
+  // Verify Phone OTP (if phone is provided)
   if (phoneNumber) {
     const hashToCheck = isPhoneVerified ? savedOTP : phoneVerificationOTP;
     if (hashToCheck) {
@@ -388,12 +404,13 @@ const verifyUserByOTP = async (req) => {
         });
         phoneMatched = true;
       } catch (e) {
-        logger.error("Error in verifyPassword", e);
+        // Log mismatch but don't stop the flow if email might still match
+        logger.debug("Phone OTP mismatch");
       }
     }
   }
 
-  //if email is given from user but phone is not matched
+  // Verify Email OTP (if email is provided AND phone didn't match)
   if (email && !phoneMatched) {
     const hashToCheck = isEmailVerified ? savedOTP : emailVerificationOTP;
     if (hashToCheck) {
@@ -404,26 +421,12 @@ const verifyUserByOTP = async (req) => {
         });
         emailMatched = true;
       } catch (e) {
-        logger.error("Error in verifyPassword", e);
+        logger.debug("Email OTP mismatch");
       }
     }
   }
 
-  // Fallback for legacy OTP column (if neither specific OTP matched)
-  if (!phoneMatched && !emailMatched && savedOTP) {
-    try {
-      await verifyPassword({
-        hashedPassword: savedOTP,
-        notHashedPassword: String(OTP),
-      });
-      // If legacy matches, we assign it based on what the user provided, favoring phone since legacy was SMS
-      if (phoneNumber) phoneMatched = true;
-      else if (email) emailMatched = true;
-    } catch (e) {
-      logger.error("Error in verifyPassword", e);
-    }
-  }
-  //if phone and email are not matched then throw error
+  // Final check: Throws 401 if neither channel matched
   if (!phoneMatched && !emailMatched) {
     throw new AppError(
       "Invalid OTP. Please check the code and try again.",
