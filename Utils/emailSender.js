@@ -31,9 +31,9 @@ const sendEmail = async (to, subject, body, html = null) => {
         subject,
         bodyPreview: body.substring(0, 50) + "...",
       });
-      return { 
-        status: "success", 
-        message: "Email sending is not configured. Logged to console instead." 
+      return {
+        status: "success",
+        message: "Email sending is not configured. Logged to console instead.",
       };
     }
 
@@ -59,7 +59,22 @@ const sendEmail = async (to, subject, body, html = null) => {
         {
           filename: "DynamicsIcon.png",
           path: path.join(__dirname, "../Assets/DynamicsIcon.png"),
-          cid: "dynamics_logo", // Same CID used in the HTML template
+          cid: "dynamics_logo",
+        },
+        {
+          filename: "whatsapp_icon.png",
+          path: path.join(__dirname, "../Assets/whatsapp_icon.png"),
+          cid: "whatsapp_icon",
+        },
+        {
+          filename: "telegram_icon.png",
+          path: path.join(__dirname, "../Assets/telegram_icon.png"),
+          cid: "telegram_icon",
+        },
+        {
+          filename: "phone_icon.png",
+          path: path.join(__dirname, "../Assets/phone_icon.png"),
+          cid: "phone_icon",
         },
       ],
     });
@@ -69,7 +84,11 @@ const sendEmail = async (to, subject, body, html = null) => {
       to,
     });
 
-    return { status: "success", message: "Email sent successfully", messageId: info.messageId };
+    return {
+      status: "success",
+      message: "Email sent successfully",
+      messageId: info.messageId,
+    };
   } catch (error) {
     logger.error("Error in sendEmail", { error: error.message });
     return { status: "error", message: error.message };

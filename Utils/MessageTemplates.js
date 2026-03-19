@@ -2,19 +2,23 @@
  * Utility for generating standardized and professional messages for SMS and Email.
  */
 
+/// Shared Icon Constants (Using CIDs for email attachments from Assets folder)
+const WHATSAPP_ICON = "cid:whatsapp_icon";
+const TELEGRAM_ICON = "cid:telegram_icon";
+const PHONE_ICON = "cid:phone_icon";
+const COPY_ICON = "https://cdn-icons-png.flaticon.com/512/1621/1621635.png";
+
 const getOtpMessage = (otp, type = "login") => {
   const brand = process.env.BRAND_NAME || "Dynamics Transport";
-  const action = type === "registration" ? "account registration" : "secure login";
+  const action =
+    type === "registration" ? "account registration" : "secure login";
   const supportPhone = process.env.SUPPORT_PHONE_NUMBER || "+251983222221";
   const supportPhoneClean = supportPhone ? supportPhone.replace(/\+/g, "") : "";
+
   const whatsappLink = `https://wa.me/${supportPhoneClean}`;
   const telegramLink = `https://t.me/${supportPhone}`;
-  
-  // Icon URLs (Common CDNs)
-  const whatsappIcon = "https://cdn-icons-png.flaticon.com/512/733/733585.png";
-  const telegramIcon = "https://cdn-icons-png.flaticon.com/512/2111/2111646.png";
-  const copyIcon = "https://cdn-icons-png.flaticon.com/512/1621/1621635.png";
-  
+  const phoneLink = `tel:${supportPhone}`;
+
   return {
     sms: `Dear user, your ${brand} code is: ${otp}. For your security, please do not share this with anyone. Sharing this code could give others access to your account and data.`,
     emailSubject: `${otp} is your ${brand} verification code`,
@@ -43,11 +47,14 @@ const getOtpMessage = (otp, type = "login") => {
           <p style="font-size: 15px; color: #2d3748; margin-bottom: 10px; font-weight: 600;">We'd love to hear from you!</p>
           <p style="font-size: 14px; color: #4a5568; margin-bottom: 15px; line-height: 1.5;">Have feedback, comments, or a new idea? Contact us directly:</p>
           <div style="margin-bottom: 20px;">
-            <a href="${whatsappLink}" style="text-decoration: none; margin: 0 15px; display: inline-block;">
-              <img src="${whatsappIcon}" alt="WhatsApp" style="width: 32px; height: 32px; vertical-align: middle;" />
+            <a href="${phoneLink}" style="text-decoration: none; margin: 0 10px; display: inline-block;">
+              <img src="${PHONE_ICON}" alt="Phone" style="width: 32px; height: 32px; vertical-align: middle;" />
             </a>
-            <a href="${telegramLink}" style="text-decoration: none; margin: 0 15px; display: inline-block;">
-              <img src="${telegramIcon}" alt="Telegram" style="width: 32px; height: 32px; vertical-align: middle;" />
+            <a href="${whatsappLink}" style="text-decoration: none; margin: 0 10px; display: inline-block;">
+              <img src="${WHATSAPP_ICON}" alt="WhatsApp" style="width: 32px; height: 32px; vertical-align: middle;" />
+            </a>
+            <a href="${telegramLink}" style="text-decoration: none; margin: 0 10px; display: inline-block;">
+              <img src="${TELEGRAM_ICON}" alt="Telegram" style="width: 32px; height: 32px; vertical-align: middle;" />
             </a>
           </div>
           <div style="background-color: #e6fffa; color: #234e52; padding: 10px; border-radius: 6px; font-size: 13px;">
@@ -60,7 +67,7 @@ const getOtpMessage = (otp, type = "login") => {
           <p>&copy; 2026 ${brand}. All rights reserved.</p>
         </div>
       </div>
-    `
+    `,
   };
 };
 
@@ -68,11 +75,10 @@ const getEmailVerificationLinkMessage = (verificationLink) => {
   const brand = process.env.BRAND_NAME || "Dynamics Transport";
   const supportPhone = process.env.SUPPORT_PHONE_NUMBER || "+251983222221";
   const supportPhoneClean = supportPhone ? supportPhone.replace(/\+/g, "") : "";
+
   const whatsappLink = `https://wa.me/${supportPhoneClean}`;
   const telegramLink = `https://t.me/${supportPhone}`;
-  
-  const whatsappIcon = "https://cdn-icons-png.flaticon.com/512/733/733585.png";
-  const telegramIcon = "https://cdn-icons-png.flaticon.com/512/2111/2111646.png";
+  const phoneLink = `tel:${supportPhone}`;
 
   return {
     emailSubject: `Verify your ${brand} Email Address`,
@@ -84,7 +90,7 @@ const getEmailVerificationLinkMessage = (verificationLink) => {
         </div>
         
         <div style="background-color: #f8fbff; padding: 30px 5%; border-radius: 12px; text-align: center; border: 1px solid #edf2f7;">
-          <p style="font-size: 18px; color: #2c3e50; margin-bottom: 10px; font-weight: 700;">Verify your email address</p>
+          <p style="font-size: 18px; color: #2c3e50; margin-bottom: 10px; font-weight: 700;">Verify your email address </p>
           <p style="font-size: 15px; color: #4a5568; margin-bottom: 25px; line-height: 1.6;">Welcome to ${brand}! To complete your registration and secure your account, please verify your email address by clicking the button below.</p>
           
           <a href="${verificationLink}" style="display: inline-block; padding: 14px 30px; background-color: #2b6cb0; color: #ffffff; text-decoration: none; font-weight: bold; border-radius: 8px; font-size: 16px; box-shadow: 0 4px 6px rgba(43, 108, 176, 0.2);">Verify Email Address</a>
@@ -96,11 +102,14 @@ const getEmailVerificationLinkMessage = (verificationLink) => {
         <div style="margin-top: 35px; background-color: #f7fafc; padding: 25px; border-radius: 10px; text-align: center;">
           <p style="font-size: 15px; color: #2d3748; margin-bottom: 15px; font-weight: 600;">Need help? Contact us directly:</p>
           <div style="margin-bottom: 10px;">
-            <a href="${whatsappLink}" style="text-decoration: none; margin: 0 15px; display: inline-block;">
-              <img src="${whatsappIcon}" alt="WhatsApp" style="width: 32px; height: 32px; vertical-align: middle;" />
+            <a href="${phoneLink}" style="text-decoration: none; margin: 0 10px; display: inline-block;">
+              <img src="${PHONE_ICON}" alt="Phone" style="width: 32px; height: 32px; vertical-align: middle;" />
             </a>
-            <a href="${telegramLink}" style="text-decoration: none; margin: 0 15px; display: inline-block;">
-              <img src="${telegramIcon}" alt="Telegram" style="width: 32px; height: 32px; vertical-align: middle;" />
+            <a href="${whatsappLink}" style="text-decoration: none; margin: 0 10px; display: inline-block;">
+              <img src="${WHATSAPP_ICON}" alt="WhatsApp" style="width: 32px; height: 32px; vertical-align: middle;" />
+            </a>
+            <a href="${telegramLink}" style="text-decoration: none; margin: 0 10px; display: inline-block;">
+              <img src="${TELEGRAM_ICON}" alt="Telegram" style="width: 32px; height: 32px; vertical-align: middle;" />
             </a>
           </div>
         </div>
@@ -110,7 +119,7 @@ const getEmailVerificationLinkMessage = (verificationLink) => {
           <p>&copy; 2026 ${brand}. All rights reserved.</p>
         </div>
       </div>
-    `
+    `,
   };
 };
 
@@ -118,12 +127,11 @@ const getSuccessEmailVerificationHtml = (otp) => {
   const brand = process.env.BRAND_NAME || "Dynamics Transport";
   const supportPhone = process.env.SUPPORT_PHONE_NUMBER || "+251983222221";
   const supportPhoneClean = supportPhone ? supportPhone.replace(/\+/g, "") : "";
+
   const whatsappLink = `https://wa.me/${supportPhoneClean}`;
   const telegramLink = `https://t.me/${supportPhone}`;
-  
-  const whatsappIcon = "https://cdn-icons-png.flaticon.com/512/733/733585.png";
-  const telegramIcon = "https://cdn-icons-png.flaticon.com/512/2111/2111646.png";
-  
+  const phoneLink = `tel:${supportPhone}`;
+
   return `
     <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 40px auto; padding: 30px; border: 1px solid #e0e0e0; border-radius: 12px; background-color: #ffffff; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
       <div style="margin-bottom: 25px;">
@@ -150,11 +158,14 @@ const getSuccessEmailVerificationHtml = (otp) => {
       <div style="margin-top: 35px; background-color: #f7fafc; padding: 20px; border-radius: 10px; text-align: center;">
         <p style="font-size: 15px; color: #2d3748; margin-bottom: 15px; font-weight: 600;">Need help? Contact us directly:</p>
         <div style="margin-bottom: 10px;">
-          <a href="${whatsappLink}" style="text-decoration: none; margin: 0 15px; display: inline-block;">
-            <img src="${whatsappIcon}" alt="WhatsApp" style="width: 32px; height: 32px; vertical-align: middle;" />
+          <a href="${phoneLink}" style="text-decoration: none; margin: 0 10px; display: inline-block;">
+            <img src="${PHONE_ICON}" alt="Phone" style="width: 32px; height: 32px; vertical-align: middle;" />
           </a>
-          <a href="${telegramLink}" style="text-decoration: none; margin: 0 15px; display: inline-block;">
-            <img src="${telegramIcon}" alt="Telegram" style="width: 32px; height: 32px; vertical-align: middle;" />
+          <a href="${whatsappLink}" style="text-decoration: none; margin: 0 10px; display: inline-block;">
+            <img src="${WHATSAPP_ICON}" alt="WhatsApp" style="width: 32px; height: 32px; vertical-align: middle;" />
+          </a>
+          <a href="${telegramLink}" style="text-decoration: none; margin: 0 10px; display: inline-block;">
+            <img src="${TELEGRAM_ICON}" alt="Telegram" style="width: 32px; height: 32px; vertical-align: middle;" />
           </a>
         </div>
       </div>
@@ -171,5 +182,5 @@ const getSuccessEmailVerificationHtml = (otp) => {
 module.exports = {
   getOtpMessage,
   getEmailVerificationLinkMessage,
-  getSuccessEmailVerificationHtml
+  getSuccessEmailVerificationHtml,
 };
